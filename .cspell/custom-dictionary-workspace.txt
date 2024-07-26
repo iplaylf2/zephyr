@@ -1,0 +1,7 @@
+anatine
+chatrooms
+effection
+nestjs
+openapi
+raii
+urlpattern
