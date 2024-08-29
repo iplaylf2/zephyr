@@ -15,8 +15,8 @@ export class UserController {
     void this.receiver
   }
 
-  @Delete('subscriptions/conversation')
-  public [`@Delete('subscriptions/conversation')`]() {
+  @Delete('subscriptions/dialogue')
+  public [`@Delete('subscriptions/dialogue')`]() {
     void this.receiver
   }
 
@@ -32,8 +32,8 @@ export class UserController {
   public [`@Put('subscriptions/chatroom')`]() {
   }
 
-  @Put('subscriptions/conversation')
-  public [`@Put('subscriptions/conversation')`]() {
+  @Put('subscriptions/dialogue')
+  public [`@Put('subscriptions/dialogue')`]() {
   }
 
   @Put()

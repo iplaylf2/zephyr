@@ -53,11 +53,11 @@ export namespace group{
       const newMessages = stream.exhaust(() => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: batchLimit }))
 
       for (const message of yield * each(stream.concat(pendingMessages, newMessages))) {
-        void (yield * spawn(function*(this: Parallel<T>) {
+        void (yield * spawn(function*() {
           yield * f(message)
 
           processed.push(message.id)
-        }.bind(this)))
+        }))
 
         yield * each.next()
       }

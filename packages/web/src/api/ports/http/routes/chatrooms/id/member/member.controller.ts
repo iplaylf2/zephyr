@@ -7,7 +7,7 @@ import { globalScope } from '../../../../../../../kits/effection/global-scope.js
 import { path } from '../../../../pattern.js'
 import { spawn } from 'effection'
 
-@ApiTags('chatroom')
+@ApiTags('chatrooms')
 @RequirePassport()
 @Controller('member')
 export class MemberController {

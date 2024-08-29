@@ -1,10 +1,10 @@
 import { AuthModule } from '../../../auth/auth.module.js'
+import { MemberController } from './member.controller.js'
 import { Module } from '@nestjs/common'
-import { UserController } from './user.controller.js'
 
 @Module({
-  controllers: [UserController],
+  controllers: [MemberController],
   imports: [AuthModule],
 })
-export class UserModule {
+export class MemberModule {
 }

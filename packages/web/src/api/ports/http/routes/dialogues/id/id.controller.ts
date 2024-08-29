@@ -9,7 +9,7 @@ export const idPath = urlPattern.path('id')
   name: idPath.name,
   type: String,
 })
-@ApiTags('conversations')
+@ApiTags('dialogues')
 @RequirePassport()
 @Controller(idPath.pattern)
 export class IdController {

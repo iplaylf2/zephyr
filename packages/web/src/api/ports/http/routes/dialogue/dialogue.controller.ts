@@ -2,10 +2,10 @@ import { Controller, Put } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 
-@ApiTags('conversation')
+@ApiTags('dialogue')
 @RequirePassport()
-@Controller('conversation')
-export class ConversationController {
+@Controller('dialogue')
+export class DialogueController {
   @Put()
   public [`@Put()`]() {
   }
