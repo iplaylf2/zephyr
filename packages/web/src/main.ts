@@ -1,18 +1,14 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { call, main, spawn, suspend, useScope } from 'effection'
+import { call, main, suspend, useScope } from 'effection'
 import { AppModule } from './app.module.js'
 import { NestFactory } from '@nestjs/core'
 import { initGlobalScope } from './kits/effection/global-scope.js'
 import { patchNestjsSwagger } from '@anatine/zod-nestjs'
 
 await main(function *() {
-  void (yield * spawn(function*() {
-    const scope = yield * useScope()
+  const scope = yield * useScope()
 
-    initGlobalScope(scope)
-
-    yield * suspend()
-  }))
+  initGlobalScope(scope)
 
   const app = yield * call(NestFactory.create(AppModule))
 

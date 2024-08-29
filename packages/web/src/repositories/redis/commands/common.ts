@@ -24,7 +24,7 @@ export abstract class Isolable<T extends Isolable<T>> {
         yield * provide(duplication)
       }
       finally {
-        yield * call(client.quit())
+        yield * call(client.disconnect())
       }
     })
   }
