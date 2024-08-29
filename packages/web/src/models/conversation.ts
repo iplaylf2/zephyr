@@ -1,4 +1,5 @@
 import { JsonValue } from 'type-fest'
+import { user } from './user.js'
 import { z } from 'zod'
 
 export namespace conversation{
@@ -12,7 +13,7 @@ export namespace conversation{
   export const message = messageBody.merge(z.object({
     group: z.string(),
     id: z.string(),
-    sender: z.string(),
+    sender: user.id,
     timestamp: z.number(),
   }))
 

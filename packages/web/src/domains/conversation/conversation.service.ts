@@ -6,8 +6,8 @@ import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './participant.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
+import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
-import { message } from '../../models/message.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
@@ -191,6 +191,30 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
+  public *fetchConversationsRecord(participant: string) {
+    const conversations = this.entityConversationService.getParticipantConversations(this.type, participant)
+
+    const _conversations = yield * conversations.members()
+    const records = yield * all(
+      _conversations.map(
+        x => this.entityConversationService.getRecords(this.type, x).infoStream(),
+      ),
+    )
+
+    return pipe(
+      records,
+      readonlyArray.zip(_conversations),
+      readonlyArray.filterMap(
+        ([record, conversation]) => null === record
+          ? option.none
+          : option.some({
+            conversationId: conversation,
+            lastMessageId: record.lastEntry?.id ?? null,
+          }),
+      ),
+    )
+  }
+
   public fetchParticipants(conversation: string) {
     const participants = this.entityConversationService.getParticipants(this.type, conversation)
 
@@ -252,7 +276,7 @@ export abstract class ConversationService extends ModuleRaii {
     return removedParticipants
   }
 
-  public *userPost(conversation: string, participant: string, body: message.Body) {
+  public *userPost(conversation: string, participant: string, body: conversation.MessageBody) {
     const added = yield * this.addParticipants(conversation, [participant])
 
     if (0 === added.length) {
@@ -264,7 +288,7 @@ export abstract class ConversationService extends ModuleRaii {
     return yield * this.post(conversation, _participant.say(body))
   }
 
-  protected *fetchConversations(participants: readonly string[]) {
+  protected *fetchConversationMap(participants: readonly string[]) {
     const allConversations = yield * all(
       participants.map(participant =>
         this.entityConversationService.getParticipantConversations(this.type, participant)
@@ -326,10 +350,10 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   private *expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
-    const participants = yield * this.fetchConversations(event.users)
+    const conversations = yield * this.fetchConversationMap(event.users)
 
     yield * all(pipe(
-      participants,
+      conversations,
       readonlyRecord.toReadonlyArray,
       readonlyArray.map(
         ([conversation, participants]) => this.expireParticipants(conversation, participants, event.data.expire),
@@ -372,10 +396,10 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   private *removeParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
-    const participants = yield * this.fetchConversations(event.users)
+    const conversations = yield * this.fetchConversationMap(event.users)
 
     yield * all(pipe(
-      participants,
+      conversations,
       readonlyRecord.toReadonlyArray,
       readonlyArray.map(
         ([conversation, participants]) => this.removeParticipants(conversation, participants),

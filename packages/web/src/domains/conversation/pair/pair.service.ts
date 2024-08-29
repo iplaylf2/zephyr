@@ -32,13 +32,13 @@ export namespace conversation{
     }
 
     private *pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
-      const participants = yield * this.fetchConversations(event.users)
+      const conversations = yield * this.fetchConversationMap(event.users)
 
       const seconds = event.data.expire
 
       yield * all([
         pipe(
-          readonlyRecord.keys(participants),
+          readonlyRecord.keys(conversations),
           conversations => this.expire(conversations),
         ),
         pipe(

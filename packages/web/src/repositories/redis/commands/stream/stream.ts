@@ -88,6 +88,19 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     return call(this.client.xGroupDestroy(this.key, group))
   }
 
+  public *infoStream() {
+    try {
+      return yield * call(this.client.xInfoStream(this.key))
+    }
+    catch (e) {
+      if ('ERR no such key' !== (e as any)?.message) {
+        throw e
+      }
+
+      return null
+    }
+  }
+
   public *range(start: RedisCommandArgument, end: RedisCommandArgument, options?: XRangeOptions) {
     const messages = yield * call(this.client.xRange(this.key, start, end, options))
 
