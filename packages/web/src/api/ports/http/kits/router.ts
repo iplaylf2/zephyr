@@ -1,7 +1,6 @@
 import { DynamicModule, Type } from '@nestjs/common'
 import { RouterModule, Routes } from '@nestjs/core'
-import { flatMap, partition, separate } from 'fp-ts/lib/Array.js'
-import { left, right } from 'fp-ts/lib/Either.js'
+import { array, either, readonlyArray } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace router{
@@ -17,19 +16,19 @@ function flattenModule(routes: Routes, modules: Type[]): Type[] {
 
   const { left: childRoutes, right: childModules } = pipe(
     routes,
-    flatMap((route) => {
+    readonlyArray.flatMap((route) => {
       const { left: routes, right: modules } = pipe(
         route.children ?? [],
-        partition(x => 'function' === typeof x),
+        array.partition(x => 'function' === typeof x),
       )
 
       if (route.module) {
         modules.push(route.module)
       }
 
-      return [left(routes as Routes), right(modules)]
+      return [either.left(routes as Routes), either.right(modules)]
     }),
-    separate)
+    readonlyArray.separate)
 
   modules.push(...childModules.flat())
 

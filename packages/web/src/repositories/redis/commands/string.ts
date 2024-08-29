@@ -1,8 +1,9 @@
 import { Operation, call } from 'effection'
-import { Option, fromNullable, map } from 'fp-ts/lib/Option.js'
 import { RedisClientType, SetOptions } from '@redis/client'
 import { Model } from './common.js'
+import { Option } from 'fp-ts/lib/Option.js'
 import { RedisCommandArgument } from './generic.js'
+import { option } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export abstract class String<T> implements Model<T> {
@@ -14,8 +15,8 @@ export abstract class String<T> implements Model<T> {
 
     return pipe(
       value,
-      fromNullable,
-      map(x => this.decode(x)),
+      option.fromNullable,
+      option.map(x => this.decode(x)),
     )
   }
 

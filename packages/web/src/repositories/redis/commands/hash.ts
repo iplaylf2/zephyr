@@ -2,7 +2,6 @@ import { Operation, call } from 'effection'
 import { option, readonlyRecord } from 'fp-ts'
 import { Model } from './common.js'
 import { Option } from 'fp-ts/lib/Option.js'
-import { ReadonlyRecord } from 'fp-ts/lib/ReadonlyRecord.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from './generic.js'
 import { pipe } from 'fp-ts/lib/function.js'
@@ -11,7 +10,7 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract readonly client: RedisClientType
   public abstract readonly key: RedisCommandArgument
 
-  public decodeFully(value: ReadonlyRecord<string, RedisCommandArgument>) {
+  public decodeFully(value: Readonly<Record<string, RedisCommandArgument>>) {
     return pipe(
       value,
       readonlyRecord.map(v => this.decode(v)),
@@ -61,4 +60,4 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract encode(x: T[string]): RedisCommandArgument
 }
 
-export type HashRecord = ReadonlyRecord<string, any>
+export type HashRecord = Readonly<Record<string, any>>

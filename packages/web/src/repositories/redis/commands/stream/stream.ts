@@ -3,7 +3,6 @@ import { Isolable, Model } from '../common.js'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyArray, readonlyRecord } from 'fp-ts'
 import { ReadonlyDeep } from 'type-fest'
-import { ReadonlyRecord } from 'fp-ts/lib/ReadonlyRecord.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '../generic.js'
 import { XAutoClaimOptions } from '@redis/client/dist/lib/commands/XAUTOCLAIM.js'
@@ -54,7 +53,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     )
   }
 
-  public decodeFully(message: ReadonlyRecord<string, string>) {
+  public decodeFully(message: Readonly<Record<string, string>>) {
     return pipe(
       message,
       readonlyRecord.map(v => this.decode(v)),
@@ -124,7 +123,7 @@ export type StreamMessage<T extends StreamMessageBody> = Readonly< {
   id: string
   message: T
 }>
-export type StreamMessageBody = ReadonlyRecord<string, any>
+export type StreamMessageBody = Readonly<Record<string, any>>
 export type XAddOptions = ReadonlyDeep<{
   NOMKSTREAM?: true
   TRIM?: {
