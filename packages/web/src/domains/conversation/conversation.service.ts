@@ -290,8 +290,8 @@ export abstract class ConversationService extends ModuleRaii {
 
   protected *fetchConversationMap(participants: readonly string[]) {
     const allConversations = yield * all(
-      participants.map(participant =>
-        this.entityConversationService.getParticipantConversations(this.type, participant)
+      participants.map(x =>
+        this.entityConversationService.getParticipantConversations(this.type, x)
           .members(),
       ),
     )

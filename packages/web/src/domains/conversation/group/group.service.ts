@@ -38,7 +38,7 @@ export namespace conversation{
 
         yield * all([
           this.expire(validConversations),
-          ...validConversations.map(conversation => this.removeExpiredParticipants(conversation)),
+          ...validConversations.map(x => this.removeExpiredParticipants(x)),
         ])
 
         yield * sleep(interval)

@@ -39,7 +39,7 @@ export namespace conversation{
       yield * all([
         pipe(
           readonlyRecord.keys(conversations),
-          conversations => this.expire(conversations),
+          x => this.expire(x),
         ),
         pipe(
           this.redisService.multi(),

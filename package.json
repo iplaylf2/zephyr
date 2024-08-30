@@ -9,7 +9,7 @@
   "author": "",
   "license": "UNLICENSED",
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^2.6.4",
+    "@stylistic/eslint-plugin": "^2.7.1",
     "eslint": "^9.9.1",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.3.0"

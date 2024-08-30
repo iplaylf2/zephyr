@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Isolable, Model } from '../common.js'
-import { flow, pipe } from 'fp-ts/lib/function.js'
+import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyArray, readonlyRecord } from 'fp-ts'
 import { ReadonlyDeep } from 'type-fest'
 import { RedisClientType } from '@redis/client'
@@ -45,7 +45,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
             option.fromNullable,
             option.map(readonlyRecordPlus.modifyAt(
               'message',
-              message => this.decodeFully(message),
+              x => this.decodeFully(x),
             )),
           )),
         ),
@@ -107,7 +107,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     return pipe(
       messages,
       readonlyArray.map(
-        readonlyRecordPlus.modifyAt('message', message => this.decodeFully(message)),
+        readonlyRecordPlus.modifyAt('message', x => this.decodeFully(x)),
       ),
     )
   }
@@ -121,10 +121,10 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
       option.map(flow(
         readonlyRecordPlus.lookup('messages'),
         readonlyArray.map(
-          readonlyRecordPlus.modifyAt('message', message => this.decodeFully(message)),
+          readonlyRecordPlus.modifyAt('message', x => this.decodeFully(x)),
         ),
       )),
-      option.getOrElse<ReadonlyArray<StreamMessage<T>>>(() => []),
+      option.getOrElse(constant<ReadonlyArray<StreamMessage<T>>>([])),
     )
   }
 
