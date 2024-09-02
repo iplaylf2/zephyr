@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { CanActivate, ExecutionContext, FactoryProvider, Inject, Injectable, InternalServerErrorException, Scope, createParamDecorator } from '@nestjs/common'
+import { CanActivate, ExecutionContext, FactoryProvider, Inject, Injectable, InternalServerErrorException, Scope, UnauthorizedException, createParamDecorator } from '@nestjs/common'
 import { AuthService } from './auth.service.js'
 import { REQUEST } from '@nestjs/core'
 import { Request } from 'express'
@@ -21,6 +21,10 @@ export class AuthGuard implements CanActivate {
 
       try {
         const data = yield * this.authService.authenticate(token)
+
+        if (null === data) {
+          throw new UnauthorizedException()
+        }
 
         ;(request as any)[passport] = data
 

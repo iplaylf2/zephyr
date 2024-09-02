@@ -5,9 +5,10 @@ import { ConversationService as EntityConversationService } from '../../../repos
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../../repositories/redis/entities/user.service.js'
-import { pipe } from 'fp-ts/lib/function.js'
-import { readonlyRecord } from 'fp-ts'
+import { flow, pipe } from 'fp-ts/lib/function.js'
+import { functor, readonlyRecord } from 'fp-ts'
 import { user } from '../../../models/user.js'
+import { ioOperation } from '../../../common/fp-effection/io-operation.js'
 
 export namespace conversation{
   @Injectable()
@@ -61,6 +62,18 @@ export namespace conversation{
           t => call(t.exec()),
         ),
       ])
+    }
+
+    private pairExpireFoo(event: Extract<user.Event, { type: 'expire' }>) {
+      const seconds = event.data.expire
+
+      return pipe(
+        () => this.fetchConversationMap(event.users),
+        ioOperation.map(flow(
+          readonlyRecord.keys,
+          x => this.expire(x),
+        )),
+      )
     }
   }
 }

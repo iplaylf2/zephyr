@@ -110,6 +110,9 @@ export namespace ioOperation{
     map: Monad.map,
     of: Monad.of,
   }
+
+  export const map: <A, B>(f: (a: A) => B) => (fa: IOOperation<A>) => IOOperation<B> = f => fa => Functor.map(fa, f)
+
 }
 
 declare module 'fp-ts/HKT' {

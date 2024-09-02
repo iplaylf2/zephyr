@@ -28,7 +28,8 @@ function flattenModule(routes: Routes, modules: Type[]): Type[] {
 
       return [either.left(routes as Routes), either.right(modules)]
     }),
-    readonlyArray.separate)
+    readonlyArray.separate,
+  )
 
   modules.push(...childModules.flat())
 

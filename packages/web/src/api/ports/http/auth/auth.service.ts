@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { UserService } from '../../../../domains/user/user.service.js'
 import { spawn } from 'effection'
@@ -19,7 +19,7 @@ export class AuthService {
     const exists = yield * this.userService.exists([passport.id])
 
     if (0 === exists.length) {
-      throw new UnauthorizedException()
+      return null
     }
 
     return passport
