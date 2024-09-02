@@ -1,14 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { all, call } from 'effection'
+import { flow, pipe } from 'fp-ts/lib/function.js'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../../repositories/redis/entities/user.service.js'
-import { flow, pipe } from 'fp-ts/lib/function.js'
-import { functor, readonlyRecord } from 'fp-ts'
-import { user } from '../../../models/user.js'
 import { ioOperation } from '../../../common/fp-effection/io-operation.js'
+import { readonlyRecord } from 'fp-ts'
+import { user } from '../../../models/user.js'
 
 export namespace conversation{
   @Injectable()
@@ -32,16 +32,17 @@ export namespace conversation{
       this.participantsExpireCallback.push(event => this.pairExpire(event))
     }
 
-    private *pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
-      const conversations = yield * this.fetchConversationMap(event.users)
-
+    private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
       const seconds = event.data.expire
 
-      yield * all([
+      return all([
         pipe(
-          readonlyRecord.keys(conversations),
-          x => this.expire(x),
-        ),
+          () => this.fetchConversationMap(event.users),
+          ioOperation.chain(flow(
+            readonlyRecord.keys,
+            x => () => this.expire(x),
+          )),
+        )(),
         pipe(
           this.redisService.multi(),
           t => event.users
@@ -62,18 +63,6 @@ export namespace conversation{
           t => call(t.exec()),
         ),
       ])
-    }
-
-    private pairExpireFoo(event: Extract<user.Event, { type: 'expire' }>) {
-      const seconds = event.data.expire
-
-      return pipe(
-        () => this.fetchConversationMap(event.users),
-        ioOperation.map(flow(
-          readonlyRecord.keys,
-          x => this.expire(x),
-        )),
-      )
     }
   }
 }
