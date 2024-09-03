@@ -19,14 +19,16 @@ abstract class PubSub<
 
   protected cacheAndTransformListener(listener: pubSub.Listener<T, Channel>) {
     return pipe(
-      ioEither.of(listener),
+      ioEither.right(listener),
       ioEither.flatMapNullable(
         x => this.rawListenerMap.get(x),
         x => x,
       ),
       ioEither.getOrElse(listener =>
         pipe(
-          io.of(((message, channel) => listener(this.decode(message), channel.toString() as Channel)) satisfies PubSubListener<BufferMode>),
+          io.of(((message, channel) =>
+            listener(this.decode(message), channel.toString() as Channel)
+          ) satisfies PubSubListener<BufferMode>),
           io.tap(x => () => this.rawListenerMap.set(listener, x)),
         )),
       apply(void 0),

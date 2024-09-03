@@ -16,7 +16,7 @@ function flattenModule(routes: Routes, modules: Type[]): Type[] {
 
   const { left: childRoutes, right: childModules } = pipe(
     routes,
-    readonlyArray.flatMap((route) => {
+    readonlyArray.chain((route) => {
       const { left: routes, right: modules } = pipe(
         route.children ?? [],
         array.partition(x => 'function' === typeof x),

@@ -298,7 +298,7 @@ export abstract class ConversationService extends ModuleRaii {
 
     return pipe(
       readonlyArray.zip(allConversations, participants),
-      readonlyArray.flatMap(
+      readonlyArray.chain(
         ([conversations, participant]) => conversations.map(conversation => ({ conversation, participant })),
       ),
       readonlyNonEmptyArray.groupBy(x => x.conversation),
