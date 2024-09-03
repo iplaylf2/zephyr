@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { all, call } from 'effection'
+import { apply, readonlyRecord } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
@@ -7,7 +7,6 @@ import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../../repositories/redis/entities/user.service.js'
 import { ioOperation } from '../../../common/fp-effection/io-operation.js'
-import { readonlyRecord } from 'fp-ts'
 import { user } from '../../../models/user.js'
 
 export namespace conversation{
@@ -35,34 +34,39 @@ export namespace conversation{
     private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
       const seconds = event.data.expire
 
-      return all([
+      return apply.sequenceT(ioOperation.ApplyPar)(
         pipe(
           () => this.fetchConversationMap(event.users),
           ioOperation.chain(flow(
             readonlyRecord.keys,
             x => () => this.expire(x),
           )),
-        )(),
+        ),
         pipe(
           this.redisService.multi(),
           t => event.users
             .reduce(
               (t, participant) => t
                 .expire(
-                  this.entityConversationService.getParticipantConversationsMarked(this.type, participant).key,
+                  this.entityConversationService.getParticipantConversationsMarked(
+                    this.type, participant,
+                  ).key,
                   seconds,
                   'GT',
                 )
                 .expire(
-                  this.entityConversationService.getParticipantConversationsProgress(this.type, participant).key,
+                  this.entityConversationService.getParticipantConversationsProgress(
+                    this.type, participant,
+                  ).key,
                   seconds,
                   'GT',
                 ),
               t,
             ),
-          t => call(t.exec()),
+          t => () => t.exec(),
+          ioOperation.FromTask.fromTask,
         ),
-      ])
+      )()
     }
   }
 }
