@@ -1,5 +1,6 @@
 import { Stream, all, call } from 'effection'
-import { applicative, apply, chain, fromIO, fromTask, functor, io, monad, monadIO, monadTask, monoid, pointed, zero } from 'fp-ts'
+import { applicative, apply, chain, fromIO, fromTask, functor, io, ioOption, monad, monadIO, monadTask, monoid, pointed, unfoldable, zero } from 'fp-ts'
+import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace ioStream{
   export type IOStream<T, R> = io.IO<Stream<T, R>>
@@ -59,9 +60,14 @@ export namespace ioStream{
 
       let aSubscription = _aSubscription
       let ab: typeof fab extends IOStream<infer T, any> ? T : never
+      let iR: IteratorReturnResult<any> | undefined
 
       return {
         next: function* next() {
+          if (iR) {
+            return iR
+          }
+
           const { done, value } = yield * aSubscription.next()
 
           if (true !== done) {
@@ -71,6 +77,8 @@ export namespace ioStream{
           const [abIR, _aSubscription] = yield * all([abSubscription.next(), fa()])
 
           if (true === abIR.done) {
+            iR = abIR
+
             return abIR
           }
 
@@ -97,10 +105,16 @@ export namespace ioStream{
     chain: (fa, f) => function*() {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const [aSubscription, _bSubscription] = yield * all([fa(), (Zero.zero() as ReturnType<(typeof f)>)()])
+
       let bSubscription = _bSubscription
+      let iR: IteratorReturnResult<any> | undefined
 
       return {
         next: function *next() {
+          if (iR) {
+            return iR
+          }
+
           const bIR = yield * bSubscription.next()
 
           if (true !== bIR.done) {
@@ -110,6 +124,8 @@ export namespace ioStream{
           const aIR = yield * aSubscription.next()
 
           if (true === aIR.done) {
+            iR = aIR
+
             return aIR
           }
 
@@ -166,6 +182,35 @@ export namespace ioStream{
     fromTask: FromTask.fromTask,
     map: Monad.map,
     of: Monad.of,
+  }
+
+  export const Unfoldable: unfoldable.Unfoldable2<URI> = {
+    URI,
+    // eslint-disable-next-line require-yield
+    unfold: (b, f) => function* () {
+      let done = false
+      return {
+        // eslint-disable-next-line require-yield
+        *next() {
+          if (done) {
+            return { done, value: void 0 }
+          }
+
+          return pipe(
+            f(b),
+            ioOption.fromOption,
+            ioOption.tapIO(([,_b]) => () => {
+              b = _b
+              done = true
+            }),
+            ioOption.match(
+              () => ({ done: true, value: void 0 as any }),
+              ([a]) => ({ done: false, value: a }),
+            ),
+          )()
+        },
+      }
+    },
   }
 
   export const getMonoid = <E = never, A = never>(): monoid.Monoid<IOStream<A, E>> => ({
