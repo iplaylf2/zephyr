@@ -1,6 +1,7 @@
 anatine
 chatrooms
 effection
+monoid
 nestjs
 openapi
 raii

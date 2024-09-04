@@ -3,47 +3,37 @@ import { applicative, apply, chain, fromIO, fromTask, functor, io, monad, monadI
 
 export namespace ioOperation{
   export type IOOperation<A> = io.IO<Operation<A>>
-
-  export const URI = 'IOOperation'
-
+  export const URI = 'IOOperation.effection'
   export type URI = typeof URI
 
   export const Functor: functor.Functor1<URI> = {
     URI,
-    map<A, B>(fa: IOOperation<A>, f: (a: A) => B): IOOperation<B> {
-      return function*() {
-        return f(yield * fa())
-      }
+    map: (fa, f) => function*() {
+      return f(yield * fa())
     },
   }
 
   export const Pointed: pointed.Pointed1<URI> = {
     URI,
-    of: function <A>(a: A): IOOperation<A> {
-      // eslint-disable-next-line require-yield
-      return function*() {
-        return a
-      }
+    // eslint-disable-next-line require-yield
+    of: a => function*() {
+      return a
     },
   }
 
   export const ApplyPar: apply.Apply1<URI> = {
     URI,
-    ap: function <A, B>(fab: IOOperation<(a: A) => B>, fa: IOOperation<A>): IOOperation<B> {
-      return function*() {
-        const [ab, a] = yield * all([fab(), fa()])
-        return ab(a)
-      }
+    ap: (fab, fa) => function*() {
+      const [ab, a] = yield * all([fab(), fa()])
+      return ab(a)
     },
     map: Functor.map,
   }
 
   export const ApplySeq: apply.Apply1<URI> = {
     URI,
-    ap: function <A, B>(fab: IOOperation<(a: A) => B>, fa: IOOperation<A>): IOOperation<B> {
-      return function*() {
-        return (yield * fab())(yield * fa())
-      }
+    ap: (fab, fa) => function*() {
+      return (yield * fab())(yield * fa())
     },
     map: Functor.map,
   }
@@ -64,18 +54,16 @@ export namespace ioOperation{
 
   export const Chain: chain.Chain1<URI> = {
     URI,
-    ap: ApplicativeSeq.ap,
-    chain: function <A, B>(fa: IOOperation<A>, f: (a: A) => IOOperation<B>): IOOperation<B> {
-      return function*() {
-        return yield * (f(yield * fa()))()
-      }
+    ap: ApplyPar.ap,
+    chain: (fa, f) => function*() {
+      return yield * (f(yield * fa()))()
     },
     map: Functor.map,
   }
 
   export const Monad: monad.Monad1<URI> = {
     URI,
-    ap: ApplicativeSeq.ap,
+    ap: ApplyPar.ap,
     chain: Chain.chain,
     map: Functor.map,
     of: Pointed.of,
@@ -115,7 +103,6 @@ export namespace ioOperation{
   export const apPar: <A>(fa: IOOperation<A>) => <B>(fab: IOOperation<(a: A) => B>) => IOOperation<B> = fa => fab => ApplicativePar.ap(fab, fa)
   export const apSeq: <A>(fa: IOOperation<A>) => <B>(fab: IOOperation<(a: A) => B>) => IOOperation<B> = fa => fab => ApplicativeSeq.ap(fab, fa)
   export const chain: <A, B>(f: (a: A) => IOOperation<B>) => (ma: IOOperation<A>) => IOOperation<B> = f => ma => Monad.chain(ma, f)
-
 }
 
 declare module 'fp-ts/HKT' {
