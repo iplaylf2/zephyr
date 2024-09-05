@@ -1,4 +1,4 @@
-import { Stream, all, call } from 'effection'
+import { Operation, Stream, all, call } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask,
   functor, io, ioOption, monad, monadIO, monadTask,
@@ -69,7 +69,7 @@ export namespace ioStream{
       let iReturn: IteratorReturnResult<any> | undefined
 
       return {
-        next: function* next() {
+        next: function* next(): Operation<IteratorResult<any>> {
           if (iReturn) {
             return iReturn
           }
@@ -90,7 +90,7 @@ export namespace ioStream{
             aSubscription = _aSubscription
           }
 
-          return next()
+          return yield * next()
         },
       }
     },
@@ -115,7 +115,7 @@ export namespace ioStream{
       let iReturn: IteratorReturnResult<any> | undefined
 
       return {
-        next: function *next() {
+        next: function *next(): Operation<IteratorResult<any>> {
           if (iReturn) {
             return iReturn
           }
@@ -135,7 +135,7 @@ export namespace ioStream{
             bSubscription = yield * f(aIR.value)()
           }
 
-          return next()
+          return yield * next()
         },
       }
     },
@@ -226,7 +226,7 @@ export namespace ioStream{
       let sBelongY = false
 
       return {
-        next: function*next() {
+        next: function*next(): Operation<IteratorResult<any>> {
           const result = yield * s.next()
 
           if (true !== result.done) {
@@ -241,7 +241,7 @@ export namespace ioStream{
 
           sBelongY = true
 
-          return next()
+          return yield * next()
         },
       }
     },
@@ -292,7 +292,7 @@ export namespace ioStream{
       let iReturn: IteratorReturnResult<any> | undefined
 
       return {
-        next: function*next() {
+        next: function*next(): Operation<IteratorResult<any>> {
           if (iReturn) {
             return iReturn
           }
@@ -302,7 +302,7 @@ export namespace ioStream{
           if (true === aIR.done) {
             iReturn = aIR
 
-            return next()
+            return yield * next()
           }
 
           if (predicate(aIR.value)) {
@@ -311,7 +311,7 @@ export namespace ioStream{
 
           iReturn = { done: true, value: void 0 as E }
 
-          return next()
+          return yield * next()
         },
       }
     }
