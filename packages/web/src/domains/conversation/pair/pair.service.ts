@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { apply, readonlyRecord } from 'fp-ts'
+import { apply, identity, readonlyRecord } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
@@ -32,8 +32,6 @@ export namespace conversation{
     }
 
     private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
-      const seconds = event.data.expire
-
       return apply.sequenceT(ioOperation.ApplyPar)(
         pipe(
           () => this.fetchConversationMap(event.users),
@@ -44,7 +42,7 @@ export namespace conversation{
         ),
         pipe(
           this.redisService.multi(),
-          t => event.users
+          t => (seconds: number) => event.users
             .reduce(
               (t, participant) => t
                 .expire(
@@ -63,6 +61,7 @@ export namespace conversation{
                 ),
               t,
             ),
+          identity.ap(event.data.expire),
           t => () => t.exec(),
           ioOperation.FromTask.fromTask,
         ),

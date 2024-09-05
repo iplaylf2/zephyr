@@ -1,5 +1,5 @@
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
-import { Controller, Get, Inject, Put } from '@nestjs/common'
+import { Controller, Delete, Get, HttpCode, HttpStatus, Inject, Put } from '@nestjs/common'
 import { Passport } from '../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../decorators/require-passport.decorator.js'
 import { conversation } from '../../../../../../domains/conversation/group/group.service.js'
@@ -15,6 +15,11 @@ export class MemberController {
 
   @Inject()
   private readonly passport!: Passport
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete('chatrooms/progress')
+  public [`@Delete('chatrooms/progress')`]() {
+  }
 
   @ApiOkResponse({
     isArray: true,
