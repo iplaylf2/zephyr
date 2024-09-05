@@ -1,5 +1,9 @@
 import { Stream, all, call } from 'effection'
-import { applicative, apply, chain, fromIO, fromTask, functor, io, ioOption, monad, monadIO, monadTask, monoid, pointed, unfoldable, zero } from 'fp-ts'
+import {
+  applicative, apply, chain, fromIO, fromTask,
+  functor, io, ioOption, monad, monadIO, monadTask,
+  monoid, pointed, refinement, unfoldable, zero,
+} from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace ioStream{
@@ -237,6 +241,66 @@ export namespace ioStream{
     },
     empty: Zero.zero<E, A>(),
   })
+
+  export const repeat = <A>(a: A): IOStream<A, void> =>
+    // eslint-disable-next-line require-yield
+    function*() {
+      return {
+        // eslint-disable-next-line require-yield
+        *next() {
+          return { value: a }
+        },
+      }
+    }
+
+  export const fromArray = <A>(a: readonly A[]): IOStream<A, void> =>
+    // eslint-disable-next-line require-yield
+    function*() {
+      const i = a[Symbol.iterator]()
+
+      return {
+        // eslint-disable-next-line require-yield
+        *next() {
+          return i.next()
+        },
+      }
+    }
+
+  export const takeLeftWhile = <E, A, B extends A>(
+    predicate: refinement.Refinement<A, B>,
+  ) => (as: IOStream<A, E>): IOStream<B, E> =>
+    function*() {
+      const s = yield * as()
+      let iReturn: IteratorReturnResult<any> | undefined
+
+      return {
+        next: function*next() {
+          if (iReturn) {
+            return iReturn
+          }
+
+          const aIR = yield * s.next()
+
+          if (true === aIR.done) {
+            iReturn = aIR
+
+            return next()
+          }
+
+          if (predicate(aIR.value)) {
+            return { value: aIR.value }
+          }
+
+          iReturn = { done: true, value: void 0 as E }
+
+          return next()
+        },
+      }
+    }
+
+  export const map: <E, A, B>(f: (a: A) => B) => (fa: IOStream<A, E>) => IOStream<B, E> = f => fa => Functor.map(fa, f)
+  export const ap: <E, A>(fa: IOStream<A, E>) => <B>(fab: IOStream<(a: A) => B, E>) => IOStream<B, E> = fa => fab => Apply.ap(fab, fa)
+  export const chain: <E, A, B>(f: (a: A) => IOStream<B, E>) => (ma: IOStream<A, E>) => IOStream<B, E> = f => ma => Monad.chain(ma, f)
 
 }
 

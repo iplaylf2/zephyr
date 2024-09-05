@@ -100,8 +100,8 @@ export namespace ioOperation{
   }
 
   export const map: <A, B>(f: (a: A) => B) => (fa: IOOperation<A>) => IOOperation<B> = f => fa => Functor.map(fa, f)
-  export const apPar: <A>(fa: IOOperation<A>) => <B>(fab: IOOperation<(a: A) => B>) => IOOperation<B> = fa => fab => ApplicativePar.ap(fab, fa)
-  export const apSeq: <A>(fa: IOOperation<A>) => <B>(fab: IOOperation<(a: A) => B>) => IOOperation<B> = fa => fab => ApplicativeSeq.ap(fab, fa)
+  export const apPar: <A>(fa: IOOperation<A>) => <B>(fab: IOOperation<(a: A) => B>) => IOOperation<B> = fa => fab => ApplyPar.ap(fab, fa)
+  export const apSeq: <A>(fa: IOOperation<A>) => <B>(fab: IOOperation<(a: A) => B>) => IOOperation<B> = fa => fab => ApplySeq.ap(fab, fa)
   export const chain: <A, B>(f: (a: A) => IOOperation<B>) => (ma: IOOperation<A>) => IOOperation<B> = f => ma => Monad.chain(ma, f)
 }
 
