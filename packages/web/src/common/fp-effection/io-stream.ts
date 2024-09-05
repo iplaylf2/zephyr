@@ -272,17 +272,7 @@ export namespace ioStream{
   }
 
   export function fromIOOperation<A>(a: ioOperation.IOOperation<A>): IOStream<A, void> {
-    return ioOperation.Functor.map(
-      a,
-      (x) => {
-        const i = [x][Symbol.iterator]()
-
-        return {
-          // eslint-disable-next-line require-yield
-          *next() { return i.next() },
-        }
-      },
-    )
+    return ioOperation.Monad.chain(a, x => Pointed.of(x))
   }
 
   export function takeLeftWhile<E, A, B extends A>(
