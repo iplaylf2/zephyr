@@ -2,8 +2,9 @@ import { Stream, all, call } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask,
   functor, io, ioOption, monad, monadIO, monadTask,
-  monoid, pointed, refinement, unfoldable, zero,
+  monoid, pointed, predicate, refinement, unfoldable, zero,
 } from 'fp-ts'
+import { ioOperation } from './io-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace ioStream{
@@ -218,7 +219,9 @@ export namespace ioStream{
   export const getMonoid = <E = never, A = never>(): monoid.Monoid<IOStream<A, E>> => ({
     concat: (x, y) => function*() {
       let s = yield * x()
+
       let sBelongY = false
+
       return {
         next: function*next() {
           const result = yield * s.next()
@@ -242,9 +245,9 @@ export namespace ioStream{
     empty: Zero.zero<E, A>(),
   })
 
-  export const repeat = <A>(a: A): IOStream<A, void> =>
+  export function repeat<A>(a: A): IOStream<A, void> {
     // eslint-disable-next-line require-yield
-    function*() {
+    return function*() {
       return {
         // eslint-disable-next-line require-yield
         *next() {
@@ -252,10 +255,11 @@ export namespace ioStream{
         },
       }
     }
+  }
 
-  export const fromArray = <A>(a: readonly A[]): IOStream<A, void> =>
+  export function fromArray<A>(a: readonly A[]): IOStream<A, void> {
     // eslint-disable-next-line require-yield
-    function*() {
+    return function*() {
       const i = a[Symbol.iterator]()
 
       return {
@@ -265,11 +269,32 @@ export namespace ioStream{
         },
       }
     }
+  }
 
-  export const takeLeftWhile = <E, A, B extends A>(
+  export function fromIOOperation<A>(a: ioOperation.IOOperation<A>): IOStream<A, void> {
+    return ioOperation.Functor.map(
+      a,
+      (x) => {
+        const i = [x][Symbol.iterator]()
+
+        return {
+          // eslint-disable-next-line require-yield
+          *next() { return i.next() },
+        }
+      },
+    )
+  }
+
+  export function takeLeftWhile<E, A, B extends A>(
     predicate: refinement.Refinement<A, B>,
-  ) => (as: IOStream<A, E>): IOStream<B, E> =>
-    function*() {
+  ): (as: IOStream<A, E>) => IOStream<B, E>
+  export function takeLeftWhile<E, A>(
+    predicate: predicate.Predicate<A>
+  ): <B extends A>(bs: IOStream<B, E>) => IOStream<B, E>
+  export function takeLeftWhile<E, A>(
+    predicate: predicate.Predicate<A>,
+  ): (as: IOStream<A, E>) => IOStream<A, E> {
+    return as => function*() {
       const s = yield * as()
       let iReturn: IteratorReturnResult<any> | undefined
 
@@ -297,6 +322,7 @@ export namespace ioStream{
         },
       }
     }
+  }
 
   export const map: <E, A, B>(f: (a: A) => B) => (fa: IOStream<A, E>) => IOStream<B, E>
     = f => fa => Functor.map(fa, f)
