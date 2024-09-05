@@ -21,7 +21,7 @@ export namespace stream{
     return pipe(
       ioStream.repeat(void 0),
       ioStream.chain(() => fromIOOperation(ioo)),
-      ioStream.takeLeftWhile((x): x is readonly T[] => 0 < x.length),
+      ioStream.takeLeftWhile((x): x is typeof x => 0 < x.length),
       ioStream.chain(ioStream.fromArray),
     )
   }

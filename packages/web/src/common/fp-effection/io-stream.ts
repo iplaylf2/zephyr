@@ -298,9 +298,14 @@ export namespace ioStream{
       }
     }
 
-  export const map: <E, A, B>(f: (a: A) => B) => (fa: IOStream<A, E>) => IOStream<B, E> = f => fa => Functor.map(fa, f)
-  export const ap: <E, A>(fa: IOStream<A, E>) => <B>(fab: IOStream<(a: A) => B, E>) => IOStream<B, E> = fa => fab => Apply.ap(fab, fa)
-  export const chain: <E, A, B>(f: (a: A) => IOStream<B, E>) => (ma: IOStream<A, E>) => IOStream<B, E> = f => ma => Monad.chain(ma, f)
+  export const map: <E, A, B>(f: (a: A) => B) => (fa: IOStream<A, E>) => IOStream<B, E>
+    = f => fa => Functor.map(fa, f)
+
+  export const ap: <E, A>(fa: IOStream<A, E>) => <B>(fab: IOStream<(a: A) => B, E>) => IOStream<B, E>
+    = fa => fab => Apply.ap(fab, fa)
+
+  export const chain: <E, A, B>(f: (a: A) => IOStream<B, E>) => (ma: IOStream<A, E>) => IOStream<B, E>
+    = f => ma => Monad.chain(ma, f)
 
 }
 
