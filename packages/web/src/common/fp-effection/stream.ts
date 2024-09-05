@@ -60,12 +60,12 @@ export namespace ioStream{
 
       let aSubscription = _aSubscription
       let ab: typeof fab extends IOStream<infer T, any> ? T : never
-      let iR: IteratorReturnResult<any> | undefined
+      let iReturn: IteratorReturnResult<any> | undefined
 
       return {
         next: function* next() {
-          if (iR) {
-            return iR
+          if (iReturn) {
+            return iReturn
           }
 
           const { done, value } = yield * aSubscription.next()
@@ -77,13 +77,12 @@ export namespace ioStream{
           const [abIR, _aSubscription] = yield * all([abSubscription.next(), fa()])
 
           if (true === abIR.done) {
-            iR = abIR
-
-            return abIR
+            iReturn = abIR
           }
-
-          ab = abIR.value
-          aSubscription = _aSubscription
+          else {
+            ab = abIR.value
+            aSubscription = _aSubscription
+          }
 
           return next()
         },
@@ -107,12 +106,12 @@ export namespace ioStream{
       const [aSubscription, _bSubscription] = yield * all([fa(), (Zero.zero() as ReturnType<(typeof f)>)()])
 
       let bSubscription = _bSubscription
-      let iR: IteratorReturnResult<any> | undefined
+      let iReturn: IteratorReturnResult<any> | undefined
 
       return {
         next: function *next() {
-          if (iR) {
-            return iR
+          if (iReturn) {
+            return iReturn
           }
 
           const bIR = yield * bSubscription.next()
@@ -124,12 +123,11 @@ export namespace ioStream{
           const aIR = yield * aSubscription.next()
 
           if (true === aIR.done) {
-            iR = aIR
-
-            return aIR
+            iReturn = aIR
           }
-
-          bSubscription = yield * f(aIR.value)()
+          else {
+            bSubscription = yield * f(aIR.value)()
+          }
 
           return next()
         },
