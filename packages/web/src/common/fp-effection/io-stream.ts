@@ -37,6 +37,7 @@ export namespace ioStream{
     // eslint-disable-next-line require-yield
     of: a => function*() {
       const iterator = [a][Symbol.iterator]()
+
       return {
         // eslint-disable-next-line require-yield
         *next() {
@@ -168,6 +169,7 @@ export namespace ioStream{
     fromIO: FromIO.fromIO,
     fromTask: fa => function*() {
       const iterator = [yield * call(fa())][Symbol.iterator]()
+
       return {
         // eslint-disable-next-line require-yield
         *next() {
@@ -192,6 +194,7 @@ export namespace ioStream{
     // eslint-disable-next-line require-yield
     unfold: (b, f) => function* () {
       let done = false
+
       return {
         // eslint-disable-next-line require-yield
         *next() {

@@ -25,6 +25,7 @@ export namespace ioOperation{
     URI,
     ap: (fab, fa) => function*() {
       const [ab, a] = yield * all([fab(), fa()])
+
       return ab(a)
     },
     map: Functor.map,
