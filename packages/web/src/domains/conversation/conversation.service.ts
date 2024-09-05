@@ -117,10 +117,10 @@ export abstract class ConversationService extends ModuleRaii {
     const ok = pipe(
       reply,
       readonlyArray.last,
-      option.map(
-        x => 'ok' === x?.toString().toLowerCase(),
+      option.match(
+        () => false,
+        x => 1 === x,
       ),
-      option.getOrElse<boolean>(() => false),
     )
 
     if (!ok) {
