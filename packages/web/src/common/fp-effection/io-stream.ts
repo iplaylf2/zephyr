@@ -1,7 +1,7 @@
 import { Operation, Stream, all, call } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask,
-  functor, io, ioOption, monad, monadIO, monadTask,
+  functor, identity, io, ioOption, monad, monadIO, monadTask,
   monoid, pointed, predicate, refinement, unfoldable, zero,
 } from 'fp-ts'
 import { ioOperation } from './io-operation.js'
@@ -317,11 +317,8 @@ export namespace ioStream{
     }
   }
 
-  export const map: <E, A, B>(f: (a: A) => B) => (fa: IOStream<A, E>) => IOStream<B, E>
-    = f => fa => Functor.map(fa, f)
-
-  export const ap: <E, A>(fa: IOStream<A, E>) => <B>(fab: IOStream<(a: A) => B, E>) => IOStream<B, E>
-    = fa => fab => Apply.ap(fab, fa)
+  export const map = functor.map(Functor, identity.Functor)
+  export const ap = apply.ap(Apply, identity.Apply)
 
   export const chain: <E, A, B>(f: (a: A) => IOStream<B, E>) => (ma: IOStream<A, E>) => IOStream<B, E>
     = f => ma => Monad.chain(ma, f)
