@@ -1,5 +1,8 @@
 import { Operation, all, call } from 'effection'
-import { applicative, apply, chain, fromIO, fromTask, functor, identity, io, monad, monadIO, monadTask, pointed } from 'fp-ts'
+import {
+  applicative, apply, chain, fromIO, fromTask, functor,
+  io, monad, monadIO, monadTask, pipeable, pointed,
+} from 'fp-ts'
 
 export namespace ioOperation{
   export type IOOperation<A> = io.IO<Operation<A>>
@@ -100,12 +103,10 @@ export namespace ioOperation{
     of: Monad.of,
   }
 
-  export const map = functor.map(Functor, identity.Functor)
-  export const apPar = apply.ap(ApplyPar, identity.Apply)
-  export const apSeq = apply.ap(ApplySeq, identity.Apply)
-
-  export const chain: <A, B>(f: (a: A) => IOOperation<B>) => (ma: IOOperation<A>) => IOOperation<B>
-    = f => ma => Monad.chain(ma, f)
+  export const map = pipeable.map(Functor)
+  export const apPar = pipeable.ap(ApplyPar)
+  export const apSeq = pipeable.ap(ApplySeq)
+  export const chain = pipeable.chain(Chain)
 }
 
 declare module 'fp-ts/HKT' {

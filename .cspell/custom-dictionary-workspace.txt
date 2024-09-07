@@ -4,6 +4,7 @@ effection
 monoid
 nestjs
 openapi
+pipeable
 raii
 unfoldable
 urlpattern
