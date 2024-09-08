@@ -1,10 +1,10 @@
 import { Operation, call } from 'effection'
+import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyRecord } from 'fp-ts'
 import { Model } from './common.js'
 import { Option } from 'fp-ts/lib/Option.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from './generic.js'
-import { pipe } from 'fp-ts/lib/function.js'
 
 export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract readonly client: RedisClientType
@@ -20,12 +20,10 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public encodeFully(hash: Partial<T>) {
     return pipe(
       hash,
-      readonlyRecord.filterMap(
-        v => undefined === v
-          ? option.none
-          : option.some(this.encode(v),
-          ),
-      ),
+      readonlyRecord.filterMap(flow(
+        option.fromNullable,
+        option.map(x => this.encode(x)),
+      )),
     )
   }
 
@@ -34,7 +32,7 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
 
     return pipe(
       value,
-      x => undefined === x ? option.none : option.some(x),
+      option.fromNullable,
       option.map(x => this.decode(x) as T[K]),
     )
   }

@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { Operation, call } from 'effection'
-import { option, readonlyArray, readonlyRecord } from 'fp-ts'
+import { flow, pipe } from 'fp-ts/lib/function.js'
+import { option, predicate, readonlyArray, readonlyRecord } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { pipe } from 'fp-ts/lib/function.js'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
 
@@ -98,11 +98,14 @@ export class UserService {
       readonlyArray.zip(users, reply),
       readonlyArray.filterMap(
         ([id, reply]) => pipe(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          readonlyRecord.isEmpty(reply as any) ? option.none : option.some(reply as any),
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          option.map(x => forDecoding.decodeFully(x)),
-          option.map(x => ({ ...x, id } as user.Info & { readonly id: string }))),
+          reply as Record<any, any>,
+          option.fromPredicate(
+            predicate.not(readonlyRecord.isEmpty),
+          ),
+          option.map(flow(
+            x => forDecoding.decodeFully(x),
+            x => ({ ...x, id } as user.Info & { readonly id: string })),
+          )),
       ),
     )
   }
