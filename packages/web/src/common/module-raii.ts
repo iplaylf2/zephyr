@@ -3,7 +3,7 @@ import { Operation, Task, all } from 'effection'
 import { globalScope } from '../kits/effection/global-scope.js'
 
 export class ModuleRaii implements OnModuleInit, OnModuleDestroy {
-  protected readonly initializeCallback = new Array<() => Operation<any> >()
+  protected readonly initializeCallbacks = new Array<() => Operation<any> >()
 
   private moduleLife: Task<any> | null = null
 
@@ -12,6 +12,6 @@ export class ModuleRaii implements OnModuleInit, OnModuleDestroy {
   }
 
   public onModuleInit() {
-    this.moduleLife = globalScope.run(() => all(this.initializeCallback.map(cb => cb())))
+    this.moduleLife = globalScope.run(() => all(this.initializeCallbacks.map(cb => cb())))
   }
 }

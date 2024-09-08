@@ -9,7 +9,7 @@ export class ResourceManagerService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallback.push(() => this.prepareDestroy())
+    this.initializeCallbacks.push(() => this.prepareDestroy())
   }
 
   public * initialize<T>(init: () => Operation<T>, dispose: (resource: T) => Operation<void>): Operation<T> {

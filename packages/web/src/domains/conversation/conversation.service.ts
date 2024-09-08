@@ -1,6 +1,6 @@
 import { Conversations, ConversationService as EntityConversationService } from '../../repositories/redis/entities/conversation.service.js'
 import { Operation, all, call } from 'effection'
-import { option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
+import { identity, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './participant.js'
@@ -8,14 +8,15 @@ import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
+import { match } from 'ts-pattern'
 import { pipe } from 'fp-ts/lib/function.js'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
 
 export abstract class ConversationService extends ModuleRaii {
-  protected readonly participantsExpireCallback = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
-  protected readonly participantsRegisterCallback = new Array<(event: Extract<user.Event, { type: 'register' }>) => Operation<any>>()
-  protected readonly participantsUnregisterCallback = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
+  protected readonly participantsExpireCallbacks = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
+  protected readonly participantsRegisterCallbacks = new Array<(event: Extract<user.Event, { type: 'register' }>) => Operation<any>>()
+  protected readonly participantsUnregisterCallbacks = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
 
   public abstract readonly defaultConversationExpire: Temporal.Duration
   public abstract readonly defaultParticipantExpire: Temporal.Duration
@@ -28,9 +29,9 @@ export abstract class ConversationService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallback.push(() => this.listenUserEvent())
-    this.participantsExpireCallback.push(event => this.expireParticipantsByEvent(event))
-    this.participantsUnregisterCallback.push(event => this.removeParticipantsByEvent(event))
+    this.initializeCallbacks.push(() => this.listenUserEvent())
+    this.participantsExpireCallbacks.push(event => this.expireParticipantsByEvent(event))
+    this.participantsUnregisterCallbacks.push(event => this.removeParticipantsByEvent(event))
   }
 
   public *addParticipants(conversation: string, users: readonly string[]) {
@@ -368,20 +369,16 @@ export abstract class ConversationService extends ModuleRaii {
     const _this = this
 
     yield * parallelGroup.read(randomUUID(), function*({ message }) {
-      switch (message.type) {
-        case 'expire':{
-          yield * all(_this.participantsExpireCallback.map(cb => cb(message)))
-        }
-          break
-        case 'register':{
-          yield * all(_this.participantsRegisterCallback.map(cb => cb(message)))
-        }
-          break
-        case 'unregister':{
-          yield * all(_this.participantsUnregisterCallback.map(cb => cb(message)))
-        }
-          break
-      }
+      yield * pipe(
+        match(message)
+          .with({ type: 'expire' }, x => [x, _this.participantsExpireCallbacks] as const)
+          .with({ type: 'register' }, x => [x, _this.participantsRegisterCallbacks] as const)
+          .with({ type: 'unregister' }, x => [x, _this.participantsUnregisterCallbacks] as const)
+          .exhaustive(),
+        ([message, callbacks]) =>
+          (callbacks.map(identity.ap(message as any))) as Operation<any>[],
+        all,
+      )
     })
   }
 

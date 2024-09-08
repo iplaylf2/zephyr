@@ -275,7 +275,7 @@ export namespace ioStream{
   }
 
   export function fromIOOperation<A>(a: ioOperation.IOOperation<A>): IOStream<A, void> {
-    return ioOperation.Monad.chain(a, x => Pointed.of(x))
+    return ioOperation.Monad.chain(a, Pointed.of<void, A>)
   }
 
   export function takeLeftWhile<E, A, B extends A>(

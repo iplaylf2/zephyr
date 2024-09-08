@@ -28,7 +28,7 @@ export namespace conversation{
     public constructor() {
       super()
 
-      this.participantsExpireCallback.push(event => this.pairExpire(event))
+      this.participantsExpireCallbacks.push(event => this.pairExpire(event))
     }
 
     private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {

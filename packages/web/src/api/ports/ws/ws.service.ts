@@ -20,7 +20,7 @@ export class WsService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallback.push(() => this.listen())
+    this.initializeCallbacks.push(() => this.listen())
   }
 
   private *listen() {

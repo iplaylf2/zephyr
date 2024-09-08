@@ -3,6 +3,7 @@ import {
   applicative, apply, chain, fromIO, fromTask, functor,
   io, monad, monadIO, monadTask, pipeable, pointed,
 } from 'fp-ts'
+import { flow } from 'fp-ts/lib/function.js'
 
 export namespace ioOperation{
   export type IOOperation<A> = io.IO<Operation<A>>
@@ -90,7 +91,7 @@ export namespace ioOperation{
   export const FromTask: fromTask.FromTask1<URI> = {
     URI,
     fromIO: FromIO.fromIO,
-    fromTask: fa => io.of(call(fa)),
+    fromTask: flow(call, io.of) as any,
   }
 
   export const MonadTask: monadTask.MonadTask1<URI> = {
