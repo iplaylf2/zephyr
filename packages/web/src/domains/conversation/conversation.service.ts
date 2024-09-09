@@ -234,8 +234,11 @@ export abstract class ConversationService extends ModuleRaii {
   public getProgress(participant: string) {
     return pipe(
       this.entityConversationService.getParticipantConversationsProgress(this.type, participant),
-      x => x.getAll(),
-    )
+      x => () => x.getAll(),
+      ioOperation.map(
+        x => (x ?? {}) as Readonly<Record<string, string>>,
+      ),
+    )()
   }
 
   public rangeMessages(conversation: string, start: string, end: string) {

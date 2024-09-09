@@ -36,7 +36,9 @@ export class WsService extends ModuleRaii {
         return
       }
 
-      void globalScope.run(() => this.tryUpgrading(websocketServer, request, socket, head, id))
+      void globalScope.run(() =>
+        this.tryUpgrading(websocketServer, request, socket, head, id),
+      )
     }
 
     const httpServer: Server = this.httpAdapterHost.httpAdapter.getHttpServer()

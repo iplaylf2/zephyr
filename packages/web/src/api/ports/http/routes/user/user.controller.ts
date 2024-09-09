@@ -69,7 +69,9 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePassport()
   @Put('info')
-  public [`@Put('info')`](@Passport.param passport: Passport, @Body() updateData: user.UpdateDataDto) {
-    return globalScope.run(() => this.userService.put(passport.id, updateData))
+  public async [`@Put('info')`](@Passport.param passport: Passport, @Body() updateData: user.UpdateDataDto) {
+    await globalScope.run(() =>
+      this.userService.put(passport.id, updateData),
+    )
   }
 }

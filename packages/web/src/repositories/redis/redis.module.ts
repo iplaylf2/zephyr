@@ -14,17 +14,20 @@ const redisServiceProvider = {
   inject: [ResourceManagerService],
   provide: RedisService,
   useFactory(resourceManagerService: ResourceManagerService) {
-    return globalScope.run(() => resourceManagerService.initialize(
-      function*() {
-        const client = createClient({ url: 'redis://redis' })
+    return globalScope.run(() =>
+      resourceManagerService.initialize(
+        function*() {
+          const client = createClient({ url: 'redis://redis' })
 
-        yield * call(client.connect())
+          yield * call(client.connect())
 
-        return client
-      },
-      function*(client) {
-        yield * call(client.quit())
-      }))
+          return client
+        },
+        function*(client) {
+          yield * call(client.quit())
+        },
+      ),
+    )
   },
 } satisfies FactoryProvider
 

@@ -4,9 +4,7 @@ import { user as modelUser } from '../../../../../models/user.js'
 import { z } from 'zod'
 
 export namespace user{
-  const creationData = extendApi(
-    modelUser.info.omit({ group: true }),
-  )
+  const creationData = modelUser.info.omit({ group: true })
 
   export class CreationDataDto extends createZodDto(creationData) {}
 
@@ -17,11 +15,7 @@ export namespace user{
 
   export class CreationResultDto extends createZodDto(creationResult) {}
 
-  const info = extendApi(
-    modelUser.info,
-  )
-
-  export class InfoDto extends createZodDto(info) {}
+  export class InfoDto extends createZodDto(modelUser.info) {}
 
   const updateData = extendApi(
     modelUser.info.omit({ group: true }),

@@ -16,6 +16,8 @@ export class UsersController {
   })
   @Get('info')
   public [`@Get('info')`](@Query() infosQuery: users.InfosQueryDto): Promise<readonly users.InfoDto[]> {
-    return globalScope.run(() => this.userService.get(infosQuery.users))
+    return globalScope.run(() =>
+      this.userService.get(infosQuery.users),
+    )
   }
 }

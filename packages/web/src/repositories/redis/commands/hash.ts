@@ -14,14 +14,14 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     return pipe(
       value,
       readonlyRecord.map(v => this.decode(v)),
-    ) as Partial<T>
+    ) as Readonly<Partial<T>>
   }
 
   public del(fields: RedisCommandArgument[]) {
     return call(this.client.hDel(this.key, fields))
   }
 
-  public encodeFully(hash: Partial<T>) {
+  public encodeFully(hash: Readonly<Partial<T>>) {
     return pipe(
       hash,
       readonlyRecord.filterMap(flow(
@@ -41,13 +41,13 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     )
   }
 
-  public *getAll(): Operation<Partial<T> | null> {
+  public *getAll(): Operation<Readonly<Partial<T>> | null> {
     const value = yield * call(this.client.hGetAll(this.key))
 
     return readonlyRecord.isEmpty(value) ? null : this.decodeFully(value)
   }
 
-  public set(hash: Partial<T>) {
+  public set(hash: Readonly<Partial<T>>) {
     return call(this.client.hSet(
       this.key,
       this.encodeFully(hash),
