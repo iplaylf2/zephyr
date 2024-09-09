@@ -320,7 +320,6 @@ export namespace ioStream{
   export const map = pipeable.map(Functor)
   export const ap = pipeable.ap(Apply)
   export const chain = pipeable.chain(Chain)
-
 }
 
 declare module 'fp-ts/HKT' {
