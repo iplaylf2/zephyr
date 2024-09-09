@@ -1,5 +1,6 @@
 import { Conversations, ConversationService as EntityConversationService } from '../../repositories/redis/entities/conversation.service.js'
 import { Operation, all, call } from 'effection'
+import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
@@ -9,7 +10,6 @@ import { Temporal } from 'temporal-polyfill'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
 import { match } from 'ts-pattern'
-import { pipe } from 'fp-ts/lib/function.js'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
 
@@ -365,21 +365,24 @@ export abstract class ConversationService extends ModuleRaii {
   private *listenUserEvent() {
     const event = this.entityUserService.getEvent()
     const parallelGroup = new group.Parallel(event, `${this.type}.conversation`)
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const _this = this
 
-    yield * parallelGroup.read(randomUUID(), function*({ message }) {
-      yield * pipe(
-        match(message)
-          .with({ type: 'expire' }, x => [x, _this.participantsExpireCallbacks] as const)
-          .with({ type: 'register' }, x => [x, _this.participantsRegisterCallbacks] as const)
-          .with({ type: 'unregister' }, x => [x, _this.participantsUnregisterCallbacks] as const)
+    const callbacksAp = <A, B>(callbacks: Array<(a: A) => B>) => flow(
+      identity.ap<A>,
+      readonlyArray.map<(a: A) => B, B>,
+      identity.ap(callbacks),
+    )
+
+    yield * parallelGroup.read(
+      randomUUID(),
+      flow(
+        ({ message }) => match(message)
+          .with({ type: 'expire' }, callbacksAp(this.participantsExpireCallbacks))
+          .with({ type: 'register' }, callbacksAp(this.participantsRegisterCallbacks))
+          .with({ type: 'unregister' }, callbacksAp(this.participantsUnregisterCallbacks))
           .exhaustive(),
-        ([message, callbacks]) =>
-          (callbacks.map(identity.ap(message as any))) as Operation<any>[],
         all,
-      )
-    })
+      ),
+    )
   }
 
   private post(conversation: string, message: Conversations.Message) {
