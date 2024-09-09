@@ -17,6 +17,10 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     ) as Partial<T>
   }
 
+  public del(fields: RedisCommandArgument[]) {
+    return call(this.client.hDel(this.key, fields))
+  }
+
   public encodeFully(hash: Partial<T>) {
     return pipe(
       hash,

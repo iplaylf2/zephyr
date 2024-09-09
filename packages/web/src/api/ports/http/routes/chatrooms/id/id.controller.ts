@@ -42,7 +42,7 @@ export class IdController {
     type: id.MessageDto,
   })
   @Get('messages')
-  public [`@Get('messages')`](@Query() query: id.MessageQueryDto): Promise<id.MessageDto[]> {
+  public [`@Get('messages')`](@Query() query: id.MessageQueryDto): Promise<readonly id.MessageDto[]> {
     return globalScope.run(function*(this: IdController) {
       yield * this.checkAndExpire()
 

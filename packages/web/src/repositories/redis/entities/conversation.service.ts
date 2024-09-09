@@ -89,7 +89,7 @@ export namespace Conversation.Participant{
     }
   }
 
-  export class ConversationsProgress extends JsonHash<Record<string, number>> {
+  export class ConversationsProgress extends JsonHash<Record<string, string>> {
     public override readonly key
 
     public constructor(public override client: RedisClientType, type: string, participant: string) {

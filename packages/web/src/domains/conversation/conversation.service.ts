@@ -9,6 +9,7 @@ import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
+import { ioOperation } from '../../common/fp-effection/io-operation.js'
 import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
@@ -83,6 +84,13 @@ export abstract class ConversationService extends ModuleRaii {
     )
 
     return newParticipants
+  }
+
+  public clearProgress(participant: string, conversations: readonly string[]) {
+    return pipe(
+      this.entityConversationService.getParticipantConversationsProgress(this.type, participant),
+      x => x.del(conversations as string[]),
+    )
   }
 
   public *createConversation(id: string): Operation<boolean> {
@@ -217,17 +225,27 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public fetchParticipants(conversation: string) {
-    const participants = this.entityConversationService.getParticipants(this.type, conversation)
-
-    return participants.range('-inf', '+inf', { BY: 'SCORE' })
+    return pipe(
+      this.entityConversationService.getParticipants(this.type, conversation),
+      x => x.range('-inf', '+inf', { BY: 'SCORE' }),
+    )
   }
 
-  public *rangeMessages(conversation: string, start: string, end: string) {
-    const records = this.entityConversationService.getRecords(this.type, conversation)
+  public getProgress(participant: string) {
+    return pipe(
+      this.entityConversationService.getParticipantConversationsProgress(this.type, participant),
+      x => x.getAll(),
+    )
+  }
 
-    const messages = yield * records.range(start, end)
-
-    return messages.map(x => ({ id: x.id, ...x.message }))
+  public rangeMessages(conversation: string, start: string, end: string) {
+    return pipe(
+      this.entityConversationService.getRecords(this.type, conversation),
+      x => () => x.range(start, end),
+      ioOperation.map(
+        readonlyArray.map(x => ({ id: x.id, ...x.message })),
+      ),
+    )()
   }
 
   public *removeParticipants(conversation: string, participants: readonly string[]) {
@@ -275,6 +293,27 @@ export abstract class ConversationService extends ModuleRaii {
     )
 
     return removedParticipants
+  }
+
+  public *setProgress(participant: string, progress: Readonly<Record<string, string>>) {
+    const conversationsProgress = this.entityConversationService.getParticipantConversationsProgress(this.type, participant)
+
+    const reply = yield * pipe(
+      this.redisService.multi(),
+      t => t
+        .hSet(conversationsProgress.key, conversationsProgress.encodeFully(progress))
+        .expire(conversationsProgress.key, this.defaultParticipantExpire.total('seconds'), 'GT'),
+      t => call(t.exec()),
+    )
+
+    return pipe(
+      reply,
+      readonlyArray.head,
+      option.match(
+        () => false,
+        x => 0 < (x as number),
+      ),
+    )
   }
 
   public *userPost(conversation: string, participant: string, body: conversation.MessageBody) {
@@ -353,20 +392,22 @@ export abstract class ConversationService extends ModuleRaii {
   private *expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
     const conversations = yield * this.fetchConversationMap(event.users)
 
-    yield * all(pipe(
+    yield * pipe(
       conversations,
       readonlyRecord.toReadonlyArray,
       readonlyArray.map(
-        ([conversation, participants]) => this.expireParticipants(conversation, participants, event.data.expire),
+        ([conversation, participants]) =>
+          this.expireParticipants(conversation, participants, event.data.expire),
       ),
-    ))
+      all,
+    )
   }
 
   private *listenUserEvent() {
     const event = this.entityUserService.getEvent()
     const parallelGroup = new group.Parallel(event, `${this.type}.conversation`)
 
-    const callbacksAp = <A, B>(callbacks: Array<(a: A) => B>) => flow(
+    const messageHandlerAp = <A, B>(callbacks: Array<(a: A) => B>) => flow(
       identity.ap<A>,
       readonlyArray.map<(a: A) => B, B>,
       identity.ap(callbacks),
@@ -376,9 +417,9 @@ export abstract class ConversationService extends ModuleRaii {
       randomUUID(),
       flow(
         ({ message }) => match(message)
-          .with({ type: 'expire' }, callbacksAp(this.participantsExpireCallbacks))
-          .with({ type: 'register' }, callbacksAp(this.participantsRegisterCallbacks))
-          .with({ type: 'unregister' }, callbacksAp(this.participantsUnregisterCallbacks))
+          .with({ type: 'expire' }, messageHandlerAp(this.participantsExpireCallbacks))
+          .with({ type: 'register' }, messageHandlerAp(this.participantsRegisterCallbacks))
+          .with({ type: 'unregister' }, messageHandlerAp(this.participantsUnregisterCallbacks))
           .exhaustive(),
         all,
       ),
@@ -386,24 +427,26 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   private post(conversation: string, message: Conversations.Message) {
-    const records = this.entityConversationService.getRecords(this.type, conversation)
-
-    return records.add(
-      '*',
-      message,
-      { NOMKSTREAM: true, TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 } },
+    return pipe(
+      this.entityConversationService.getRecords(this.type, conversation),
+      x => x.add(
+        '*',
+        message,
+        { NOMKSTREAM: true, TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 } },
+      ),
     )
   }
 
   private *removeParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
     const conversations = yield * this.fetchConversationMap(event.users)
 
-    yield * all(pipe(
+    yield * pipe(
       conversations,
       readonlyRecord.toReadonlyArray,
       readonlyArray.map(
         ([conversation, participants]) => this.removeParticipants(conversation, participants),
       ),
-    ))
+      all,
+    )
   }
 }
