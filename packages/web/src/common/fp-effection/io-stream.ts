@@ -1,11 +1,11 @@
-import { Operation, Stream, all, call } from 'effection'
+import { Operation, Stream, all } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
-  io, ioOption, monad, monadIO, monadTask, monoid,
+  io, ioOption, monad, monadIO, monadTask, monoid, option,
   pipeable, pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
+import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { ioOperation } from './io-operation.js'
-import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace ioStream{
   export type IOStream<T, R> = io.IO<Stream<T, R>>
@@ -35,8 +35,8 @@ export namespace ioStream{
   export const Pointed: pointed.Pointed2<URI> = {
     URI: 'IOStream.effection',
     // eslint-disable-next-line require-yield
-    of: a => function*() {
-      const iterator: Iterator<typeof a> = [a][Symbol.iterator]()
+    of: <E, A>(a: A): IOStream<A, E> => function*() {
+      const iterator = [a][Symbol.iterator]() as Iterator<A, E>
 
       return {
         // eslint-disable-next-line require-yield
@@ -60,16 +60,15 @@ export namespace ioStream{
 
   export const Apply: apply.Apply2<URI> = {
     URI,
-    ap: (fab, fa) => function*() {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      const [abSubscription, _aSubscription] = yield * all([fab(), (Zero.zero() as typeof fa)()])
+    ap: <E, A, B>(fab: IOStream<(a: A) => B, E>, fa: IOStream<A, E>) => function*() {
+      const [abSubscription, _aSubscription] = yield * all([fab(), Zero.zero<E, A>()()])
 
       let aSubscription = _aSubscription
-      let ab: typeof fab extends IOStream<infer T, any> ? T : never
-      let iReturn: IteratorReturnResult<any> | undefined
+      let ab: (a: A) => B
+      let iReturn: IteratorReturnResult<E> | undefined
 
       return {
-        next: function* next(): Operation<IteratorResult<any>> {
+        next: function* next(): Operation<IteratorResult<B, E>> {
           if (iReturn) {
             return iReturn
           }
@@ -107,15 +106,14 @@ export namespace ioStream{
   export const Chain: chain.Chain2<URI> = {
     URI,
     ap: Apply.ap,
-    chain: (fa, f) => function*() {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      const [aSubscription, _bSubscription] = yield * all([fa(), (Zero.zero() as ReturnType<(typeof f)>)()])
+    chain: <E, A, B>(fa: IOStream<A, E>, f: (a: A) => IOStream<B, E>) => function*() {
+      const [aSubscription, _bSubscription] = yield * all([fa(), Zero.zero<E, B>()()])
 
       let bSubscription = _bSubscription
-      let iReturn: IteratorReturnResult<any> | undefined
+      let iReturn: IteratorReturnResult<E> | undefined
 
       return {
-        next: function *next(): Operation<IteratorResult<any>> {
+        next: function *next(): Operation<IteratorResult<B, E>> {
           if (iReturn) {
             return iReturn
           }
@@ -168,7 +166,7 @@ export namespace ioStream{
     URI,
     fromIO: FromIO.fromIO,
     fromTask: <A, E>(fa: task.Task<A>) => pipe(
-      () => call(fa),
+      ioOperation.FromTask.fromTask(fa),
       ioOperation.chain(Pointed.of<E, A>),
     ),
   }
@@ -186,26 +184,32 @@ export namespace ioStream{
   export const Unfoldable: unfoldable.Unfoldable2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    unfold: (b, f) => function* () {
+    unfold: <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): IOStream<A, E> => function* () {
       let done = false
 
       return {
         // eslint-disable-next-line require-yield
         *next() {
           if (done) {
-            return { done, value: void 0 }
+            return { done } as IteratorResult<A, E>
           }
 
           return pipe(
             f(b),
             ioOption.fromOption,
-            ioOption.tapIO(([,_b]) => () => {
-              b = _b
-              done = true
-            }),
+            ioOption.fold(
+              flow(
+                constant(ioOption.none),
+                io.tap(() => () => (done = true)),
+              ),
+              flow(
+                ioOption.some,
+                ioOption.tapIO(([,_b]) => () => (b = _b)),
+              ),
+            ),
             ioOption.match(
-              () => ({ done: true, value: void 0 as any }),
-              ([a]) => ({ done: false, value: a }),
+              () => ({ done: true }) as IteratorResult<A, E>,
+              ([a]) => ({ value: a }),
             ),
           )()
         },
@@ -243,29 +247,17 @@ export namespace ioStream{
   })
 
   export function repeat<A>(a: A): IOStream<A, void> {
-    // eslint-disable-next-line require-yield
-    return function*() {
-      return {
-        // eslint-disable-next-line require-yield
-        *next() {
-          return { value: a }
-        },
-      }
-    }
+    return Unfoldable.unfold(a, a => option.some([a, a] as const))
   }
 
-  export function fromArray<A>(a: readonly A[]): IOStream<A, void> {
-    // eslint-disable-next-line require-yield
-    return function*() {
-      const i = a[Symbol.iterator]()
-
-      return {
-        // eslint-disable-next-line require-yield
-        *next() {
-          return i.next()
-        },
-      }
-    }
+  export function fromArray<A>(as: readonly A[]): IOStream<A, void> {
+    return Unfoldable.unfold(
+      [as, 0 as number] as const,
+      ([as, index]) =>
+        index < as.length
+          ? option.some([as[index]!, [as, index + 1]] as const)
+          : option.none,
+    )
   }
 
   export function fromIOOperation<A>(a: ioOperation.IOOperation<A>): IOStream<A, void> {
@@ -283,10 +275,10 @@ export namespace ioStream{
   ): (as: IOStream<A, E>) => IOStream<A, E> {
     return as => function*() {
       const s = yield * as()
-      let iReturn: IteratorReturnResult<any> | undefined
+      let iReturn: IteratorReturnResult<E> | undefined
 
       return {
-        next: function*next(): Operation<IteratorResult<any>> {
+        next: function*next(): Operation<IteratorResult<A, E>> {
           if (iReturn) {
             return iReturn
           }
@@ -303,7 +295,7 @@ export namespace ioStream{
             return { value: aIR.value }
           }
 
-          iReturn = { done: true, value: void 0 as E }
+          iReturn = { done: true } as IteratorReturnResult<E>
 
           return yield * next()
         },
