@@ -2,7 +2,7 @@ import { Operation, Stream, all, call } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
   io, ioOption, monad, monadIO, monadTask, monoid,
-  pipeable, pointed, predicate, refinement, unfoldable, zero,
+  pipeable, pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
 import { ioOperation } from './io-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
@@ -36,7 +36,7 @@ export namespace ioStream{
     URI: 'IOStream.effection',
     // eslint-disable-next-line require-yield
     of: a => function*() {
-      const iterator = [a][Symbol.iterator]()
+      const iterator: Iterator<typeof a> = [a][Symbol.iterator]()
 
       return {
         // eslint-disable-next-line require-yield
@@ -167,16 +167,10 @@ export namespace ioStream{
   export const FromTask: fromTask.FromTask2<URI> = {
     URI,
     fromIO: FromIO.fromIO,
-    fromTask: fa => function*() {
-      const iterator = [yield * call(fa())][Symbol.iterator]()
-
-      return {
-        // eslint-disable-next-line require-yield
-        *next() {
-          return iterator.next()
-        },
-      }
-    },
+    fromTask: <A, E>(fa: task.Task<A>) => pipe(
+      () => call(fa),
+      ioOperation.chain(Pointed.of<E, A>),
+    ),
   }
 
   export const MonadTask: monadTask.MonadTask2<URI> = {
