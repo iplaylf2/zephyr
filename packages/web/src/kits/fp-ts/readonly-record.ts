@@ -4,7 +4,6 @@ import { option, readonlyRecord } from 'fp-ts'
 import { flow } from 'fp-ts/lib/function.js'
 
 export namespace readonlyRecordPlus{
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   export function modifyAt<A, S extends Readonly<Record<any, any>>, K extends RequiredKeysOf<S>>(
     k: K,
     f: (a: S[K]) => A,

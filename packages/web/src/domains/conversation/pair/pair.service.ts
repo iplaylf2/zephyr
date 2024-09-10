@@ -7,6 +7,7 @@ import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../../repositories/redis/entities/user.service.js'
 import { ioOperation } from '../../../common/fp-effection/io-operation.js'
+import { randomUUID } from 'crypto'
 import { user } from '../../../models/user.js'
 
 export namespace conversation{
@@ -29,6 +30,18 @@ export namespace conversation{
       super()
 
       this.participantsExpireCallbacks.push(event => this.pairExpire(event))
+    }
+
+    public *createDialogue(initiator: string, partner: string) {
+      const conversation = randomUUID()
+
+      {
+        const ok = yield * this.createConversation(conversation)
+
+        if (!ok) {
+          return null
+        }
+      }
     }
 
     private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
