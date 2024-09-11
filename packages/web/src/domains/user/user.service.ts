@@ -1,17 +1,22 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { Operation, call } from 'effection'
+import { call, run } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, predicate, readonlyArray, readonlyRecord } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
+import { PrismaService } from '../../repositories/prisma/prisma.service.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
+import { ioOperation } from '../../common/fp-effection/io-operation.js'
+import { coerceReadonly, unsafeCoerce } from '../../utils/identity.js'
 
 @Injectable()
 export class UserService {
   @Inject()
   private readonly entityUserService!: EntityUserService
+
+  @Inject()
+  private readonly prismaService!: PrismaService
 
   @Inject()
   private readonly redisService!: RedisService
@@ -81,120 +86,91 @@ export class UserService {
     return existsUsers
   }
 
-  public *get(users: readonly string[]) {
-    const reply = yield * pipe(
-      this.redisService.multi(),
-      t => users.reduce(
-        (t, id) => t
-          .hGetAll(this.entityUserService.getInfo(id).key),
-        t,
-      ),
-      t => call(t.exec()),
-    )
-
-    const forDecoding = this.entityUserService.getInfo('for-decoding')
-
+  public get(users: readonly number[]) {
     return pipe(
-      readonlyArray.zip(users, reply),
-      readonlyArray.filterMap(
-        ([id, reply]) => pipe(
-          reply as Record<any, any>,
-          option.fromPredicate(
-            predicate.not(readonlyRecord.isEmpty),
-          ),
-          option.map(flow(
-            x => forDecoding.decodeFully(x),
-            x => ({ ...x, id } as user.Info & { readonly id: string })),
-          )),
-      ),
-    )
+      () => call(this.prismaService.user.findMany({
+        where: { id: { in: users.concat() } },
+      })),
+      ioOperation.map(coerceReadonly),
+    )()
   }
 
-  public *put(id: string, user: Partial<user.Info>) {
-    const info = this.entityUserService.getInfo(id)
+  public *put(id: number, user: Partial<user.Info>) {
+    if ('name' in user) {
+      yield * call(this.prismaService.user.update({
+        data: {
+          name: user.name,
+        },
+        select: {},
+        where: { id },
+      }))
 
-    yield * call(
-      this.redisService.multi()
-        .hSet(info.key, info.encodeFully(user))
-        .expire(info.key, this.defaultExpire.total('seconds'), 'GT')
-        .exec(),
-    )
-  }
-
-  public *register(info: user.Info, retry = 2): Operation<string | null> {
-    const users = this.entityUserService.get()
-    const registerAt = Temporal.Now.zonedDateTimeISO()
-    const expireAt = registerAt.add(this.defaultExpire)
-    const id = randomUUID()
-
-    const reply = yield * users.add([{ score: expireAt.epochMilliseconds, value: id }], { NX: true })
-
-    if (1 !== reply) {
-      if (0 < retry) {
-        return yield * this.register(info, retry - 1)
-      }
-
-      return null
+      return true
     }
 
-    const entityInfo = this.entityUserService.getInfo(id)
-    const expire = this.defaultExpire.total('seconds')
+    return false
+  }
 
-    yield * call(this.redisService.multi()
-      .hSet(entityInfo.key, entityInfo.encodeFully(info))
-      .expire(entityInfo.key, expire)
-      .exec(),
-    )
+  public *register(info: user.Info) {
+    const now = Temporal.Now.zonedDateTimeISO()
+    const createdAt = new Date(now.epochMilliseconds)
+
+    const user = yield * call(this.prismaService.user.create({
+      data: {
+        createdAt,
+        expiredAt: now.add(this.defaultExpire).toString(),
+        name: info.name,
+      },
+      select: { id: true },
+    }))
 
     yield * this.entityUserService.getEvent()
       .add(
         '*',
         {
-          data: { expire, timestamp: registerAt.epochMilliseconds },
+          data: {
+            expire: this.defaultExpire.total('microseconds'),
+            timestamp: createdAt.valueOf(),
+          },
           type: 'register',
-          user: id,
+          user: user.id,
         },
-        { NOMKSTREAM: true, TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 } },
+        {
+          NOMKSTREAM: true,
+          TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 },
+        },
       )
 
-    return id
+    return user.id
   }
 
-  public *unregister(users: readonly string[]) {
-    const _users = this.entityUserService.get()
-    const unregisterAt = Temporal.Now.zonedDateTimeISO()
+  public *unregister(users: readonly number[]) {
+    const ids = yield * call(
+      this.prismaService.$transaction(tx => run(function*() {
+        const _users = yield * call(tx.user.findMany({
+          select: { id: true },
+          where: { id: { in: users.concat() } },
+        }))
 
-    const reply = yield * pipe(
-      this.redisService.multi()
-        .zRemRangeByScore(_users.key, 0, unregisterAt.epochMilliseconds),
-      t => users.reduce(
-        (t, user) => t
-          .zRem(_users.key, user),
-        t,
-      ),
-      t => call(t.exec()),
+        const ids = _users.map(x => x.id)
+
+        yield * call(tx.user.deleteMany(
+          { where: { id: { in: ids } } },
+        ))
+
+        return ids
+      })),
     )
 
-    const unregisterUsers = pipe(
-      reply,
-      readonlyArray.dropLeft(1),
-      readonlyArray.zip(users),
-      readonlyArray.filterMap(
-        ([reply, user]) => 1 === reply ? option.some(user) : option.none,
-      ),
+    yield * this.entityUserService.getEvent().add(
+      '*',
+      { data: { timestamp: Date.now() }, type: 'unregister', users: ids },
+      {
+        NOMKSTREAM: true,
+        TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 },
+      },
     )
 
-    if (0 === unregisterUsers.length) {
-      return []
-    }
-
-    yield * this.entityUserService.getEvent()
-      .add(
-        '*',
-        { data: { timestamp: unregisterAt.epochMilliseconds }, type: 'unregister', users: unregisterUsers },
-        { NOMKSTREAM: true, TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 } },
-      )
-
-    return unregisterUsers
+    return ids
   }
 }

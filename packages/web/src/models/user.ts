@@ -2,8 +2,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { z } from 'zod'
 
 export namespace user{
-  export const id = z.string().min(1)
-
+  export const id = z.number().int().nonnegative()
   const eventData = z.object({
     timestamp: z.number(),
   })
@@ -34,8 +33,7 @@ export namespace user{
   export type Event = ReadonlyDeep<z.infer<typeof event>>
 
   export const info = z.object({
-    group: z.string(),
-    nickname: z.string().min(1),
+    name: z.string().min(1),
   })
 
   export type Info = Readonly<z.infer<typeof info>>

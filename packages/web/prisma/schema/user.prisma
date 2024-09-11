@@ -1,12 +1,8 @@
 model User {
-  createdAt DateTime @default(now())
+  createdAt DateTime
   expiredAt DateTime
   id        Int      @id @default(autoincrement())
   name      String
-
-  conversations        ConversationXParticipant[]
-  initiatorDialogues   Dialogue[]                 @relation("initiator")
-  participantDialogues Dialogue[]                 @relation("participant")
 
   @@map("users")
 }
