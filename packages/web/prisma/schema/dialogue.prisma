@@ -1,0 +1,13 @@
+model Dialogue {
+    conversation Int @id
+    initiator    Int
+    participant  Int
+
+    xConversation Conversation @relation(fields: [conversation], references: [id])
+    xInitiator    User         @relation(name: "initiator", fields: [initiator], references: [id])
+    xParticipant  User         @relation(name: "participant", fields: [participant], references: [id])
+
+    @@unique([initiator, participant])
+    @@unique([participant, initiator])
+    @@map("dialogues")
+}

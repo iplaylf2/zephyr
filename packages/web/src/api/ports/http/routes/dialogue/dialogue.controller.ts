@@ -16,5 +16,6 @@ export class DialogueController {
 
   @Put()
   public [`@Put()`]() {
+    void (this.conversationService, this.passport)
   }
 }

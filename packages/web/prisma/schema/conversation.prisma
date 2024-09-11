@@ -1,0 +1,25 @@
+model Conversation {
+    createdAt DateTime @default(now())
+    expiredAt DateTime
+    id        Int      @id @default(autoincrement())
+    name      String
+    type      String
+
+    participants ConversationXParticipant[]
+    dialogue     Dialogue?
+
+    @@map("conversations")
+}
+
+model ConversationXParticipant {
+    conversation Int
+    data         Json
+    participant  Int
+
+    xConversation Conversation @relation(fields: [conversation], references: [id])
+    xParticipant  User         @relation(fields: [participant], references: [id])
+
+    @@id([conversation, participant])
+    @@unique([participant, conversation])
+    @@map("conversations-x-participants")
+}
