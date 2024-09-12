@@ -2,6 +2,7 @@ import { FactoryProvider, Module } from '@nestjs/common'
 import { PrismaClient } from '../../generated/prisma/index.js'
 import { ResourceManagerService } from '../../common/resource-manager/resource-manager.service.js'
 import { call } from 'effection'
+import { env } from '../../env.js'
 import { globalScope } from '../../kits/effection/global-scope.js'
 
 const prismaProvider = {
@@ -11,7 +12,7 @@ const prismaProvider = {
     return globalScope.run(() =>
       resourceManagerService.initialize(
         function*() {
-          const client = new PrismaClient()
+          const client = new PrismaClient({ datasourceUrl: env.prisma.datasourceUrl })
 
           yield * call(client.$connect())
 

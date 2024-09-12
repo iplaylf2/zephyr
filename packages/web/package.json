@@ -30,6 +30,7 @@
     "@prisma/client": "5.19.1",
     "@redis/client": "^1.6.0",
     "defaults": "^3.0.0",
+    "dotenv": "^16.4.5",
     "effection": "^3.0.3",
     "fp-ts": "^2.16.9",
     "openapi3-ts": "^4.4.0",

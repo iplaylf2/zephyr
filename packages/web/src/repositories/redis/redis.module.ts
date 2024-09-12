@@ -8,6 +8,7 @@ import { ResourceManagerService } from '../../common/resource-manager/resource-m
 import { UserService } from './entities/user.service.js'
 import { call } from 'effection'
 import { createClient } from '@redis/client'
+import { env } from '../../env.js'
 import { globalScope } from '../../kits/effection/global-scope.js'
 
 const redisServiceProvider = {
@@ -17,7 +18,7 @@ const redisServiceProvider = {
     return globalScope.run(() =>
       resourceManagerService.initialize(
         function*() {
-          const client = createClient({ url: 'redis://redis' })
+          const client = createClient({ url: env.redis.url })
 
           yield * call(client.connect())
 
