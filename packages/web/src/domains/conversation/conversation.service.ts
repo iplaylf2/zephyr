@@ -1,4 +1,6 @@
-import { Conversations, ConversationService as EntityConversationService } from '../../repositories/redis/entities/conversation.service.js'
+import {
+  Conversations, ConversationService as EntityConversationService,
+} from '../../repositories/redis/entities/conversation.service.js'
 import { Operation, all, call } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
@@ -78,7 +80,7 @@ export abstract class ConversationService extends ModuleRaii {
       return []
     }
 
-    const system = new Participant('0', 'system')
+    const system = new Participant(-1, 'system')
 
     yield * this.post(
       conversation,
@@ -290,7 +292,7 @@ export abstract class ConversationService extends ModuleRaii {
       return []
     }
 
-    const system = new Participant('0', 'system')
+    const system = new Participant(-1, 'system')
 
     yield * this.post(
       conversation,
