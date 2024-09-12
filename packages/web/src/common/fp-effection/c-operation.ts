@@ -104,6 +104,10 @@ export namespace cOperation{
     of: Monad.of,
   }
 
+  export function sequenceArray<A>(arr: ReadonlyArray<COperation<A>>): COperation<ReadonlyArray<A>> {
+    return () => all(arr.map(x => x()))
+  }
+
   export const map = pipeable.map(Functor)
   export const apPar = pipeable.ap(ApplyPar)
   export const apSeq = pipeable.ap(ApplySeq)

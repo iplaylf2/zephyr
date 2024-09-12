@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { PrismaClient, User } from '../../generated/prisma/index.js'
 import { call, run } from 'effection'
+import { flow, pipe } from 'fp-ts/lib/function.js'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { coerceReadonly } from '../../utils/identity.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
-import { pipe } from 'fp-ts/lib/function.js'
+import { coerceReadonly } from '../../utils/identity.js'
 import { readonlyArray } from 'fp-ts'
 import { user } from '../../models/user.js'
 
@@ -49,20 +49,32 @@ export class UserService {
             id in ${users} for update
         `)
 
-        const now = Temporal.Now.zonedDateTimeISO()
         const ids = _users.map(x => x.id)
 
-        // _users.map(
-        //   readonlyRecordPlus.upsertAt(
-        //     'expireAt',
-        //     pipe(
-        //       now
-        //         .add({ seconds })
-        //         .epochMilliseconds,
-        //       x => new Date(x),
-        //     ),
-        //   ),
-        // )
+        if (0 === ids.length) {
+          return []
+        }
+
+        const now = Temporal.Now.zonedDateTimeISO()
+        const expiredAt = pipe(
+          now
+            .add({ seconds })
+            .epochMilliseconds,
+          x => new Date(x),
+        )
+
+        yield * pipe(
+          ids,
+          readonlyArray.map(flow(
+            id => () => tx.user.update({
+              data: { expiredAt },
+              select: {},
+              where: { id },
+            }),
+            cOperation.FromTask.fromTask,
+          )),
+          cOperation.sequenceArray,
+        )()
 
         yield * this.postUserEvent({
           data: { expire: seconds, timestamp: now.epochMilliseconds },
