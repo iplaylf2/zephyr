@@ -12,7 +12,7 @@ export namespace conversation{
 
   export const message = messageBody.merge(z.object({
     group: z.string(),
-    id: z.string(),
+    id: z.number(),
     sender: user.id,
     timestamp: z.number(),
   }))

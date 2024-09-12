@@ -202,13 +202,16 @@ export class UserService extends ModuleRaii {
   }
 
   private postUserEvent(event: user.Event) {
-    return this.entityUserService.getEvent().add(
-      '*',
-      event,
-      {
-        NOMKSTREAM: true,
-        TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 },
-      },
+    return pipe(
+      this.entityUserService.getEvent(),
+      x => x.add(
+        '*',
+        event,
+        {
+          NOMKSTREAM: true,
+          TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 },
+        },
+      ),
     )
   }
 }

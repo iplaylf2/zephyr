@@ -46,7 +46,7 @@ export namespace conversation{
     private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
       return apply.sequenceT(cOperation.ApplyPar)(
         pipe(
-          () => this.fetchConversationMap(event.users),
+          () => this.getConversationMap(event.users),
           cOperation.chain(flow(
             readonlyRecord.keys,
             x => () => this.expire(x),

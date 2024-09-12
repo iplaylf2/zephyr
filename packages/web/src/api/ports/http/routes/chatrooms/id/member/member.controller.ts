@@ -29,7 +29,7 @@ export class MemberController {
     return globalScope.run(function*(this: MemberController) {
       yield * this.checkAndExpire()
 
-      return yield * this.conversationService.removeParticipants(this.chatroom, [this.passport.id])
+      return yield * this.conversationService.deleteParticipants(this.chatroom, [this.passport.id])
     }.bind(this))
   }
 
