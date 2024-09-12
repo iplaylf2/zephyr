@@ -260,7 +260,7 @@ export namespace cStream{
     )
   }
 
-  export function fromIOOperation<A>(a: cOperation.COperation<A>): CStream<A, void> {
+  export function fromCOperation<A>(a: cOperation.COperation<A>): CStream<A, void> {
     return cOperation.Monad.chain(a, Pointed.of<void, A>)
   }
 
