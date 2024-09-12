@@ -1,15 +1,15 @@
+import { LazyArg, constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { Operation, Stream, all } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
   io, ioOption, monad, monadIO, monadTask, monoid, option,
   pipeable, pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
-import { constant, flow, pipe } from 'fp-ts/lib/function.js'
-import { ioOperation } from './io-operation.js'
+import { cOperation } from './c-operation.js'
 
-export namespace ioStream{
-  export type IOStream<T, R> = io.IO<Stream<T, R>>
-  export const URI = 'IOStream.effection'
+export namespace cStream{
+  export type CStream<T, R> = LazyArg<Stream<T, R>>
+  export const URI = 'CStream.effection'
   export type URI = typeof URI
 
   export const Functor: functor.Functor2<URI> = {
@@ -33,9 +33,9 @@ export namespace ioStream{
   }
 
   export const Pointed: pointed.Pointed2<URI> = {
-    URI: 'IOStream.effection',
+    URI,
     // eslint-disable-next-line require-yield
-    of: <E, A>(a: A): IOStream<A, E> => function*() {
+    of: <E, A>(a: A): CStream<A, E> => function*() {
       const iterator = [a][Symbol.iterator]() as Iterator<A, E>
 
       return {
@@ -60,7 +60,7 @@ export namespace ioStream{
 
   export const Apply: apply.Apply2<URI> = {
     URI,
-    ap: <E, A, B>(fab: IOStream<(a: A) => B, E>, fa: IOStream<A, E>) => function*() {
+    ap: <E, A, B>(fab: CStream<(a: A) => B, E>, fa: CStream<A, E>) => function*() {
       const [abSubscription, _aSubscription] = yield * all([fab(), Zero.zero<E, A>()()])
 
       let aSubscription = _aSubscription
@@ -106,7 +106,7 @@ export namespace ioStream{
   export const Chain: chain.Chain2<URI> = {
     URI,
     ap: Apply.ap,
-    chain: <E, A, B>(fa: IOStream<A, E>, f: (a: A) => IOStream<B, E>) => function*() {
+    chain: <E, A, B>(fa: CStream<A, E>, f: (a: A) => CStream<B, E>) => function*() {
       const [aSubscription, _bSubscription] = yield * all([fa(), Zero.zero<E, B>()()])
 
       let bSubscription = _bSubscription
@@ -166,8 +166,8 @@ export namespace ioStream{
     URI,
     fromIO: FromIO.fromIO,
     fromTask: <A, E>(fa: task.Task<A>) => pipe(
-      ioOperation.FromTask.fromTask(fa),
-      ioOperation.chain(Pointed.of<E, A>),
+      cOperation.FromTask.fromTask(fa),
+      cOperation.chain(Pointed.of<E, A>),
     ),
   }
 
@@ -184,7 +184,7 @@ export namespace ioStream{
   export const Unfoldable: unfoldable.Unfoldable2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    unfold: <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): IOStream<A, E> => function* () {
+    unfold: <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): CStream<A, E> => function* () {
       let done = false
 
       return {
@@ -217,7 +217,7 @@ export namespace ioStream{
     },
   }
 
-  export const getMonoid = <E = never, A = never>(): monoid.Monoid<IOStream<A, E>> => ({
+  export const getMonoid = <E = never, A = never>(): monoid.Monoid<CStream<A, E>> => ({
     concat: (x, y) => function*() {
       let s = yield * x()
 
@@ -246,11 +246,11 @@ export namespace ioStream{
     empty: Zero.zero<E, A>(),
   })
 
-  export function repeat<A>(a: A): IOStream<A, void> {
+  export function repeat<A>(a: A): CStream<A, void> {
     return Unfoldable.unfold(a, a => option.some([a, a] as const))
   }
 
-  export function fromArray<A>(as: readonly A[]): IOStream<A, void> {
+  export function fromArray<A>(as: readonly A[]): CStream<A, void> {
     return Unfoldable.unfold(
       [as, 0 as number] as const,
       ([as, index]) =>
@@ -260,19 +260,19 @@ export namespace ioStream{
     )
   }
 
-  export function fromIOOperation<A>(a: ioOperation.IOOperation<A>): IOStream<A, void> {
-    return ioOperation.Monad.chain(a, Pointed.of<void, A>)
+  export function fromIOOperation<A>(a: cOperation.COperation<A>): CStream<A, void> {
+    return cOperation.Monad.chain(a, Pointed.of<void, A>)
   }
 
   export function takeLeftWhile<E, A, B extends A>(
     predicate: refinement.Refinement<A, B>,
-  ): (as: IOStream<A, E>) => IOStream<B, E>
+  ): (as: CStream<A, E>) => CStream<B, E>
   export function takeLeftWhile<E, A>(
     predicate: predicate.Predicate<A>
-  ): <B extends A>(bs: IOStream<B, E>) => IOStream<B, E>
+  ): <B extends A>(bs: CStream<B, E>) => CStream<B, E>
   export function takeLeftWhile<E, A>(
     predicate: predicate.Predicate<A>,
-  ): (as: IOStream<A, E>) => IOStream<A, E> {
+  ): (as: CStream<A, E>) => CStream<A, E> {
     return as => function*() {
       const s = yield * as()
       let iReturn: IteratorReturnResult<E> | undefined
@@ -310,6 +310,6 @@ export namespace ioStream{
 
 declare module 'fp-ts/HKT' {
   export interface URItoKind2<E, A> {
-    readonly [ioStream.URI]: ioStream.IOStream<A, E>
+    readonly [cStream.URI]: cStream.CStream<A, E>
   }
 }

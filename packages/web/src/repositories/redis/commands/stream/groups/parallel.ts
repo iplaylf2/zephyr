@@ -3,7 +3,7 @@ import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../generic.js'
 import defaults from 'defaults'
-import { ioStream } from '../../../../../common/fp-effection/io-stream.js'
+import { cStream } from '../../../../../common/fp-effection/c-stream.js'
 import { stream } from '../../../../../kits/effection/stream.js'
 
 export namespace group{
@@ -54,7 +54,7 @@ export namespace group{
       const newMessages = stream.exhaust(() => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: batchLimit }))
 
       // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-      const messages = ioStream.getMonoid<void, StreamMessage<T>>().concat(pendingMessages, newMessages)
+      const messages = cStream.getMonoid<void, StreamMessage<T>>().concat(pendingMessages, newMessages)
 
       for (const message of yield * each(messages())) {
         void (yield * spawn(function*() {

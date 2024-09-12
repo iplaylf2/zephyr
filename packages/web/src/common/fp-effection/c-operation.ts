@@ -1,13 +1,13 @@
+import { LazyArg, flow } from 'fp-ts/lib/function.js'
 import { Operation, all, call } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
   io, monad, monadIO, monadTask, pipeable, pointed,
 } from 'fp-ts'
-import { flow } from 'fp-ts/lib/function.js'
 
-export namespace ioOperation{
-  export type IOOperation<A> = io.IO<Operation<A>>
-  export const URI = 'IOOperation.effection'
+export namespace cOperation{
+  export type COperation<A> = LazyArg <Operation<A>>
+  export const URI = 'COperation.effection'
   export type URI = typeof URI
 
   export const Functor: functor.Functor1<URI> = {
@@ -112,6 +112,6 @@ export namespace ioOperation{
 
 declare module 'fp-ts/HKT' {
   export interface URItoKind<A> {
-    readonly [ioOperation.URI]: ioOperation.IOOperation<A>
+    readonly [cOperation.URI]: cOperation.COperation<A>
   }
 }

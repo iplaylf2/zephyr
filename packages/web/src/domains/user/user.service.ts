@@ -4,7 +4,7 @@ import { call, run } from 'effection'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { coerceReadonly } from '../../utils/identity.js'
-import { ioOperation } from '../../common/fp-effection/io-operation.js'
+import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { readonlyArray } from 'fp-ts'
 import { user } from '../../models/user.js'
@@ -28,8 +28,8 @@ export class UserService {
           id: { in: users.concat() },
         },
       }),
-      ioOperation.FromTask.fromTask,
-      ioOperation.map(
+      cOperation.FromTask.fromTask,
+      cOperation.map(
         readonlyArray.map(x => x.id),
       ),
     )()
@@ -80,8 +80,8 @@ export class UserService {
       () => this.prismaClient.user.findMany({
         where: { id: { in: users.concat() } },
       }),
-      ioOperation.FromTask.fromTask,
-      ioOperation.map(coerceReadonly),
+      cOperation.FromTask.fromTask,
+      cOperation.map(coerceReadonly),
     )()
   }
 

@@ -6,7 +6,7 @@ import { ConversationService as EntityConversationService } from '../../../repos
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../../repositories/redis/entities/user.service.js'
-import { ioOperation } from '../../../common/fp-effection/io-operation.js'
+import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { user } from '../../../models/user.js'
 
 export namespace conversation{
@@ -44,10 +44,10 @@ export namespace conversation{
     // }
 
     private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
-      return apply.sequenceT(ioOperation.ApplyPar)(
+      return apply.sequenceT(cOperation.ApplyPar)(
         pipe(
           () => this.fetchConversationMap(event.users),
-          ioOperation.chain(flow(
+          cOperation.chain(flow(
             readonlyRecord.keys,
             x => () => this.expire(x),
           )),
@@ -75,7 +75,7 @@ export namespace conversation{
             ),
           identity.ap(event.data.expire),
           t => () => t.exec(),
-          ioOperation.FromTask.fromTask,
+          cOperation.FromTask.fromTask,
         ),
       )()
     }

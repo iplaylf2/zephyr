@@ -7,9 +7,9 @@ import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './participant.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
+import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
-import { ioOperation } from '../../common/fp-effection/io-operation.js'
 import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
@@ -235,7 +235,7 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       this.entityConversationService.getParticipantConversationsProgress(this.type, participant),
       x => () => x.getAll(),
-      ioOperation.map(
+      cOperation.map(
         x => (x ?? {}) as Readonly<Record<string, string>>,
       ),
     )()
@@ -245,7 +245,7 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       this.entityConversationService.getRecords(this.type, conversation),
       x => () => x.range(start, end),
-      ioOperation.map(
+      cOperation.map(
         readonlyArray.map(x => ({ id: x.id, ...x.message })),
       ),
     )()
