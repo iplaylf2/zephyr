@@ -1,13 +1,12 @@
 import { FactoryProvider, Module } from '@nestjs/common'
 import { PrismaClient } from '../../generated/prisma/index.js'
-import { PrismaService } from './prisma.service.js'
 import { ResourceManagerService } from '../../common/resource-manager/resource-manager.service.js'
 import { call } from 'effection'
 import { globalScope } from '../../kits/effection/global-scope.js'
 
 const prismaProvider = {
   inject: [ResourceManagerService],
-  provide: PrismaService,
+  provide: PrismaClient,
   useFactory(resourceManagerService: ResourceManagerService) {
     return globalScope.run(() =>
       resourceManagerService.initialize(
