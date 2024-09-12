@@ -42,7 +42,7 @@ export class AuthGuard implements CanActivate {
 }
 
 export abstract class Passport {
-  public abstract readonly id: string
+  public abstract readonly id: number
 }
 
 export namespace Passport{

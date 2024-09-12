@@ -15,9 +15,14 @@ import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
 
 export abstract class ConversationService extends ModuleRaii {
-  protected readonly participantsExpireCallbacks = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
-  protected readonly participantsRegisterCallbacks = new Array<(event: Extract<user.Event, { type: 'register' }>) => Operation<any>>()
-  protected readonly participantsUnregisterCallbacks = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
+  protected readonly participantsExpireCallbacks
+    = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
+
+  protected readonly participantsRegisterCallbacks
+    = new Array<(event: Extract<user.Event, { type: 'register' }>) => Operation<any>>()
+
+  protected readonly participantsUnregisterCallbacks
+    = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
 
   public abstract readonly defaultConversationExpire: Temporal.Duration
   public abstract readonly defaultParticipantExpire: Temporal.Duration

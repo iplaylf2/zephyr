@@ -1,5 +1,8 @@
 import { ApiCreatedResponse, ApiOkResponse, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, InternalServerErrorException, Post, Put, ServiceUnavailableException } from '@nestjs/common'
+import {
+  Body, Controller, Delete, Get, HttpCode, HttpStatus,
+  Inject, InternalServerErrorException, Post, Put,
+} from '@nestjs/common'
 import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
@@ -51,13 +54,9 @@ export class UserController {
     type: user.CreationResultDto,
   })
   @Post()
-  public async [`@Post()`](@Body() creationData: user.CreationDataDto): Promise<user.CreationResultDto> {
+  public async [`@Post()`](@Body() info: user.InfoDto): Promise<user.CreationResultDto> {
     return globalScope.run(function*(this: UserController) {
-      const id = yield * this.userService.register({ group: 'user', nickname: creationData.nickname })
-
-      if (null === id) {
-        throw new ServiceUnavailableException()
-      }
+      const id = yield * this.userService.register(info)
 
       return {
         id: id,
@@ -69,9 +68,9 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePassport()
   @Put('info')
-  public async [`@Put('info')`](@Passport.param passport: Passport, @Body() updateData: user.UpdateDataDto) {
+  public async [`@Put('info')`](@Passport.param passport: Passport, @Body() info: user.InfoDto) {
     await globalScope.run(() =>
-      this.userService.put(passport.id, updateData),
+      this.userService.put(passport.id, info),
     )
   }
 }

@@ -1,16 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { PrismaClient, User } from '../../generated/prisma/index.js'
-import { call, run } from 'effection'
-import { flow, pipe } from 'fp-ts/lib/function.js'
+import { call, run, sleep } from 'effection'
+import { readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
+import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { coerceReadonly } from '../../utils/identity.js'
-import { readonlyArray } from 'fp-ts'
+import { pipe } from 'fp-ts/lib/function.js'
 import { user } from '../../models/user.js'
 
 @Injectable()
-export class UserService {
+export class UserService extends ModuleRaii {
   @Inject()
   private readonly entityUserService!: EntityUserService
 
@@ -18,6 +19,12 @@ export class UserService {
   private readonly prismaClient!: PrismaClient
 
   public readonly defaultExpire = Temporal.Duration.from({ days: 1 })
+
+  public constructor() {
+    super()
+
+    this.initializeCallbacks.push(() => this.deleteExpiredUsers())
+  }
 
   public exists(users: readonly number[]) {
     return pipe(
@@ -65,15 +72,15 @@ export class UserService {
 
         yield * pipe(
           ids,
-          readonlyArray.map(flow(
+          readonlyArray.map(
             id => () => tx.user.update({
               data: { expiredAt },
               select: {},
               where: { id },
             }),
-            cOperation.FromTask.fromTask,
-          )),
-          cOperation.sequenceArray,
+          ),
+          task.sequenceArray,
+          cOperation.FromTask.fromTask,
         )()
 
         yield * this.postUserEvent({
@@ -176,6 +183,22 @@ export class UserService {
         return ids
       }.bind(this))),
     )
+  }
+
+  private *deleteExpiredUsers() {
+    while (true) {
+      const expiredUsers = yield * call(this.prismaClient.user.findMany({
+        select: { id: true },
+        where: { expiredAt: { lte: new Date() } },
+      }))
+
+      yield * this.unregister(expiredUsers.map(x => x.id))
+
+      yield * sleep(Temporal.Duration
+        .from({ minutes: 10 })
+        .total('milliseconds'),
+      )
+    }
   }
 
   private postUserEvent(event: user.Event) {

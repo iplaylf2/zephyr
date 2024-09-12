@@ -26,8 +26,8 @@ export namespace group{
       let processed: string[] = []
 
       yield * this.stream.groupCreate(this.group, '0', { MKSTREAM: true })
-      yield * ensure(
-        () => 0 === processed.length ? (void 0) : this.ack(processed),
+      yield * ensure(() =>
+        0 === processed.length ? (void 0) : this.ack(processed),
       )
 
       const blockStream = yield * this.stream.isolate()
