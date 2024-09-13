@@ -2,9 +2,9 @@ import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'
 import { PrismaClient } from '../../generated/prisma/index.js'
-import { Operation, all, call } from 'effection'
+import { Operation, all, call, run } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { identity, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
+import { identity, number, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './participant.js'
@@ -16,6 +16,7 @@ import { group } from '../../repositories/redis/commands/stream/groups/parallel.
 import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
 import { user } from '../../models/user.js'
+import { UserService } from '../user/user.service.js'
 
 export abstract class ConversationService extends ModuleRaii {
   protected readonly participantsExpireCallbacks
@@ -35,13 +36,14 @@ export abstract class ConversationService extends ModuleRaii {
   protected abstract readonly entityUserService: EntityUserService
   protected abstract readonly prismaClient: PrismaClient
   protected abstract readonly redisService: RedisService
+  protected abstract readonly userService: UserService
 
   public constructor() {
     super()
 
     this.initializeCallbacks.push(() => this.listenUserEvent())
     this.participantsExpireCallbacks.push(event => this.expireParticipantsByEvent(event))
-    this.participantsUnregisterCallbacks.push(event => this.removeParticipantsByEvent(event))
+    this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
   }
 
   public *addParticipants(conversation: string, users: readonly string[]) {
@@ -135,7 +137,7 @@ export abstract class ConversationService extends ModuleRaii {
     const ok = pipe(
       reply,
       readonlyArray.last,
-      option.match(
+      option.fold(
         () => false,
         x => 1 === x,
       ),
@@ -321,7 +323,7 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       reply,
       readonlyArray.head,
-      option.match(
+      option.fold(
         () => false,
         x => 0 < (x as number),
       ),
@@ -364,6 +366,44 @@ export abstract class ConversationService extends ModuleRaii {
     const _participants = yield * participants.range(0, Date.now(), { BY: 'SCORE' })
 
     return yield * this.deleteParticipants(conversation, _participants)
+  }
+
+  private *deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
+    const deletedUsers = yield * pipe(
+      () => this.prismaClient.user.findMany({
+        select: { id: true },
+        where: { id: { in: event.users.concat() } },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(flow(
+        readonlyArray.map(x => x.id),
+        a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
+        identity.ap(event.users),
+      )),
+    )()
+
+    if (0 === deletedUsers.length) {
+      return
+    }
+
+    const x = yield * pipe(
+      () => this.prismaClient.conversationXParticipant.findMany({
+        select: { conversation: true, participant: true },
+        where: { participant: { in: deletedUsers.concat() } },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(flow(
+        readonlyArray.map(x => [x.conversation, x.participant] as const),
+      )),
+    )()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
+        yield * call(tx.user.deleteMany({
+          where: { id: { in: deletedUsers.concat() } },
+        }))
+      }.bind(this))),
+    )
   }
 
   private expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
@@ -414,10 +454,6 @@ export abstract class ConversationService extends ModuleRaii {
       ),
     )
   }
-
-  private removeParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
-    return call(this.prismaClient.conversationXParticipant.deleteMany({
-      where: { participant: { in: event.users.concat() } },
-    }))
-  }
 }
+
+const system = new Participant(-1, 'system')

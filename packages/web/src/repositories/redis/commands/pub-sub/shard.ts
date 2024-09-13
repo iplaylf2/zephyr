@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Operation, call } from 'effection'
-import { io, ioEither } from 'fp-ts'
+import { flow, pipe } from 'fp-ts/lib/function.js'
+import { io, option } from 'fp-ts'
 import { Isolable } from '../common.js'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '../generic.js'
-import { pipe } from 'fp-ts/lib/function.js'
 
 abstract class PubSub<
   const BufferMode extends boolean,
@@ -19,19 +19,19 @@ abstract class PubSub<
 
   protected cacheAndTransformListener(listener: pubSub.Listener<T, Channel>) {
     return pipe(
-      ioEither.right(listener),
-      ioEither.flatMapNullable(
-        x => this.rawListenerMap.get(x),
-        x => x,
-      ),
-      ioEither.getOrElse(listener =>
-        pipe(
-          ((message, channel) =>
-            listener(this.decode(message), channel.toString() as Channel)
-          ) satisfies PubSubListener<BufferMode>,
+      () => this.rawListenerMap.get(listener),
+      io.chain(flow(
+        option.fromNullable,
+        option.fold(
+          flow(
+            () => () => ((message, channel) =>
+              listener(this.decode(message), channel.toString() as Channel)
+            ) satisfies PubSubListener<BufferMode>,
+            io.tap(x => () => this.rawListenerMap.set(listener, x)),
+          ),
           io.of,
-          io.tap(x => () => this.rawListenerMap.set(listener, x)),
-        )),
+        ),
+      )),
     )()
   }
 

@@ -2,8 +2,8 @@ import { LazyArg, constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { Operation, Stream, all } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
-  io, ioOption, monad, monadIO, monadTask, monoid, option,
-  pipeable, pointed, predicate, refinement, task, unfoldable, zero,
+  io, monad, monadIO, monadTask, monoid, option, pipeable,
+  pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
 import { cOperation } from './c-operation.js'
 
@@ -196,20 +196,16 @@ export namespace cStream{
 
           return pipe(
             f(b),
-            ioOption.fromOption,
-            ioOption.fold(
+            option.fold(
               flow(
-                constant(ioOption.none),
-                io.tap(() => () => (done = true)),
+                () => () => (done = true),
+                io.map(constant({ done: true } as IteratorResult<A, E>)),
               ),
               flow(
-                ioOption.some,
-                ioOption.tapIO(([,_b]) => () => (b = _b)),
+                io.of,
+                io.tap(([,_b]) => () => (b = _b)),
+                io.map(([a]) => ({ value: a })),
               ),
-            ),
-            ioOption.match(
-              () => ({ done: true }) as IteratorResult<A, E>,
-              ([a]) => ({ value: a }),
             ),
           )()
         },
