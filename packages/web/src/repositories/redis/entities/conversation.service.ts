@@ -32,7 +32,7 @@ export class ConversationService {
     return new Conversations.Participants(this.redisService, type, conversation)
   }
 
-  public getRecords(type: string, conversation: string) {
+  public getRecords(type: string, conversation: number) {
     return Conversations.Records.get(this.redisService, type, conversation)
   }
 }
@@ -55,10 +55,10 @@ export namespace Conversations{
       super()
     }
 
-    public static get(client: RedisClientType, type: string, conversation: string) {
+    public static get(client: RedisClientType, type: string, conversation: number) {
       return new Records(
         client,
-        `stream://${encodeURIComponent(type)}.conversations/${encodeURIComponent(conversation)}/records`,
+        `stream://${encodeURIComponent(type)}.conversations/${conversation.toString()}/records`,
       )
     }
 
