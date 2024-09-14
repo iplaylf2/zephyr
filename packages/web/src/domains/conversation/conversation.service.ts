@@ -292,14 +292,14 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public getData(participant: string) {
+  public getData(participant: number) {
     return pipe(
-      this.entityConversationService.getParticipantConversationsProgress(this.type, participant),
-      x => () => x.getAll(),
-      cOperation.map(
-        x => (x ?? {}) as Readonly<Record<string, string>>,
-      ),
-    )()
+      () => call(this.prismaClient.conversationXParticipant.findMany({
+        select: { conversation: true, data: true },
+        where: { expiredAt: { gt: new Date() }, participant },
+      })),
+
+    )
   }
 
   public patchData(participant: number, progress: Readonly<Record<number, JsonObject>>) {
@@ -308,8 +308,8 @@ export abstract class ConversationService extends ModuleRaii {
         Object.entries(progress),
         x => Array.from(x),
         flip((now: Date) =>
-          readonlyArray.map(flow(
-            ([conversation, data]) => [
+          readonlyArray.map(
+            ([conversation, data]) => pipe(
               () => tx.$executeRaw`
               update
                 "conversation-x-participant"
@@ -319,13 +319,9 @@ export abstract class ConversationService extends ModuleRaii {
                 conversation = ${conversation} and
                 participant = ${participant} and
                 ${now} < expiredAt`,
-              Number(conversation),
-            ] as const,
-            ([_task, conversation]) => pipe(
-              _task,
-              task.map(x => 0 < x ? option.some(conversation) : option.none),
+              task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
             ),
-          ))),
+          )),
         identity.ap(new Date()),
         task.sequenceArray,
         task.map(
