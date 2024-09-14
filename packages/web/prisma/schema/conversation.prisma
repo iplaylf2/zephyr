@@ -24,5 +24,5 @@ model ConversationXParticipant {
     @@id([conversation, participant])
     @@unique([participant, conversation])
     @@index([expiredAt])
-    @@map("conversations-x-participants")
+    @@map("conversation-x-participant")
 }

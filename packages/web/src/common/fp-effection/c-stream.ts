@@ -198,8 +198,9 @@ export namespace cStream{
             f(b),
             option.fold(
               flow(
-                () => () => (done = true),
-                io.map(constant({ done: true } as IteratorResult<A, E>)),
+                constant({ done: true } as IteratorResult<A, E>),
+                io.of,
+                io.tap(() => () => (done = true)),
               ),
               flow(
                 io.of,

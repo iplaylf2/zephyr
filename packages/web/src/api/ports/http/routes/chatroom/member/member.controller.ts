@@ -49,7 +49,7 @@ export class MemberController {
   @Put('chatrooms/progress')
   public async [`@Put('chatrooms/progress')`](@Body() progressRecord: member.ProgressRecordDto) {
     await globalScope.run(() =>
-      this.conversationService.setProgress(this.passport.id, progressRecord),
+      this.conversationService.patchData(this.passport.id, progressRecord),
     )
   }
 }

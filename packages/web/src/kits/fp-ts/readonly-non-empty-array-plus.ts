@@ -16,8 +16,9 @@ export namespace readonlyNonEmptyArrayPlus{
             io.chain(flow(
               option.fromNullable,
               option.fold(
-                () => pipe(
-                  () => [],
+                flow(
+                  constant([]),
+                  io.of,
                   io.tap(x => () => map.set(key, x)),
                 ),
                 io.of,

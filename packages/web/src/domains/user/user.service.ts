@@ -157,7 +157,7 @@ export class UserService extends ModuleRaii {
         select
           id
         from 
-          User
+          "users"
         where
           id in ${users}
         for update`,
@@ -174,7 +174,7 @@ export class UserService extends ModuleRaii {
         select
           id
         from 
-          User
+          "users"
         where 
           ${Date.now()} < expiredAt and
           id in ${users}
@@ -228,7 +228,6 @@ export class UserService extends ModuleRaii {
       )()
 
       yield * this.unregister(expiredUsers)
-
       yield * sleep(interval)
     }
   }
