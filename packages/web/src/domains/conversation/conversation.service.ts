@@ -285,19 +285,27 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public fetchParticipants(conversation: string) {
-    return pipe(
-      this.entityConversationService.getParticipants(this.type, conversation),
-      x => x.range('-inf', '+inf', { BY: 'SCORE' }),
-    )
-  }
-
   public getData(participant: number) {
     return pipe(
-      () => call(this.prismaClient.conversationXParticipant.findMany({
+      () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversation: true, data: true },
         where: { expiredAt: { gt: new Date() }, participant },
-      })),
+      }),
+      task.map(flow(
+        readonlyNonEmptyArray.groupBy(x => x.conversation.toString()),
+        readonlyRecord.map(
+          readonlyArray.map(x => x.data),
+        ),
+      )),
+      cOperation.FromTask.fromTask,
+    )()
+  }
+
+  public getParticipants(conversation: number) {
+    return pipe(
+      () => this.prismaClient.conversationXParticipant.findMany({
+        where: { conversation, expiredAt: { gt: new Date() } },
+      }),
 
     )
   }

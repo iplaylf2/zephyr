@@ -33,7 +33,7 @@ export class IdController {
     return globalScope.run(function*(this: IdController) {
       yield * this.checkAndExpire()
 
-      return yield * this.conversationService.fetchParticipants(this.id)
+      return yield * this.conversationService.getParticipants(this.id)
     }.bind(this))
   }
 
