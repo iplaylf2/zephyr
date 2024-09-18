@@ -25,9 +25,6 @@ export abstract class ConversationService extends ModuleRaii {
   protected readonly participantsExpireCallbacks
     = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
 
-  protected readonly participantsRegisterCallbacks
-    = new Array<(event: Extract<user.Event, { type: 'register' }>) => Operation<any>>()
-
   protected readonly participantsUnregisterCallbacks
     = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
 
@@ -46,6 +43,7 @@ export abstract class ConversationService extends ModuleRaii {
     super()
 
     this.initializeCallbacks.push(() => this.listenUserEvent())
+    this.initializeCallbacks.push(() => this.deleteExpiredConversions())
     this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
     this.participantsExpireCallbacks.push(event => this.expireParticipantsByEvent(event))
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
@@ -59,13 +57,16 @@ export abstract class ConversationService extends ModuleRaii {
         readonlyArray.map(
           ([conversation, key]) => pipe(
             () => tx.$executeRaw`
-            update
-              "conversation-x-participant"
-            set
-              data = data - ${key}
-            where
-              conversation = ${conversation} and
-              participant = ${participant}`,
+              update
+                "conversation-x-participant" x
+              set
+                data = x.data - ${key}
+              from conversations
+              where
+                conversations.id = x.conversation and
+                conversations.type = ${this.type} and
+                x.conversation = ${conversation} and
+                x.participant = ${participant}`,
             task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
           ),
         ),
@@ -86,14 +87,19 @@ export abstract class ConversationService extends ModuleRaii {
           return []
         }
 
+        const now = Date.now()
+
         yield * call(tx.conversationXParticipant.deleteMany({
-          where: { conversation, participant: { in: removedParticipants.concat() } },
+          where: {
+            conversation,
+            participant: { in: removedParticipants.concat() },
+            xConversation: { type: this.type } },
         }))
 
         yield * this.post(
           conversation,
           system.say({
-            content: { participants: removedParticipants, type: 'leave' },
+            content: { participants: removedParticipants, timestamp: now, type: 'leave' },
             type: 'event',
           }),
         )
@@ -107,7 +113,11 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       () => this.prismaClient.conversation.findMany({
         select: { id: true },
-        where: { expiredAt: { gt: new Date() }, id: { in: conversations.concat() } },
+        where: {
+          expiredAt: { gt: new Date() },
+          id: { in: conversations.concat() },
+          type: this.type,
+        },
       }),
       task.map(
         readonlyArray.map(x => x.id),
@@ -120,7 +130,11 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { participant: true },
-        where: { conversation, participant: { in: participants.concat() } },
+        where: {
+          conversation,
+          participant: { in: participants.concat() },
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
       }),
       task.map(
         readonlyArray.map(x => x.participant),
@@ -135,7 +149,11 @@ export abstract class ConversationService extends ModuleRaii {
   ) {
     const _conversations = yield * pipe(
       () => this.prismaClient.conversation.findMany({
-        where: { expiredAt: { gt: new Date() }, id: { in: conversations.concat() } },
+        where: {
+          expiredAt: { gt: new Date() },
+          id: { in: conversations.concat() },
+          type: this.type,
+        },
       }),
       task.map(
         readonlyArray.map(x => x.id),
@@ -169,7 +187,9 @@ export abstract class ConversationService extends ModuleRaii {
     yield * call(this.prismaClient.conversation.updateMany({
       data: { expiredAt },
       where: {
-        expiredAt: { lt: expiredAt }, id: { in: _conversations.concat() },
+        expiredAt: { lt: expiredAt },
+        id: { in: _conversations.concat() },
+        type: this.type,
       },
     }))
 
@@ -180,7 +200,10 @@ export abstract class ConversationService extends ModuleRaii {
     const conversations = yield * pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversation: true },
-        where: { participant },
+        where: {
+          participant,
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
       }),
       task.map(
         readonlyArray.map(x => x.conversation),
@@ -218,7 +241,10 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversation: true, data: true },
-        where: { participant },
+        where: {
+          participant,
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
       }),
       task.map(flow(
         readonlyArray.map(x => [x.conversation, x.data as JsonObject] as const),
@@ -232,7 +258,10 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { participant: true },
-        where: { conversation },
+        where: {
+          conversation,
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
       }),
       task.map(
         readonlyArray.map(x => x.participant),
@@ -249,13 +278,16 @@ export abstract class ConversationService extends ModuleRaii {
         readonlyArray.map(
           ([conversation, data]) => pipe(
             () => tx.$executeRaw`
-            update
-              "conversation-x-participant"
-            set
-              data = data || ${data}
-            where
-              conversation = ${conversation} and
-              participant = ${participant}`,
+              update
+                "conversation-x-participant" x
+              set
+                data = x.data || ${data}
+                from conversations
+              where
+                conversations.id = x.conversation and
+                conversations.type = ${this.type} and
+                x.conversation = ${conversation} and
+                x.participant = ${participant}`,
             task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
           ),
         ),
@@ -305,25 +337,21 @@ export abstract class ConversationService extends ModuleRaii {
   public postParticipants(conversation: number, users: readonly number[]) {
     return call(
       this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
-        const _users = yield * pipe(
-          () => tx.user.findMany({
-            select: { id: true },
-            where: { id: { in: users.concat() } },
-          }),
-          task.map(
-            readonlyArray.map(x => x.id),
-          ),
-          cOperation.FromTask.fromTask,
-        )()
+        const _users = yield * this.userService.selectValidUsersForUpdate(tx, users)
 
         if (0 === _users.length) {
           return []
         }
 
+        //
+
         const newParticipants = yield * pipe(
           () => tx.conversationXParticipant.findMany({
             select: { participant: true },
-            where: { conversation, participant: { in: _users.concat() } },
+            where: {
+              conversation,
+              participant: { in: _users.concat() },
+            },
           }),
           cOperation.FromTask.fromTask,
           cOperation.map(flow(
@@ -333,11 +361,15 @@ export abstract class ConversationService extends ModuleRaii {
           )),
         )()
 
+        if (0 === newParticipants.length) {
+          return []
+        }
+
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
 
-        yield * call(tx.conversationXParticipant.createMany({
+        const { count } = yield * call(tx.conversationXParticipant.createMany({
           data: newParticipants.map(participant =>
             ({ conversation, createdAt, data: {}, expiredAt, participant }),
           ),
@@ -391,7 +423,7 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
         select
-          participant
+          participant 
         from 
           "conversation-x-participant"
         where
@@ -436,6 +468,20 @@ export abstract class ConversationService extends ModuleRaii {
     const _participant = new Participant(participant, 'user')
 
     return yield * this.post(conversation, _participant.say(body))
+  }
+
+  private *deleteExpiredConversions() {
+    const interval = Temporal.Duration
+      .from({ minutes: 10 })
+      .total('milliseconds')
+
+    while (true) {
+      yield * call(this.prismaClient.conversation.deleteMany({
+        where: { expiredAt: { lte: new Date() } },
+      }))
+
+      yield * sleep(interval)
+    }
   }
 
   private *deleteExpiredParticipants() {
@@ -547,7 +593,7 @@ export abstract class ConversationService extends ModuleRaii {
       flow(
         ({ message }) => match(message)
           .with({ type: 'expire' }, messageHandlerAp(this.participantsExpireCallbacks))
-          .with({ type: 'register' }, messageHandlerAp(this.participantsRegisterCallbacks))
+          .with({ type: 'register' }, () => [])
           .with({ type: 'unregister' }, messageHandlerAp(this.participantsUnregisterCallbacks))
           .exhaustive(),
         all,

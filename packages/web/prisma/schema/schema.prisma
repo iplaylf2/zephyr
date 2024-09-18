@@ -6,7 +6,7 @@
 
 generator client {
   output          = "../../src/generated/prisma"
-  previewFeatures = ["prismaSchemaFolder"]
+  previewFeatures = ["prismaSchemaFolder", "relationJoins"]
   provider        = "prisma-client-js"
 }
 
