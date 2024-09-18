@@ -25,7 +25,7 @@ export namespace conversation{
     public constructor() {
       super()
 
-      this.initializeCallbacks.push(() => this.createConversation('default'))
+      this.initializeCallbacks.push(() => this.postConversation('default'))
       this.initializeCallbacks.push(() => this.refreshGroup())
     }
 

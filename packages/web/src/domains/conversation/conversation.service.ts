@@ -1,25 +1,25 @@
+import { Conversation, ConversationXParticipant, Prisma, PrismaClient } from '../../generated/prisma/index.js'
 import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'
-import { Conversation, ConversationXParticipant, Prisma, PrismaClient } from '../../generated/prisma/index.js'
 import { Operation, all, call, run, sleep } from 'effection'
-import { flip, flow, pipe } from 'fp-ts/lib/function.js'
-import { apply, identity, number, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord, semigroup, task } from 'fp-ts'
+import { flow, pipe } from 'fp-ts/lib/function.js'
+import { identity, number, option, readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
+import { GenericService } from '../../repositories/redis/entities/generic.service.js'
+import { JsonObject } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './participant.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
+import { UserService } from '../user/user.service.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
 import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
-import { user } from '../../models/user.js'
-import { UserService } from '../user/user.service.js'
 import { readonlyNonEmptyArrayPlus } from '../../kits/fp-ts/readonly-non-empty-array-plus.js'
-import { JsonObject, JsonValue } from 'type-fest'
-import { GenericService } from '../../repositories/redis/entities/generic.service.js'
+import { user } from '../../models/user.js'
 
 export abstract class ConversationService extends ModuleRaii {
   protected readonly participantsExpireCallbacks
@@ -49,103 +49,6 @@ export abstract class ConversationService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
     this.participantsExpireCallbacks.push(event => this.expireParticipantsByEvent(event))
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
-  }
-
-  public *addParticipants(conversation: string, users: readonly string[]) {
-    const participants = this.entityConversationService.getParticipants(this.type, conversation)
-    const expire = this.defaultParticipantExpire.total('seconds')
-    const timestamp = Temporal.Now.zonedDateTimeISO()
-    const score = timestamp.add(this.defaultParticipantExpire).epochMilliseconds
-
-    const reply = yield * pipe(
-      this.redisService.multi(),
-      t => users.reduce(
-        (t, user) => t
-          .zAdd(participants.key, { score, value: user }, { NX: true }),
-        t,
-      ),
-      t => t.expire(participants.key, this.defaultConversationExpire.total('seconds'), 'GT'),
-      t => users
-        .map(user => this.entityConversationService.getParticipantConversations(this.type, user).key)
-        .reduce(
-          (t, key) => t
-            .sAdd(key, conversation)
-            .expire(key, expire, 'GT'),
-          t,
-        ),
-      t => call(t.exec()),
-    )
-
-    const newParticipants = pipe(
-      reply,
-      readonlyArray.takeLeft(users.length),
-      readonlyArray.zip(users),
-      readonlyArray.filterMap(
-        ([reply, user]) => 1 === reply ? option.some(user) : option.none,
-      ),
-    )
-
-    if (0 === newParticipants.length) {
-      return []
-    }
-
-    const system = new Participant(-1, 'system')
-
-    yield * this.post(
-      conversation,
-      system.say({
-        content: { participants: newParticipants, timestamp: timestamp.epochMilliseconds, type: 'join' },
-        type: 'event',
-      }),
-    )
-
-    return newParticipants
-  }
-
-  public *createConversation(id: string): Operation<boolean> {
-    const conversation = this.entityConversationService.get(this.type)
-
-    {
-      const score = yield * conversation.score(id)
-
-      if (Date.now() < (score ?? 0)) {
-        return false
-      }
-    }
-
-    const records = this.entityConversationService.getRecords(this.type, id)
-    const forCreation = 'for-creation'
-    const expire = this.defaultConversationExpire.total('seconds')
-    const score = Temporal.Now.zonedDateTimeISO().add(this.defaultConversationExpire).epochMilliseconds
-
-    const reply = yield * call(this.redisService.multi()
-      .xGroupCreate(records.key, forCreation, '$', { MKSTREAM: true })
-      .xGroupDestroy(records.key, forCreation)
-      .expire(records.key, expire)
-      .zAdd(
-        conversation.key,
-        {
-          score,
-          value: id,
-        },
-      )
-      .exec(),
-    )
-
-    const ok = pipe(
-      reply,
-      readonlyArray.last,
-      option.fold(
-        () => false,
-        x => 1 === x,
-      ),
-    )
-
-    if (!ok) {
-      return yield * this.createConversation(id)
-    }
-
-    return true
   }
 
   public deleteData(participant: number, conversationXKey: Readonly<Record<number, number | string>>) {
@@ -317,13 +220,10 @@ export abstract class ConversationService extends ModuleRaii {
         select: { conversation: true, data: true },
         where: { participant },
       }),
-      task.map(x =>
-        readonlyRecord.fromFoldableMap(
-          semigroup.last<JsonObject>(), readonlyArray.Foldable,
-        )(
-          x, x => [x.conversation.toString(), x.data as JsonObject] as const,
-        ),
-      ),
+      task.map(flow(
+        readonlyArray.map(x => [x.conversation, x.data as JsonObject] as const),
+        x => Object.fromEntries(x),
+      )),
       cOperation.FromTask.fromTask,
     )()
   }
@@ -364,6 +264,95 @@ export abstract class ConversationService extends ModuleRaii {
           readonlyArray.filterMap(identity.of),
         ),
       )()),
+    )
+  }
+
+  public postConversation(info: conversation.Info) {
+    return call(
+      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
+        const now = Temporal.Now.zonedDateTimeISO()
+        const createdAt = new Date(now.epochMilliseconds)
+        const expiredAt = new Date(now.add(this.defaultConversationExpire).epochMilliseconds)
+
+        const conversation = yield * pipe(
+          () => tx.conversation.create({
+            data: {
+              createdAt,
+              expiredAt,
+              name: info.name,
+              type: this.type,
+            },
+          }),
+          task.map(x => x.id),
+          cOperation.FromTask.fromTask,
+        )()
+
+        const records = this.entityConversationService.getRecords(this.type, conversation)
+        const forCreation = 'for-creation'
+
+        yield * call(this.redisService.multi()
+          .xGroupCreate(records.key, forCreation, '$', { MKSTREAM: true })
+          .xGroupDestroy(records.key, forCreation)
+          .expireAt(records.key, expiredAt)
+          .exec(),
+        )
+
+        return conversation
+      }.bind(this))),
+    )
+  }
+
+  public postParticipants(conversation: number, users: readonly number[]) {
+    return call(
+      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
+        const _users = yield * pipe(
+          () => tx.user.findMany({
+            select: { id: true },
+            where: { id: { in: users.concat() } },
+          }),
+          task.map(
+            readonlyArray.map(x => x.id),
+          ),
+          cOperation.FromTask.fromTask,
+        )()
+
+        if (0 === _users.length) {
+          return []
+        }
+
+        const newParticipants = yield * pipe(
+          () => tx.conversationXParticipant.findMany({
+            select: { participant: true },
+            where: { conversation, participant: { in: _users.concat() } },
+          }),
+          cOperation.FromTask.fromTask,
+          cOperation.map(flow(
+            readonlyArray.map(x => x.participant),
+            a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
+            identity.ap(_users),
+          )),
+        )()
+
+        const now = Temporal.Now.zonedDateTimeISO()
+        const createdAt = new Date(now.epochMilliseconds)
+        const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
+
+        yield * call(tx.conversationXParticipant.createMany({
+          data: newParticipants.map(participant =>
+            ({ conversation, createdAt, data: {}, expiredAt, participant }),
+          ),
+        }))
+
+        yield * this.post(
+          conversation,
+          system.say({
+            content: { participants: newParticipants, timestamp: createdAt.valueOf(), type: 'join' },
+            type: 'event',
+          }),
+        )
+
+        return newParticipants
+      }.bind(this))),
     )
   }
 

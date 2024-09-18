@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { Prisma, PrismaClient, User } from '../../generated/prisma/index.js'
 import { call, run, sleep } from 'effection'
+import { readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { coerceReadonly } from '../../utils/identity.js'
 import { pipe } from 'fp-ts/lib/function.js'
-import { readonlyArray } from 'fp-ts'
 import { user } from '../../models/user.js'
 
 @Injectable()
@@ -62,7 +62,7 @@ export class UserService extends ModuleRaii {
           x => new Date(x),
         )
 
-        yield * call(this.prismaClient.user.updateMany({
+        yield * call(tx.user.updateMany({
           data: { expiredAt },
           where: {
             expiredAt: { lt: expiredAt }, id: { in: ids.concat() },
@@ -122,14 +122,18 @@ export class UserService extends ModuleRaii {
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
-        const user = yield * call(tx.user.create({
-          data: {
-            createdAt,
-            expiredAt,
-            name: info.name,
-          },
-          select: { id: true },
-        }))
+        const user = yield * pipe(
+          () => tx.user.create({
+            data: {
+              createdAt,
+              expiredAt,
+              name: info.name,
+            },
+            select: { id: true },
+          }),
+          task.map(x => x.id),
+          cOperation.FromTask.fromTask,
+        )()
 
         yield * this.postUserEvent({
           data: {
@@ -137,10 +141,10 @@ export class UserService extends ModuleRaii {
             timestamp: createdAt.valueOf(),
           },
           type: 'register',
-          user: user.id,
+          user: user,
         })
 
-        return user.id
+        return user
       }.bind(this))),
     )
   }

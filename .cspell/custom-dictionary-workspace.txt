@@ -9,5 +9,6 @@ NOMKSTREAM
 openapi
 pipeable
 raii
+semigroup
 unfoldable
 urlpattern

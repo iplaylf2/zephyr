@@ -3,6 +3,12 @@ import { user } from './user.js'
 import { z } from 'zod'
 
 export namespace conversation{
+  export const info = z.object({
+    name: z.string().min(1),
+  })
+
+  export type Info = Readonly<z.infer<typeof info>>
+
   export const messageBody = z.object({
     content: z.custom<JsonValue>(),
     type: z.string(),
