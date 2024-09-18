@@ -20,7 +20,7 @@ export class MemberController {
   @Delete('chatrooms/progress')
   public async [`@Delete('chatrooms/progress')`](@Body() body: member.ConversationsDto) {
     await globalScope.run(() =>
-      this.conversationService.clearProgress(this.passport.id, body),
+      this.conversationService.deleteData(this.passport.id, body),
     )
   }
 
@@ -31,7 +31,7 @@ export class MemberController {
   @Get('chatrooms')
   public [`@Get('chatrooms')`](): Promise<readonly member.ChatroomDto[]> {
     return globalScope.run(() =>
-      this.conversationService.fetchConversationsRecord(this.passport.id),
+      this.conversationService.getConversationsRecord(this.passport.id),
     )
   }
 

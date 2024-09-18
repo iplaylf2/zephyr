@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { Prisma, PrismaClient, User } from '../../generated/prisma/index.js'
 import { call, run, sleep } from 'effection'
-import { readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { coerceReadonly } from '../../utils/identity.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { readonlyArray } from 'fp-ts'
 import { user } from '../../models/user.js'
 
 @Injectable()
@@ -44,7 +44,7 @@ export class UserService extends ModuleRaii {
 
   public expire(
     users: readonly number[],
-     seconds: number = this.defaultExpire.total('seconds'),
+    seconds: number = this.defaultExpire.total('seconds'),
   ) {
     return call(
       this.prismaClient.$transaction(tx => run(function*(this: UserService) {
@@ -62,18 +62,12 @@ export class UserService extends ModuleRaii {
           x => new Date(x),
         )
 
-        yield * pipe(
-          ids,
-          readonlyArray.map(
-            id => () => tx.user.update({
-              data: { expiredAt },
-              select: {},
-              where: { id },
-            }),
-          ),
-          task.sequenceArray,
-          cOperation.FromTask.fromTask,
-        )()
+        yield * call(this.prismaClient.user.updateMany({
+          data: { expiredAt },
+          where: {
+            expiredAt: { lt: expiredAt }, id: { in: ids.concat() },
+          },
+        }))
 
         yield * this.postUserEvent({
           data: { expire: seconds, timestamp: now.epochMilliseconds },
