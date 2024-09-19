@@ -1,13 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { apply, identity, readonlyRecord } from 'fp-ts'
-import { flow, pipe } from 'fp-ts/lib/function.js'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
+import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
+import { GenericService } from '../../../repositories/redis/entities/generic.service.js'
+import { PrismaClient } from '../../../generated/prisma/index.js'
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { UserService } from '../../../repositories/redis/entities/user.service.js'
-import { cOperation } from '../../../common/fp-effection/c-operation.js'
-import { user } from '../../../models/user.js'
+import { UserService } from '../../user/user.service.js'
 
 export namespace conversation{
   @Injectable()
@@ -16,10 +15,19 @@ export namespace conversation{
     protected override entityConversationService!: EntityConversationService
 
     @Inject()
-    protected override entityUserService!: UserService
+    protected override entityUserService!: EntityUserService
+
+    @Inject()
+    protected override genericService!: GenericService
+
+    @Inject()
+    protected override prismaClient!: PrismaClient
 
     @Inject()
     protected override redisService!: RedisService
+
+    @Inject()
+    protected override userService!: UserService
 
     public override readonly defaultConversationExpire = Temporal.Duration.from({ days: 1 })
     public override readonly defaultParticipantExpire = Temporal.Duration.from({ days: 1 })
@@ -27,57 +35,6 @@ export namespace conversation{
 
     public constructor() {
       super()
-
-      this.participantsExpireCallbacks.push(event => this.pairExpire(event))
-    }
-
-    // public *createDialogue(initiator: string, partner: string) {
-    //   const conversation = randomUUID()
-
-    //   {
-    //     const ok = yield * this.createConversation(conversation)
-
-    //     if (!ok) {
-    //       return null
-    //     }
-    //   }
-    // }
-
-    private pairExpire(event: Extract<user.Event, { type: 'expire' }>) {
-      return apply.sequenceT(cOperation.ApplyPar)(
-        pipe(
-          () => this.getConversationMap(event.users),
-          cOperation.chain(flow(
-            readonlyRecord.keys,
-            x => () => this.expire(x),
-          )),
-        ),
-        pipe(
-          this.redisService.multi(),
-          t => (seconds: number) => event.users
-            .reduce(
-              (t, participant) => t
-                .expire(
-                  this.entityConversationService.getParticipantConversationsMarked(
-                    this.type, participant,
-                  ).key,
-                  seconds,
-                  'GT',
-                )
-                .expire(
-                  this.entityConversationService.getParticipantConversationsProgress(
-                    this.type, participant,
-                  ).key,
-                  seconds,
-                  'GT',
-                ),
-              t,
-            ),
-          identity.ap(event.data.expire),
-          t => () => t.exec(),
-          cOperation.FromTask.fromTask,
-        ),
-      )()
     }
   }
 }
