@@ -93,7 +93,8 @@ export abstract class ConversationService extends ModuleRaii {
           where: {
             conversation,
             participant: { in: removedParticipants.concat() },
-            xConversation: { type: this.type } },
+            xConversation: { type: this.type },
+          },
         }))
 
         yield * this.post(
@@ -149,6 +150,7 @@ export abstract class ConversationService extends ModuleRaii {
   ) {
     const _conversations = yield * pipe(
       () => this.prismaClient.conversation.findMany({
+        select: { id: true },
         where: {
           expiredAt: { gt: new Date() },
           id: { in: conversations.concat() },
@@ -189,7 +191,6 @@ export abstract class ConversationService extends ModuleRaii {
       where: {
         expiredAt: { lt: expiredAt },
         id: { in: _conversations.concat() },
-        type: this.type,
       },
     }))
 
@@ -334,16 +335,20 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public postParticipants(conversation: number, users: readonly number[]) {
-    return call(
+  public *postParticipants(conversation: number, users: readonly number[]) {
+    const exist = yield * this.exists([conversation])
+
+    if (0 === exist.length) {
+      return []
+    }
+
+    return yield * call(
       this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
         const _users = yield * this.userService.selectValidUsersForUpdate(tx, users)
 
         if (0 === _users.length) {
           return []
         }
-
-        //
 
         const newParticipants = yield * pipe(
           () => tx.conversationXParticipant.findMany({
@@ -369,7 +374,7 @@ export abstract class ConversationService extends ModuleRaii {
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
 
-        const { count } = yield * call(tx.conversationXParticipant.createMany({
+        yield * call(tx.conversationXParticipant.createMany({
           data: newParticipants.map(participant =>
             ({ conversation, createdAt, data: {}, expiredAt, participant }),
           ),
@@ -406,6 +411,7 @@ export abstract class ConversationService extends ModuleRaii {
         from 
           "conversations"
         where
+          type = ${this.type} and
           id in ${conversation}
         for update`,
       cOperation.FromTask.fromTask,
@@ -423,12 +429,15 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
         select
-          participant 
+          x.participant 
         from 
-          "conversation-x-participant"
+          "conversation-x-participant" x
+        join conversations on
+          conversations.id = x.conversation
         where
-          conversation = ${conversation}  and
-          participant in ${participants}
+          conversations.type = ${this.type} and
+          x.conversation = ${conversation}  and
+          x.participant in ${participants}
         for update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
@@ -445,6 +454,7 @@ export abstract class ConversationService extends ModuleRaii {
         from 
           "conversations"
         where 
+          type = ${this.type} and
           ${Date.now()} < expiredAt and
           id in ${conversation}
         for update`,
@@ -456,12 +466,9 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public *userPost(conversation: number, participant: number, body: conversation.MessageBody) {
-    const inConversation = yield * call(this.prismaClient.conversationXParticipant.findFirst({
-      select: {},
-      where: { conversation, expiredAt: { gt: new Date() }, participant },
-    }))
+    const exist = yield * this.existsParticipants(conversation, [participant])
 
-    if (null === inConversation) {
+    if (0 === exist.length) {
       return null
     }
 
@@ -477,7 +484,7 @@ export abstract class ConversationService extends ModuleRaii {
 
     while (true) {
       yield * call(this.prismaClient.conversation.deleteMany({
-        where: { expiredAt: { lte: new Date() } },
+        where: { expiredAt: { lte: new Date() }, type: this.type },
       }))
 
       yield * sleep(interval)
@@ -493,7 +500,10 @@ export abstract class ConversationService extends ModuleRaii {
       const group = yield * pipe(
         () => this.prismaClient.conversationXParticipant.findMany({
           select: { conversation: true, participant: true },
-          where: { expiredAt: { lte: new Date() } },
+          where: {
+            expiredAt: { lte: new Date() },
+            xConversation: { type: this.type },
+          },
         }),
         cOperation.FromTask.fromTask,
         cOperation.map(
@@ -534,7 +544,10 @@ export abstract class ConversationService extends ModuleRaii {
     const group = yield * pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversation: true, participant: true },
-        where: { participant: { in: deletedUsers.concat() } },
+        where: {
+          participant: { in: deletedUsers.concat() },
+          xConversation: { type: this.type },
+        },
       }),
       cOperation.FromTask.fromTask,
       cOperation.map(
@@ -574,7 +587,11 @@ export abstract class ConversationService extends ModuleRaii {
 
     yield * call(this.prismaClient.conversationXParticipant.updateMany({
       data: { expiredAt },
-      where: { expiredAt: { lt: expiredAt }, participant: { in: toExpire.concat() } },
+      where: {
+        expiredAt: { lt: expiredAt },
+        participant: { in: toExpire.concat() },
+        xConversation: { type: this.type },
+      },
     }))
   }
 
