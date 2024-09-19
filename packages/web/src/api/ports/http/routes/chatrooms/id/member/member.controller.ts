@@ -5,14 +5,13 @@ import { RequirePassport } from '../../../../decorators/require-passport.decorat
 import { conversation } from '../../../../../../../domains/conversation/group/group.service.js'
 import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 import { path } from '../../../../pattern.js'
-import { spawn } from 'effection'
 
 @ApiTags('chatrooms')
 @RequirePassport()
 @Controller('member')
 export class MemberController {
   @Inject(path.chatroom)
-  private readonly chatroom!: string
+  private readonly chatroom!: number
 
   @Inject()
   private readonly conversationService!: conversation.GroupService
@@ -25,11 +24,13 @@ export class MemberController {
     type: Boolean,
   })
   @Delete()
-  public [`@Delete()`]() {
+  public [`@Delete()`](): Promise<boolean> {
     return globalScope.run(function*(this: MemberController) {
       yield * this.checkAndExpire()
 
-      return yield * this.conversationService.deleteParticipants(this.chatroom, [this.passport.id])
+      const deleted = yield * this.conversationService.deleteParticipants(this.chatroom, [this.passport.id])
+
+      return 0 < deleted.length
     }.bind(this))
   }
 
@@ -38,18 +39,18 @@ export class MemberController {
     type: Boolean,
   })
   @Put()
-  public [`@Put()`]() {
+  public [`@Put()`](): Promise<boolean> {
     return globalScope.run(function*(this: MemberController) {
       yield * this.checkAndExpire()
 
-      return yield * this.conversationService.postParticipants(this.chatroom, [this.passport.id])
+      const put = yield * this.conversationService.postParticipants(this.chatroom, [this.passport.id])
+
+      return 0 < put.length
     }.bind(this))
   }
 
   private *checkAndExpire() {
-    void (yield * spawn(() => this.conversationService.expire([this.chatroom])))
-
-    const exists = yield * this.conversationService.exists([this.chatroom])
+    const exists = yield * this.conversationService.expire([this.chatroom])
 
     if (0 === exists.length) {
       throw new NotFoundException()

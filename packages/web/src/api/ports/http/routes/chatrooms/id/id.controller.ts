@@ -5,10 +5,9 @@ import { RequirePassport } from '../../../decorators/require-passport.decorator.
 import { conversation } from '../../../../../../domains/conversation/group/group.service.js'
 import { globalScope } from '../../../../../../kits/effection/global-scope.js'
 import { id } from './id.dto.js'
-import { spawn } from 'effection'
 import { urlPattern } from '../../../kits/url-pattern.js'
 
-export const idPath = urlPattern.path('id')
+export const idPath = urlPattern.path('id', Number)
 
 @ApiParam({
   name: idPath.name,
@@ -21,15 +20,15 @@ export class IdController {
   private readonly conversationService!: conversation.GroupService
 
   @Inject(idPath)
-  private readonly id!: string
+  private readonly id!: number
 
   @ApiOkResponse({
     description: 'user id of members',
     isArray: true,
-    type: String,
+    type: Number,
   })
   @Get('members')
-  public [`@Get('members')`]() {
+  public [`@Get('members')`](): Promise<readonly number[]> {
     return globalScope.run(function*(this: IdController) {
       yield * this.checkAndExpire()
 
@@ -59,7 +58,10 @@ export class IdController {
   })
   @RequirePassport()
   @Post('message')
-  public [`@Post('message')`](@Passport.param passport: Passport, @Body() body: id.MessageBodyDto) {
+  public [`@Post('message')`](
+    @Passport.param passport: Passport,
+    @Body() body: id.MessageBodyDto,
+  ): Promise<string | null> {
     return globalScope.run(function*(this: IdController) {
       yield * this.checkAndExpire()
 
@@ -68,9 +70,7 @@ export class IdController {
   }
 
   private *checkAndExpire() {
-    void (yield * spawn(() => this.conversationService.expire([this.id])))
-
-    const exists = yield * this.conversationService.exists([this.id])
+    const exists = yield * this.conversationService.expire([this.id])
 
     if (0 === exists.length) {
       throw new NotFoundException()

@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 export namespace user{
   export const id = z.number().int().nonnegative()
+
   const eventData = z.object({
     timestamp: z.number(),
   })

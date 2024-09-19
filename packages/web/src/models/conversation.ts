@@ -3,6 +3,8 @@ import { user } from './user.js'
 import { z } from 'zod'
 
 export namespace conversation{
+  export const id = z.number().int().nonnegative()
+
   export const info = z.object({
     name: z.string().min(1),
   })
@@ -18,7 +20,7 @@ export namespace conversation{
 
   export const message = messageBody.merge(z.object({
     group: z.string(),
-    id: z.number(),
+    id: z.string(),
     sender: user.id,
     timestamp: z.number(),
   }))

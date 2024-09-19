@@ -17,8 +17,8 @@ export class MemberController {
   private readonly passport!: Passport
 
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Delete('chatrooms/progress')
-  public async [`@Delete('chatrooms/progress')`](@Body() body: member.ConversationsDto) {
+  @Delete('chatrooms/data')
+  public async [`@Delete('chatrooms/data')`](@Body() body: member.DeleteDataRecordDto) {
     await globalScope.run(() =>
       this.conversationService.deleteData(this.passport.id, body),
     )
@@ -36,20 +36,20 @@ export class MemberController {
   }
 
   @ApiOkResponse({
-    type: member.ProgressRecordDto,
+    type: member.DataRecordDto,
   })
-  @Get('chatrooms/progress')
-  public [`@Get('chatrooms/progress')`](): Promise<member.ProgressRecordDto> {
+  @Get('chatrooms/data')
+  public [`@Get('chatrooms/data')`](): Promise<member.DataRecordDto> {
     return globalScope.run(() =>
-      this.conversationService.getProgress(this.passport.id),
+      this.conversationService.getData(this.passport.id),
     )
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Put('chatrooms/progress')
-  public async [`@Put('chatrooms/progress')`](@Body() progressRecord: member.ProgressRecordDto) {
+  @Put('chatrooms/data')
+  public async [`@Put('chatrooms/data')`](@Body() dataRecord: member.DataRecordDto) {
     await globalScope.run(() =>
-      this.conversationService.patchData(this.passport.id, progressRecord),
+      this.conversationService.patchData(this.passport.id, dataRecord),
     )
   }
 }
