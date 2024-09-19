@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { Prisma, PrismaClient, User } from '../../generated/prisma/index.js'
-import { call, run, sleep } from 'effection'
+import { call, sleep, useScope } from 'effection'
 import { readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
@@ -42,12 +42,14 @@ export class UserService extends ModuleRaii {
     )()
   }
 
-  public expire(
+  public *expire(
     users: readonly number[],
     seconds: number = this.defaultExpire.total('seconds'),
   ) {
-    return call(
-      this.prismaClient.$transaction(tx => run(function*(this: UserService) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
         const ids = yield * this.selectValidUsersForUpdate(tx, users)
 
         if (0 === ids.length) {
@@ -115,9 +117,11 @@ export class UserService extends ModuleRaii {
     return false
   }
 
-  public register(info: user.Info) {
-    return call(
-      this.prismaClient.$transaction(tx => run(function*(this: UserService) {
+  public *register(info: user.Info) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
@@ -184,9 +188,11 @@ export class UserService extends ModuleRaii {
     )()
   }
 
-  public unregister(users: readonly number[]) {
-    return call(
-      this.prismaClient.$transaction(tx => run(function*(this: UserService) {
+  public *unregister(users: readonly number[]) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
         const ids = yield * this.selectUsersForUpdate(tx, users)
 
         if (0 === ids.length) {

@@ -2,7 +2,7 @@ import { Conversation, ConversationXParticipant, Prisma, PrismaClient } from '..
 import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'
-import { Operation, all, call, run, sleep } from 'effection'
+import { Operation, all, call, sleep, useScope } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, number, option, readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
@@ -79,10 +79,14 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public deleteParticipants(conversation: number, participants: readonly number[]) {
-    return call(
-      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
-        const removedParticipants = yield * this.selectParticipantsForUpdate(tx, conversation, participants)
+  public *deleteParticipants(conversation: number, participants: readonly number[]) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        const removedParticipants = yield * this.selectParticipantsForUpdate(
+          tx, conversation, participants,
+        )
 
         if (0 === removedParticipants.length) {
           return []
@@ -309,9 +313,11 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public postConversation(info: conversation.Info) {
-    return call(
-      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
+  public *postConversation(info: conversation.Info) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultConversationExpire).epochMilliseconds)
@@ -351,8 +357,10 @@ export abstract class ConversationService extends ModuleRaii {
       return []
     }
 
+    const scope = yield * useScope()
+
     return yield * call(
-      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
         const _users = yield * this.userService.selectValidUsersForUpdate(tx, users)
 
         if (0 === _users.length) {
@@ -573,7 +581,7 @@ export abstract class ConversationService extends ModuleRaii {
     )()
   }
 
-  private expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
+  private *expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
     const expiredAt = pipe(
       Temporal.Instant
         .fromEpochMilliseconds(event.data.timestamp)
@@ -583,8 +591,10 @@ export abstract class ConversationService extends ModuleRaii {
       x => new Date(x),
     )
 
-    return call(
-      this.prismaClient.$transaction(tx => run(function*(this: ConversationService) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
         const toExpire = yield * pipe(
           () => tx.user.findMany({
             select: { id: true },
