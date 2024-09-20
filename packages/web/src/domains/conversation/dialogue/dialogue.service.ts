@@ -10,7 +10,7 @@ import { UserService } from '../../user/user.service.js'
 
 export namespace conversation{
   @Injectable()
-  export class PairService extends ConversationService {
+  export class DialogueService extends ConversationService {
     @Inject()
     protected override entityConversationService!: EntityConversationService
 
@@ -31,7 +31,7 @@ export namespace conversation{
 
     public override readonly defaultConversationExpire = Temporal.Duration.from({ days: 1 })
     public override readonly defaultParticipantExpire = Temporal.Duration.from({ days: 1 })
-    public override type = 'pair'
+    public override readonly type = 'dialogue'
 
     public constructor() {
       super()

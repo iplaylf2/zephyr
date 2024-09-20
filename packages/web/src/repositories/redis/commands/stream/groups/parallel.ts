@@ -2,8 +2,8 @@ import { Operation, each, ensure, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../generic.js'
-import defaults from 'defaults'
 import { cStream } from '../../../../../common/fp-effection/c-stream.js'
+import defaults from 'defaults'
 import { stream } from '../../../../../kits/effection/stream.js'
 
 export namespace group{

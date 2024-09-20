@@ -35,7 +35,7 @@ export namespace conversation{
 
     public override readonly defaultConversationExpire = Temporal.Duration.from({ days: 1 })
     public override readonly defaultParticipantExpire = Temporal.Duration.from({ hours: 1 })
-    public override type = 'group'
+    public override readonly type = 'group'
 
     public constructor() {
       super()

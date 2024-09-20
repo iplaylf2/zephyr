@@ -2,10 +2,11 @@ anatine
 chatrooms
 datasource
 effection
-MAXLEN
+maxlen
+mkstream
 monoid
 nestjs
-NOMKSTREAM
+nomkstream
 openapi
 pipeable
 raii
