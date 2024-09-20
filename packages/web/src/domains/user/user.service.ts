@@ -159,9 +159,9 @@ export class UserService extends ModuleRaii {
         select
           id
         from 
-          "users"
+          users
         where
-          id in ${users}
+          id in ${Prisma.join(users)}
         for update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
@@ -176,10 +176,10 @@ export class UserService extends ModuleRaii {
         select
           id
         from 
-          "users"
+          users
         where 
           ${Date.now()} < expiredAt and
-          id in ${users}
+          id in ${Prisma.join(users)}
         for update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
@@ -231,7 +231,10 @@ export class UserService extends ModuleRaii {
         ),
       )()
 
-      yield * this.unregister(expiredUsers)
+      if (0 < expiredUsers.length) {
+        yield * this.unregister(expiredUsers)
+      }
+
       yield * sleep(interval)
     }
   }

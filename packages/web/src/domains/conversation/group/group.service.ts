@@ -60,7 +60,10 @@ export namespace conversation{
           cOperation.FromTask.fromTask,
         )()
 
-        yield * this.expire(conversations)
+        if (0 < conversations.length) {
+          yield * this.expire(conversations)
+        }
+
         yield * sleep(interval)
       }
     }

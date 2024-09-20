@@ -420,16 +420,16 @@ export abstract class ConversationService extends ModuleRaii {
     )()
   }
 
-  public selectConversationForUpdate(tx: Prisma.TransactionClient, conversation: readonly number[]) {
+  public selectConversationForUpdate(tx: Prisma.TransactionClient, conversations: readonly number[]) {
     return pipe(
       () => tx.$queryRaw<Pick<Conversation, 'id'>[]>`
         select
           id
         from 
-          "conversations"
+          conversations
         where
           type = ${this.type} and
-          id in ${conversation}
+          id in ${Prisma.join(conversations)}
         for update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
@@ -454,7 +454,7 @@ export abstract class ConversationService extends ModuleRaii {
         where
           conversations.type = ${this.type} and
           x.conversation = ${conversation}  and
-          x.participant in ${participants}
+          x.participant in ${Prisma.join(participants)}
         for update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
@@ -463,17 +463,17 @@ export abstract class ConversationService extends ModuleRaii {
     )()
   }
 
-  public selectValidConversationForUpdate(tx: Prisma.TransactionClient, conversation: readonly number[]) {
+  public selectValidConversationForUpdate(tx: Prisma.TransactionClient, conversations: readonly number[]) {
     return pipe(
       () => tx.$queryRaw<Pick<Conversation, 'id'>[]>`
         select
           id
         from 
-          "conversations"
+          conversations
         where 
           type = ${this.type} and
           ${Date.now()} < expiredAt and
-          id in ${conversation}
+          id in ${Prisma.join(conversations)}
         for update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
