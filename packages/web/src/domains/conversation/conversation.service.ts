@@ -115,9 +115,9 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public exists(conversations: readonly number[]) {
+  public exists(conversations: readonly number[], tx: Prisma.TransactionClient = this.prismaClient) {
     return pipe(
-      () => this.prismaClient.conversation.findMany({
+      () => tx.conversation.findMany({
         select: { id: true },
         where: {
           expiredAt: { gt: new Date() },
@@ -331,11 +331,10 @@ export abstract class ConversationService extends ModuleRaii {
               type: this.type,
             },
           }),
-          task.map(x => x.id),
           cOperation.FromTask.fromTask,
         )()
 
-        const records = this.entityConversationService.getRecords(this.type, conversation)
+        const records = this.entityConversationService.getRecords(this.type, conversation.id)
         const forCreation = 'for-creation'
 
         yield * call(this.redisService.multi()
@@ -350,64 +349,72 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public *putParticipants(conversation: number, users: readonly number[]) {
-    const exist = yield * this.exists([conversation])
+  public *putParticipants(
+    conversation: number,
+    users: readonly number[],
+    tx?: Prisma.TransactionClient,
+  ): Operation<readonly number[]> {
+    if (!tx) {
+      const scope = yield * useScope()
+
+      return yield * call(
+        this.prismaClient.$transaction(tx =>
+          scope.run(() => this.putParticipants(conversation, users, tx)),
+        ),
+      )
+    }
+
+    const exist = yield * this.exists([conversation], tx)
 
     if (0 === exist.length) {
       return []
     }
 
-    const scope = yield * useScope()
+    const _users = yield * this.userService.selectValidUsersForUpdate(tx, users)
 
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
-        const _users = yield * this.userService.selectValidUsersForUpdate(tx, users)
+    if (0 === _users.length) {
+      return []
+    }
 
-        if (0 === _users.length) {
-          return []
-        }
-
-        const newParticipants = yield * pipe(
-          () => tx.conversationXParticipant.findMany({
-            select: { participant: true },
-            where: {
-              conversation,
-              participant: { in: _users.concat() },
-            },
-          }),
-          cOperation.FromTask.fromTask,
-          cOperation.map(flow(
-            readonlyArray.map(x => x.participant),
-            a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
-            identity.ap(_users),
-          )),
-        )()
-
-        if (0 === newParticipants.length) {
-          return []
-        }
-
-        const now = Temporal.Now.zonedDateTimeISO()
-        const createdAt = new Date(now.epochMilliseconds)
-        const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
-
-        yield * call(tx.conversationXParticipant.createMany({
-          data: newParticipants.map(participant =>
-            ({ conversation, createdAt, data: {}, expiredAt, participant }),
-          ),
-        }))
-
-        yield * this.post(
+    const newParticipants = yield * pipe(
+      () => tx.conversationXParticipant.findMany({
+        select: { participant: true },
+        where: {
           conversation,
-          system.say({
-            content: { participants: newParticipants, timestamp: createdAt.valueOf(), type: 'join' },
-            type: 'event',
-          }),
-        )
+          participant: { in: _users.concat() },
+        },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(flow(
+        readonlyArray.map(x => x.participant),
+        a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
+        identity.ap(_users),
+      )),
+    )()
 
-        return newParticipants
-      }.bind(this))),
+    if (0 === newParticipants.length) {
+      return []
+    }
+
+    const now = Temporal.Now.zonedDateTimeISO()
+    const createdAt = new Date(now.epochMilliseconds)
+    const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
+
+    yield * call(tx.conversationXParticipant.createMany({
+      data: newParticipants.map(participant =>
+        ({ conversation, createdAt, data: {}, expiredAt, participant }),
+      ),
+    }))
+
+    yield * this.post(
+      conversation,
+      system.say({
+        content: { participants: newParticipants, timestamp: createdAt.valueOf(), type: 'join' },
+        type: 'event',
+      }),
     )
+
+    return newParticipants
   }
 
   public rangeMessages(conversation: number, start: string, end: string) {
@@ -582,19 +589,19 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   private *expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
-    const expiredAt = pipe(
-      Temporal.Instant
-        .fromEpochMilliseconds(event.data.timestamp)
-        .toZonedDateTimeISO('UTC')
-        .add({ seconds: event.data.expire })
-        .epochMilliseconds,
-      x => new Date(x),
-    )
-
     const scope = yield * useScope()
 
     return yield * call(
       this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        const expiredAt = pipe(
+          Temporal.Instant
+            .fromEpochMilliseconds(event.data.timestamp)
+            .toZonedDateTimeISO('UTC')
+            .add({ seconds: event.data.expire })
+            .epochMilliseconds,
+          x => new Date(x),
+        )
+
         const toExpire = yield * pipe(
           () => tx.user.findMany({
             select: { id: true },

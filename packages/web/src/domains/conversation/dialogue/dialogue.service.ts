@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
+import { call, spawn, useScope } from 'effection'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
 import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
@@ -7,6 +8,8 @@ import { PrismaClient } from '../../../generated/prisma/index.js'
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../user/user.service.js'
+import { cOperation } from '../../../common/fp-effection/c-operation.js'
+import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace conversation{
   @Injectable()
@@ -35,6 +38,48 @@ export namespace conversation{
 
     public constructor() {
       super()
+    }
+
+    public getDialogue(participantA: number, participantB: number) {
+      return pipe(
+        () => this.prismaClient.dialogue.findFirst({
+          where: {
+            OR: [
+              { initiator: participantA, participant: participantB },
+              { initiator: participantB, participant: participantA },
+            ],
+            expiredAt: { gt: new Date() },
+          },
+        }),
+        cOperation.FromTask.fromTask,
+      )()
+    }
+
+    public *putDialogue(initiator: number, participant: number) {
+      const dialogue = yield * this.getDialogue(initiator, participant)
+
+      if (dialogue) {
+        return dialogue
+      }
+
+      const conversation = yield * this.postConversation({ name: '' })
+      const scope = yield * useScope()
+
+      return yield * call(
+        this.prismaClient.$transaction(tx => scope.run(function*(this: DialogueService) {
+          void (yield * spawn(() => this.putParticipants(conversation.id, [initiator, participant], tx)))
+
+          return yield * call(tx.dialogue.create({
+            data: {
+              conversation: conversation.id,
+              createdAt: conversation.createdAt,
+              expiredAt: conversation.expiredAt,
+              initiator,
+              participant,
+            },
+          }))
+        }.bind(this))),
+      )
     }
   }
 }
