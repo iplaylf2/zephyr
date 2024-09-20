@@ -1,5 +1,6 @@
 import { FactoryProvider, Module } from '@nestjs/common'
 import { PrismaClient } from '../../generated/prisma/index.js'
+import { ResourceManagerModule } from '../../common/resource-manager/resource-manager.module.js'
 import { ResourceManagerService } from '../../common/resource-manager/resource-manager.service.js'
 import { call } from 'effection'
 import { env } from '../../env.js'
@@ -28,6 +29,7 @@ const prismaProvider = {
 
 @Module({
   exports: [prismaProvider],
+  imports: [ResourceManagerModule],
   providers: [prismaProvider],
 })
 export class PrismaModule {

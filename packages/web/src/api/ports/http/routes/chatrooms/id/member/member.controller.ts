@@ -43,7 +43,7 @@ export class MemberController {
     return globalScope.run(function*(this: MemberController) {
       yield * this.checkAndExpire()
 
-      const put = yield * this.conversationService.postParticipants(this.chatroom, [this.passport.id])
+      const put = yield * this.conversationService.putParticipants(this.chatroom, [this.passport.id])
 
       return 0 < put.length
     }.bind(this))

@@ -350,7 +350,7 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public *postParticipants(conversation: number, users: readonly number[]) {
+  public *putParticipants(conversation: number, users: readonly number[]) {
     const exist = yield * this.exists([conversation])
 
     if (0 === exist.length) {
