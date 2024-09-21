@@ -6,5 +6,4 @@ import { path } from '../../../../pattern.js'
   controllers: [SubscriptionsController],
   providers: [path.receiver.provider],
 })
-export class SubscriptionsModule {
-}
+export class SubscriptionsModule {}

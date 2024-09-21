@@ -1,8 +1,12 @@
-import { Controller, Inject, Put } from '@nestjs/common'
-import { ApiTags } from '@nestjs/swagger'
+import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
+import { Body, Controller, Inject, Put } from '@nestjs/common'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
+import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
 import { conversation } from '../../../../../domains/conversation/dialogue/dialogue.service.js'
+import { dialogue } from './dialogue.dto.js'
+import { globalScope } from '../../../../../kits/effection/global-scope.js'
+import { pipe } from 'fp-ts/lib/function.js'
 
 @ApiTags('dialogue')
 @RequirePassport()
@@ -14,8 +18,15 @@ export class DialogueController {
   @Inject()
   private readonly passport!: Passport
 
+  @ApiOkResponse({
+    description: 'dialogue id',
+    type: Number,
+  })
   @Put()
-  public [`@Put()`]() {
-    void (this.conversationService, this.passport)
+  public [`@Put()`](@Body() creation: dialogue.CreationDto): Promise<number> {
+    return globalScope.run(pipe(
+      () => this.conversationService.putDialogue(this.passport.id, creation.participant),
+      cOperation.map(x => x.conversation),
+    ))
   }
 }

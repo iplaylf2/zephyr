@@ -7,6 +7,5 @@ import { RequirePassport } from '../../../decorators/require-passport.decorator.
 @Controller('user')
 export class UserController {
   @Get('subscriptions')
-  public [`@Get('subscriptions')`]() {
-  }
+  public [`@Get('subscriptions')`]() {}
 }

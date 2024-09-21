@@ -6,5 +6,4 @@ import { WsService } from './ws.service.js'
   imports: [ReceiverModule],
   providers: [WsService],
 })
-export class WsModule {
-}
+export class WsModule {}

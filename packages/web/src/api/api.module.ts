@@ -5,5 +5,4 @@ import { WsModule } from './ports/ws/ws.module.js'
 @Module({
   imports: [HttpModule, WsModule],
 })
-export class ApiModule {
-}
+export class ApiModule {}

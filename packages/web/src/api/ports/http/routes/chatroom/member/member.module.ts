@@ -7,5 +7,4 @@ import { conversation } from '../../../../../../domains/conversation/group/group
   controllers: [MemberController],
   imports: [AuthModule, conversation.GroupModule],
 })
-export class MemberModule {
-}
+export class MemberModule {}

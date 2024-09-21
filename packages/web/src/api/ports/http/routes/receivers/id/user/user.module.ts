@@ -8,5 +8,4 @@ import { path } from '../../../../pattern.js'
   imports: [AuthModule],
   providers: [path.receiver.provider],
 })
-export class UserModule {
-}
+export class UserModule {}

@@ -21,22 +21,17 @@ export class UserController {
   }
 
   @Delete()
-  public [`@Delete()`]() {
-  }
+  public [`@Delete()`]() {}
 
   @Get('subscriptions')
-  public [`@Get('subscriptions')`]() {
-  }
+  public [`@Get('subscriptions')`]() {}
 
   @Put('subscriptions/chatroom')
-  public [`@Put('subscriptions/chatroom')`]() {
-  }
+  public [`@Put('subscriptions/chatroom')`]() {}
 
   @Put('subscriptions/dialogue')
-  public [`@Put('subscriptions/dialogue')`]() {
-  }
+  public [`@Put('subscriptions/dialogue')`]() {}
 
   @Put()
-  public [`@Put()`]() {
-  }
+  public [`@Put()`]() {}
 }

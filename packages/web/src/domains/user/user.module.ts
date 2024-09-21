@@ -8,5 +8,4 @@ import { UserService } from './user.service.js'
   imports: [RedisModule, PrismaModule],
   providers: [UserService],
 })
-export class UserModule {
-}
+export class UserModule {}

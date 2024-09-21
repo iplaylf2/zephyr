@@ -58,5 +58,4 @@ import { router } from './kits/router.js'
     },
   ],
 })
-export class HttpModule {
-}
+export class HttpModule {}

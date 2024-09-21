@@ -32,5 +32,4 @@ const prismaProvider = {
   imports: [ResourceManagerModule],
   providers: [prismaProvider],
 })
-export class PrismaModule {
-}
+export class PrismaModule {}

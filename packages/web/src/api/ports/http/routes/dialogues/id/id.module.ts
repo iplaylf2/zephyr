@@ -7,5 +7,4 @@ import { Module } from '@nestjs/common'
   imports: [AuthModule],
   providers: [idPath.provider],
 })
-export class IdModule {
-}
+export class IdModule {}

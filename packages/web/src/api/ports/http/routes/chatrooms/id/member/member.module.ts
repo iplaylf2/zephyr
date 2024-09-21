@@ -10,5 +10,4 @@ import { path } from '../../../../pattern.js'
   imports: [AuthModule, UserModule, conversation.GroupModule],
   providers: [path.chatroom.provider],
 })
-export class MemberModule {
-}
+export class MemberModule {}

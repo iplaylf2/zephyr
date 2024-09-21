@@ -22,6 +22,5 @@ export class IdController {
   }
 
   @Post('message')
-  public [`@Post('message')`]() {
-  }
+  public [`@Post('message')`]() {}
 }

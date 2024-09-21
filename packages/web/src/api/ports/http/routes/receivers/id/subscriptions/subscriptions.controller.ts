@@ -14,10 +14,8 @@ export class SubscriptionsController {
   }
 
   @Get()
-  public [`@Get()`]() {
-  }
+  public [`@Get()`]() {}
 
   @Put('chatroom')
-  public [`@Put('chatroom')`]() {
-  }
+  public [`@Put('chatroom')`]() {}
 }

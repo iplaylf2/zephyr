@@ -6,5 +6,4 @@ import { UserController } from './user.controller.js'
   controllers: [UserController],
   imports: [AuthModule],
 })
-export class UserModule {
-}
+export class UserModule {}

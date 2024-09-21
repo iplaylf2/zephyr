@@ -8,5 +8,4 @@ import { conversation } from '../../../../../../domains/conversation/group/group
   imports: [AuthModule, conversation.GroupModule],
   providers: [idPath.provider],
 })
-export class IdModule {
-}
+export class IdModule {}

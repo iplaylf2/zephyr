@@ -7,5 +7,4 @@ import { ReceiverModule } from '../../../../../../domains/receiver/receiver.modu
   imports: [ReceiverModule],
   providers: [idPath.provider],
 })
-export class IdModule {
-}
+export class IdModule {}

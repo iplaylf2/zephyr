@@ -7,5 +7,4 @@ import { conversation } from '../../../../../domains/conversation/dialogue/dialo
   controllers: [DialogueController],
   imports: [AuthModule, conversation.DialogueModule],
 })
-export class DialogueModule {
-}
+export class DialogueModule {}
