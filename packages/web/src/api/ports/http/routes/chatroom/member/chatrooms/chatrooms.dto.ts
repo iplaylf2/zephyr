@@ -1,10 +1,10 @@
 import { JsonObject } from 'type-fest'
-import { conversation } from '../../../../../../models/conversation.js'
+import { conversation } from '../../../../../../../models/conversation.js'
 import { createZodDto } from '@anatine/zod-nestjs'
 import { extendApi } from '@anatine/zod-openapi'
 import { z } from 'zod'
 
-export namespace member{
+export namespace chatrooms{
   const chatroom = z.object({
     conversationId: conversation.id,
     lastMessageId: z.string().nullable(),

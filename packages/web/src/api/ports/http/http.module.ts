@@ -1,6 +1,6 @@
 import { APP_PIPE } from '@nestjs/core'
 import { IdModule as ChatroomIdModule } from './routes/chatrooms/id/id.module.js'
-import { MemberModule as ChatroomMemberModule } from './routes/chatroom/member/member.module.js'
+import { ChatroomsModule } from './routes/chatroom/member/chatrooms/chatrooms.module.js'
 import { IdModule as DialogueIdModule } from './routes/dialogues/id/id.module.js'
 import { DialogueModule } from './routes/dialogue/dialogue.module.js'
 import { DialoguesModule } from './routes/dialogues/dialogues.module.js'
@@ -24,8 +24,8 @@ import { router } from './kits/router.js'
     UsersModule,
     ...router.register([
       {
-        module: ChatroomMemberModule,
-        path: 'chatroom',
+        module: ChatroomsModule,
+        path: 'chatroom/member',
       },
       {
         children: [
