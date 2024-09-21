@@ -1,8 +1,10 @@
-import { Controller, Get, Inject, Put } from '@nestjs/common'
-import { ApiTags } from '@nestjs/swagger'
+import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Put } from '@nestjs/common'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { conversation } from '../../../../../domains/conversation/dialogue/dialogue.service.js'
+import { dialogues } from './dialogues.dto.js'
+import { globalScope } from '../../../../../kits/effection/global-scope.js'
 
 @ApiTags('dialogues')
 @RequirePassport()
@@ -14,18 +16,37 @@ export class DialoguesController {
   @Inject()
   private readonly passport!: Passport
 
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete('data')
+  public async [`@Delete('data')`](@Body() body: dialogues.DeleteDataRecordDto) {
+    await globalScope.run(() =>
+      this.conversationService.deleteData(this.passport.id, body),
+    )
+  }
+
   @Get('data')
-  public [`@Get('data')`]() {
-
+  public [`@Get('data')`](): Promise<dialogues.DataRecordDto> {
+    return globalScope.run(() =>
+      this.conversationService.getData(this.passport.id),
+    )
   }
 
+  @ApiOkResponse({
+    isArray: true,
+    type: dialogues.DialogueDto,
+  })
   @Get()
-  public [`@Get()`]() {
-
+  public [`@Get()`](): Promise<readonly dialogues.DialogueDto[]> {
+    return globalScope.run(() =>
+      this.conversationService.getConversationsRecord(this.passport.id),
+    )
   }
 
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Put('data')
-  public [`@Put('data')`]() {
-
+  public async [`@Put('data')`](@Body() dataRecord: dialogues.DataRecordDto) {
+    await globalScope.run(() =>
+      this.conversationService.patchData(this.passport.id, dataRecord),
+    )
   }
 }
