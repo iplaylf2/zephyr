@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Operation, call } from 'effection'
-import { flow, pipe } from 'fp-ts/lib/function.js'
+import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { io, option } from 'fp-ts'
 import { Isolable } from '../common.js'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
@@ -24,9 +24,11 @@ abstract class PubSub<
         option.fromNullable,
         option.fold(
           flow(
-            () => () => ((message, channel) =>
-              listener(this.decode(message), channel.toString() as Channel)
-            ) satisfies PubSubListener<BufferMode>,
+            constant(io.of(
+              ((message, channel) =>
+                listener(this.decode(message), channel.toString() as Channel)
+              ) satisfies PubSubListener<BufferMode>,
+            )),
             io.tap(x => () => this.rawListenerMap.set(listener, x)),
           ),
           io.of,

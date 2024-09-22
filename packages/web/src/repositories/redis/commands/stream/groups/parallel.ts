@@ -26,9 +26,7 @@ export namespace group{
       let processed: string[] = []
 
       yield * this.stream.groupCreate(this.group, '0', { MKSTREAM: true })
-      yield * ensure(() =>
-        0 === processed.length ? (void 0) : this.ack(processed),
-      )
+      yield * ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
 
       const blockStream = yield * this.stream.isolate()
 
@@ -50,11 +48,17 @@ export namespace group{
         }
       }.bind(this)))
 
-      const pendingMessages = stream.exhaust(() => this.stream.readGroup(this.group, consumer, '0', { COUNT: batchLimit }))
-      const newMessages = stream.exhaust(() => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: batchLimit }))
+      const pendingMessages = stream.exhaust(() =>
+        this.stream.readGroup(this.group, consumer, '0', { COUNT: batchLimit }),
+      )
+      const newMessages = stream.exhaust(() =>
+        blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: batchLimit }),
+      )
 
-      // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-      const messages = cStream.getMonoid<void, StreamMessage<T>>().concat(pendingMessages, newMessages)
+      const messages = cStream
+        // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+        .getMonoid<void, StreamMessage<T>>()
+        .concat(pendingMessages, newMessages)
 
       for (const message of yield * each(messages())) {
         void (yield * spawn(function*() {
