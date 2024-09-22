@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { Prisma, PrismaClient, User } from '../../generated/prisma/index.js'
+import { Prisma, PrismaClient, User } from '../../repositories/prisma/generated/index.js'
 import { call, sleep, useScope } from 'effection'
 import { readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'

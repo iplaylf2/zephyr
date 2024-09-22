@@ -1,4 +1,4 @@
-import { Conversation, ConversationXParticipant, Prisma, PrismaClient } from '../../generated/prisma/index.js'
+import { Conversation, ConversationXParticipant, Prisma, PrismaClient } from '../../repositories/prisma/generated/index.js'
 import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'

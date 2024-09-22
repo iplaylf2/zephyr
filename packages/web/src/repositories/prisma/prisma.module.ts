@@ -1,5 +1,5 @@
 import { FactoryProvider, Module } from '@nestjs/common'
-import { PrismaClient } from '../../generated/prisma/index.js'
+import { PrismaClient } from './generated/index.js'
 import { ResourceManagerModule } from '../../common/resource-manager/resource-manager.module.js'
 import { ResourceManagerService } from '../../common/resource-manager/resource-manager.service.js'
 import { call } from 'effection'
