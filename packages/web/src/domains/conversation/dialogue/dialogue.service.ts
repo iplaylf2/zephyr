@@ -53,8 +53,8 @@ export namespace conversation{
           option.fromNullable,
           option.map(x => ({
             ...conversation,
-            initiator: x.initiator,
-            participant: x.participant,
+            initiatorId: x.initiator,
+            participantId: x.participant,
           })),
         )),
       )

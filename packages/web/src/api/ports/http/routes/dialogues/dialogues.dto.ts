@@ -7,9 +7,9 @@ import { z } from 'zod'
 export namespace dialogues{
   const dialogue = z.object({
     conversationId: conversation.id,
-    initiator: conversation.id,
+    initiatorId: conversation.id,
     lastMessageId: z.string().nullable(),
-    participant: conversation.id,
+    participantId: conversation.id,
   })
 
   export class DialogueDto extends createZodDto(dialogue) {}
