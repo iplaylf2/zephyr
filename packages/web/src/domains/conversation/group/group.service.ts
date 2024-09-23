@@ -40,10 +40,10 @@ export namespace conversation{
     public constructor() {
       super()
 
-      this.initializeCallbacks.push(() => this.refreshGroup())
+      this.initializeCallbacks.push(() => this.activeGroup())
     }
 
-    private *refreshGroup() {
+    private *activeGroup() {
       const interval = Temporal.Duration
         .from({ minutes: 10 })
         .total('milliseconds')
@@ -61,7 +61,7 @@ export namespace conversation{
         )()
 
         if (0 < conversations.length) {
-          yield * this.expire(conversations)
+          yield * this.active(conversations)
         }
 
         yield * sleep(interval)

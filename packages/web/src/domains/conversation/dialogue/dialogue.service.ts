@@ -1,16 +1,19 @@
+import { Dialogue, Prisma, PrismaClient } from '../../../repositories/prisma/generated/index.js'
 import { Inject, Injectable } from '@nestjs/common'
-import { all, call, spawn, useScope } from 'effection'
+import { Operation, all, call, sleep, spawn, useScope } from 'effection'
 import { option, readonlyArray } from 'fp-ts'
 import { ConversationService } from '../conversation.service.js'
-import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
+import {
+  ConversationService as EntityConversationService,
+} from '../../../repositories/redis/entities/conversation.service.js'
 import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
 import { GenericService } from '../../../repositories/redis/entities/generic.service.js'
-import { PrismaClient } from '../../../repositories/prisma/generated/index.js'
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../user/user.service.js'
 import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { user } from '../../../models/user.js'
 
 export namespace conversation{
   @Injectable()
@@ -39,6 +42,59 @@ export namespace conversation{
 
     public constructor() {
       super()
+
+      this.initializeCallbacks.push(() => this.deleteExpiredDialogues())
+      this.participantsExpireCallbacks.push(e => this.expireDialogueByEvent(e))
+    }
+
+    public *expireDialogue(
+      participant: number,
+      expireAt: number,
+      tx?: Prisma.TransactionClient,
+    ): Operation<readonly number[]> {
+      if (!tx) {
+        const scope = yield * useScope()
+
+        return yield * call(
+          this.prismaClient.$transaction(tx =>
+            scope.run(() => this.expireDialogue(participant, expireAt, tx)),
+          ),
+        )
+      }
+
+      const dialogues = yield * this.getDialogues(participant, tx)
+
+      const _expireAt = new Date(expireAt)
+      const conversations = dialogues.map(x => x.conversation)
+
+      yield * pipe([
+        () => tx.dialogue.updateMany({
+          data: { expiredAt: _expireAt },
+          where: { conversation: { in: conversations }, expiredAt: { lt: _expireAt } },
+        }),
+        () => tx.conversation.updateMany({
+          data: { expiredAt: _expireAt },
+          where: { expiredAt: { lt: _expireAt }, id: { in: conversations } },
+        }),
+        () => tx.conversationXParticipant.updateMany({
+          data: { expiredAt: _expireAt },
+          where: {
+            conversation: { in: conversations },
+            expiredAt: { lt: _expireAt },
+            participant,
+          },
+        }),
+      ],
+      readonlyArray.map(
+        cOperation.FromTask.fromTask,
+      ),
+      readonlyArray.append<cOperation.COperation<any>>(
+        () => this.expireRecords(conversations.map(id => ({ expiredAt: _expireAt, id }))),
+      ),
+      cOperation.sequenceArray,
+      )()
+
+      return conversations
     }
 
     public override *getConversationsRecord(participant: number) {
@@ -75,19 +131,19 @@ export namespace conversation{
       )()
     }
 
-    public getDialogues(participant: number) {
-      return pipe(
-        () => this.prismaClient.dialogue.findMany({
-          where: {
-            OR: [
-              { initiator: participant },
-              { participant },
-            ],
-            expiredAt: { gt: new Date() },
-          },
-        }),
-        cOperation.FromTask.fromTask,
-      )()
+    public *getDialogues(
+      participant: number,
+       tx: Prisma.TransactionClient = this.prismaClient,
+    ): Operation<readonly Dialogue[]> {
+      return yield * call(tx.dialogue.findMany({
+        where: {
+          OR: [
+            { initiator: participant },
+            { participant },
+          ],
+          expiredAt: { gt: new Date() },
+        },
+      }))
     }
 
     public *putDialogue(initiator: number, participant: number) {
@@ -107,13 +163,42 @@ export namespace conversation{
           return yield * call(tx.dialogue.create({
             data: {
               conversation: conversation.id,
-              createdAt: conversation.createdAt,
               expiredAt: conversation.expiredAt,
               initiator,
               participant,
             },
           }))
         }.bind(this))),
+      )
+    }
+
+    private *deleteExpiredDialogues() {
+      const interval = Temporal.Duration
+        .from({ minutes: 10 })
+        .total('milliseconds')
+
+      while (true) {
+        yield * call(this.prismaClient.dialogue.deleteMany({
+          where: { expiredAt: { lte: new Date() } },
+        }))
+
+        yield * sleep(interval)
+      }
+    }
+
+    private *expireDialogueByEvent(event: Extract<user.Event, { type: 'expire' }>) {
+      const scope = yield * useScope()
+
+      yield * call(
+        this.prismaClient.$transaction(tx =>
+          scope.run(pipe(
+            event.users,
+            readonlyArray.map(user =>
+              () => this.expireDialogue(user.id, user.expiredAt, tx),
+            ),
+            cOperation.sequenceArray,
+          )),
+        ),
       )
     }
   }

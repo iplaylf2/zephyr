@@ -50,7 +50,7 @@ export class MemberController {
   }
 
   private *check() {
-    const exists = yield * this.conversationService.putLastActiveAt([this.chatroom])
+    const exists = yield * this.conversationService.active([this.chatroom])
 
     if (0 === exists.length) {
       throw new NotFoundException()

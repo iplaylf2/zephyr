@@ -70,7 +70,7 @@ export class IdController {
   }
 
   private *check() {
-    const exists = yield * this.conversationService.putLastActiveAt([this.id])
+    const exists = yield * this.conversationService.active([this.id])
 
     if (0 === exists.length) {
       throw new NotFoundException()

@@ -28,6 +28,25 @@ export class UserService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.deleteExpiredUsers())
   }
 
+  public *active(users: readonly number[]) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
+        const _users = yield * this.selectValidUsersForUpdate(tx, users)
+
+        yield * call(tx.user.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { id: { in: _users.concat() } },
+        }))
+
+        return _users
+      }.bind(this))),
+    )
+  }
+
   public exists(users: readonly number[]) {
     return pipe(
       () => this.prismaClient.user.findMany({
@@ -66,6 +85,7 @@ export class UserService extends ModuleRaii {
                 "expiredAt" = users."lastActiveAt" + ${interval}::interval
               where
                 ${now} < users."expiredAt" and
+                users."expiredAt" < users."lastActiveAt" + ${interval}::interval and
                 users.id = ${user}
               returning
                 users."expiredAt", users.id`,
@@ -129,25 +149,6 @@ export class UserService extends ModuleRaii {
     }
 
     return false
-  }
-
-  public *putLastActiveAt(users: readonly number[]) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
-        const _users = yield * this.selectValidUsersForUpdate(tx, users)
-
-        yield * call(tx.user.updateMany({
-          data: {
-            lastActiveAt: new Date(),
-          },
-          where: { id: { in: _users.concat() } },
-        }))
-
-        return _users
-      }.bind(this))),
-    )
   }
 
   public *register(info: user.Info) {
