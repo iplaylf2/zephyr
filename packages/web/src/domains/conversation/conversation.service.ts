@@ -46,7 +46,6 @@ export abstract class ConversationService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.listenUserEvent())
     this.initializeCallbacks.push(() => this.deleteExpiredConversions())
     this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
-    this.participantsExpireCallbacks.push(event => this.expireParticipantsByEvent(event))
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
   }
 
@@ -62,7 +61,8 @@ export abstract class ConversationService extends ModuleRaii {
                 "conversation-x-participant" x
               set
                 data = x.data - ${key}
-              from conversations
+              from
+                conversations
               where
                 conversations.id = x.conversation and
                 conversations.type = ${this.type} and
@@ -151,63 +151,101 @@ export abstract class ConversationService extends ModuleRaii {
 
   public *expire(
     conversations: readonly number[],
-    options?: {
-      seconds?: number
-      tx?: Prisma.TransactionClient
-    },
-  ) {
+    options?: { seconds?: number, tx?: Prisma.TransactionClient },
+  ): Operation<readonly number[]> {
     const { seconds, tx } = defaults(options ?? {}, {
       seconds: this.defaultConversationExpire.total('seconds'),
-      tx: this.prismaClient,
     })
 
-    const _conversations = yield * pipe(
-      () => tx.conversation.findMany({
-        select: { id: true },
-        where: {
-          expiredAt: { gt: new Date() },
-          id: { in: conversations.concat() },
-          type: this.type,
-        },
-      }),
-      task.map(
-        readonlyArray.map(x => x.id),
-      ),
-      cOperation.FromTask.fromTask,
-    )()
+    if (!tx) {
+      const scope = yield * useScope()
 
-    if (0 === _conversations.length) {
-      return []
+      return yield * call(
+        this.prismaClient.$transaction(tx =>
+          scope.run(() => this.expire(conversations, { seconds, tx })),
+        ),
+      )
     }
 
-    const now = Temporal.Now.zonedDateTimeISO()
-    const expiredAt = pipe(
-      now
-        .add({ seconds })
-        .epochMilliseconds,
-      x => new Date(x),
-    )
+    const interval = `${seconds.toFixed(0)} seconds`
+    const now = new Date()
+
+    const _conversations = yield * pipe(
+      conversations,
+      readonlyArray.map(
+        conversation => () => tx.$queryRaw<Pick<Conversation, 'expiredAt' | 'id'> | null>`
+          update
+            conversations
+          set
+            "expiredAt" = conversations."lastActiveAt" + ${interval}::interval
+          where
+            conversations.type = ${this.type} and
+            ${now} < conversations."expiredAt" and
+            conversations.id = ${conversation}
+          returning
+            conversations."expiredAt", conversations.id`,
+      ),
+      task.sequenceArray,
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.filterMap(option.fromNullable),
+      ),
+    )()
 
     yield * pipe(
       _conversations,
-      readonlyArray.map(flow(
-        x => this.entityConversationService
-          .getRecords(this.type, x)
+      readonlyArray.map(({ id, expiredAt }) => pipe(
+        this.entityConversationService
+          .getRecords(this.type, id)
           .key,
-        x => () => this.genericService.expireAt(x, expiredAt, 'GT'),
+        key => () => this.genericService.expireAt(key, expiredAt, 'GT'),
       )),
       cOperation.sequenceArray,
     )()
 
-    yield * call(tx.conversation.updateMany({
-      data: { expiredAt },
-      where: {
-        expiredAt: { lt: expiredAt },
-        id: { in: _conversations.concat() },
-      },
-    }))
+    return _conversations.map(x => x.id)
+  }
 
-    return _conversations
+  public *expireParticipants(
+    conversation: number,
+    participants: readonly number[],
+    seconds = this.defaultConversationExpire.total('seconds'),
+  ) {
+    const interval = `${seconds.toFixed(0)} seconds`
+
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        return yield * pipe(
+          participants,
+          readonlyArray.map(
+            participant => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'> | null>`
+              update
+                "conversation-x-participant" x
+              set
+                "expiredAt" = x."lastActiveAt" + ${interval}::interval
+              from
+                conversations
+              where
+                conversations.id = x.conversation and
+                conversations.type = ${this.type} and
+                x.conversation = ${conversation} and
+                x.participant = ${participant}
+              returning
+                x.participant`,
+          ),
+          task.sequenceArray,
+          cOperation.FromTask.fromTask,
+          cOperation.map(
+            readonlyArray.filterMap(flow(
+              option.fromNullable,
+              option.map(x => x.participant),
+            )),
+          ),
+        )()
+      })),
+    )
   }
 
   public *getConversationsRecord(participant: number) {
@@ -327,6 +365,7 @@ export abstract class ConversationService extends ModuleRaii {
             data: {
               createdAt,
               expiredAt,
+              lastActiveAt: createdAt,
               name: info.name,
               type: this.type,
             },
@@ -345,6 +384,44 @@ export abstract class ConversationService extends ModuleRaii {
         )
 
         return conversation
+      }.bind(this))),
+    )
+  }
+
+  public *putLastActiveAt(conversations: readonly number[]) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        const _conversations = yield * this.selectValidConversationForUpdate(tx, conversations)
+
+        yield * call(tx.conversation.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { id: { in: _conversations.concat() } },
+        }))
+
+        return _conversations
+      }.bind(this))),
+    )
+  }
+
+  public *putParticipantLastActiveAt(conversation: number, participants: readonly number[]) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        const _participants = yield * this.selectParticipantsForUpdate(tx, conversation, participants)
+
+        yield * call(tx.conversationXParticipant.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { conversation, participant: { in: _participants.concat() } },
+        }))
+
+        return _participants
       }.bind(this))),
     )
   }
@@ -402,7 +479,7 @@ export abstract class ConversationService extends ModuleRaii {
 
     yield * call(tx.conversationXParticipant.createMany({
       data: newParticipants.map(participant =>
-        ({ conversation, createdAt, data: {}, expiredAt, participant }),
+        ({ conversation, createdAt, data: {}, expiredAt, lastActiveAt: createdAt, participant }),
       ),
     }))
 
@@ -586,61 +663,6 @@ export abstract class ConversationService extends ModuleRaii {
       ),
       cOperation.sequenceArray,
     )()
-  }
-
-  private *expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
-        const expiredAt = pipe(
-          Temporal.Instant
-            .fromEpochMilliseconds(event.data.timestamp)
-            .toZonedDateTimeISO('UTC')
-            .add({ seconds: event.data.expire })
-            .epochMilliseconds,
-          x => new Date(x),
-        )
-
-        const toExpire = yield * pipe(
-          () => tx.user.findMany({
-            select: { id: true },
-            where: { expiredAt: { gte: expiredAt }, id: { in: event.users.concat() } },
-          }),
-          cOperation.FromTask.fromTask,
-          cOperation.map(
-            readonlyArray.map(x => x.id),
-          ),
-        )()
-
-        const conversations = yield * pipe(
-          () => this.prismaClient.conversationXParticipant.findMany({
-            distinct: 'conversation',
-            select: { conversation: true },
-            where: {
-              participant: { in: event.users.concat() },
-              xConversation: { expiredAt: { gt: new Date() }, type: this.type },
-            },
-          }),
-          task.map(
-            readonlyArray.map(x => x.conversation),
-          ),
-          cOperation.FromTask.fromTask,
-        )()
-
-        yield * all([
-          this.expire(conversations, { seconds: event.data.expire, tx }),
-          call(tx.conversationXParticipant.updateMany({
-            data: { expiredAt },
-            where: {
-              expiredAt: { lt: expiredAt },
-              participant: { in: toExpire.concat() },
-              xConversation: { type: this.type },
-            },
-          })),
-        ])
-      }.bind(this))),
-    )
   }
 
   private *listenUserEvent() {

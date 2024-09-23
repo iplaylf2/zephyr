@@ -63,14 +63,12 @@ export class UserService extends ModuleRaii {
               update
                 users 
               set
-                expiredAt = users.lastActiveAt + ${interval}::interval
-              from 
-                users
+                "expiredAt" = users."lastActiveAt" + ${interval}::interval
               where
-                ${now} < expiredAt and
-                id = ${user}
+                ${now} < users."expiredAt" and
+                users.id = ${user}
               returning
-                users.expiredAt, users.id`,
+                users."expiredAt", users.id`,
           ),
           task.sequenceArray,
           cOperation.FromTask.fromTask,
@@ -93,7 +91,7 @@ export class UserService extends ModuleRaii {
           users: _users,
         })
 
-        return _users
+        return _users.map(x => x.id)
       }.bind(this))),
     )
   }
@@ -134,8 +132,6 @@ export class UserService extends ModuleRaii {
   }
 
   public *putLastActiveAt(users: readonly number[]) {
-    const now = new Date()
-
     const scope = yield * useScope()
 
     return yield * call(
@@ -144,7 +140,7 @@ export class UserService extends ModuleRaii {
 
         yield * call(tx.user.updateMany({
           data: {
-            lastActiveAt: now,
+            lastActiveAt: new Date(),
           },
           where: { id: { in: _users.concat() } },
         }))
