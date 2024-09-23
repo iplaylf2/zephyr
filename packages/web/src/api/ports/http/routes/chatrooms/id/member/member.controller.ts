@@ -26,7 +26,7 @@ export class MemberController {
   @Delete()
   public [`@Delete()`](): Promise<boolean> {
     return globalScope.run(function*(this: MemberController) {
-      yield * this.checkAndExpire()
+      yield * this.check()
 
       const deleted = yield * this.conversationService.deleteParticipants(this.chatroom, [this.passport.id])
 
@@ -41,7 +41,7 @@ export class MemberController {
   @Put()
   public [`@Put()`](): Promise<boolean> {
     return globalScope.run(function*(this: MemberController) {
-      yield * this.checkAndExpire()
+      yield * this.check()
 
       const put = yield * this.conversationService.putParticipants(this.chatroom, [this.passport.id])
 
@@ -49,8 +49,8 @@ export class MemberController {
     }.bind(this))
   }
 
-  private *checkAndExpire() {
-    const exists = yield * this.conversationService.expire([this.chatroom])
+  private *check() {
+    const exists = yield * this.conversationService.putLastActiveAt([this.chatroom])
 
     if (0 === exists.length) {
       throw new NotFoundException()

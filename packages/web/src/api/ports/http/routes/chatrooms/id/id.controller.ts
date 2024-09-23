@@ -30,7 +30,7 @@ export class IdController {
   @Get('members')
   public [`@Get('members')`](): Promise<readonly number[]> {
     return globalScope.run(function*(this: IdController) {
-      yield * this.checkAndExpire()
+      yield * this.check()
 
       return yield * this.conversationService.getParticipants(this.id)
     }.bind(this))
@@ -43,7 +43,7 @@ export class IdController {
   @Get('messages')
   public [`@Get('messages')`](@Query() query: id.MessageQueryDto): Promise<readonly id.MessageDto[]> {
     return globalScope.run(function*(this: IdController) {
-      yield * this.checkAndExpire()
+      yield * this.check()
 
       return yield * this.conversationService.rangeMessages(this.id, query.start ?? '-', query.end ?? '+')
     }.bind(this))
@@ -63,14 +63,14 @@ export class IdController {
     @Body() body: id.MessageBodyDto,
   ): Promise<string | null> {
     return globalScope.run(function*(this: IdController) {
-      yield * this.checkAndExpire()
+      yield * this.check()
 
       return yield * this.conversationService.userPost(this.id, passport.id, body)
     }.bind(this))
   }
 
-  private *checkAndExpire() {
-    const exists = yield * this.conversationService.expire([this.id])
+  private *check() {
+    const exists = yield * this.conversationService.putLastActiveAt([this.id])
 
     if (0 === exists.length) {
       throw new NotFoundException()

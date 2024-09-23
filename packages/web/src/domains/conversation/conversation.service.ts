@@ -44,6 +44,8 @@ export abstract class ConversationService extends ModuleRaii {
     super()
 
     this.initializeCallbacks.push(() => this.listenUserEvent())
+    this.initializeCallbacks.push(() => this.expireConversationsEfficiently())
+    this.initializeCallbacks.push(() => this.expireParticipantsEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredConversions())
     this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
@@ -663,6 +665,94 @@ export abstract class ConversationService extends ModuleRaii {
       ),
       cOperation.sequenceArray,
     )()
+  }
+
+  private *expireConversationsEfficiently() {
+    const interval = Temporal.Duration
+      .from({ minutes: 1 })
+      .total('milliseconds')
+
+    while (true) {
+      const halfSeconds = this.defaultConversationExpire.total('seconds') / 2
+      const halfExpiredAt = Temporal.Now
+        .zonedDateTimeISO()
+        .add({ seconds: halfSeconds })
+
+      const conversations = yield * pipe(
+        () => this.prismaClient.conversation.findMany({
+          select: { id: true },
+          where: {
+            AND: [
+              { expiredAt: { gt: new Date() } },
+              { expiredAt: { lte: new Date(halfExpiredAt.epochMilliseconds) } },
+            ],
+            lastActiveAt: {
+              gt: new Date(
+                halfExpiredAt.subtract(this.defaultConversationExpire).epochMilliseconds,
+              ),
+            },
+            type: this.type,
+          },
+        }),
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyArray.map(x => x.id),
+        ),
+      )()
+
+      if (0 < conversations.length) {
+        yield * this.expire(conversations)
+      }
+
+      yield * sleep(interval)
+    }
+  }
+
+  private *expireParticipantsEfficiently() {
+    const interval = Temporal.Duration
+      .from({ minutes: 1 })
+      .total('milliseconds')
+
+    while (true) {
+      const halfSeconds = this.defaultParticipantExpire.total('seconds') / 2
+      const halfExpiredAt = Temporal.Now
+        .zonedDateTimeISO()
+        .add({ seconds: halfSeconds })
+
+      const group = yield * pipe(
+        () => this.prismaClient.conversationXParticipant.findMany({
+          select: { conversation: true, participant: true },
+          where: {
+            AND: [
+              { expiredAt: { gt: new Date() } },
+              { expiredAt: { lte: new Date(halfExpiredAt.epochMilliseconds) } },
+            ],
+            lastActiveAt: {
+              gt: new Date(
+                halfExpiredAt.subtract(this.defaultParticipantExpire).epochMilliseconds,
+              ),
+            },
+            xConversation: { type: this.type },
+          },
+        }),
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyNonEmptyArrayPlus.groupBy(x => x.conversation),
+        ),
+      )()
+
+      if (0 < group.size) {
+        yield * pipe(
+          Array.from(group),
+          readonlyArray.map(([conversation, x]) =>
+            () => this.expireParticipants(conversation, x.map(x => x.participant)),
+          ),
+          cOperation.sequenceArray,
+        )()
+      }
+
+      yield * sleep(interval)
+    }
   }
 
   private *listenUserEvent() {
