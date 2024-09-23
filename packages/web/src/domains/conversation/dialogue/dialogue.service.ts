@@ -64,6 +64,10 @@ export namespace conversation{
 
       const dialogues = yield * this.getDialogues(participant, tx)
 
+      if (0 === dialogues.length) {
+        return []
+      }
+
       const _expireAt = new Date(expireAt)
       const conversations = dialogues.map(x => x.conversation)
 
