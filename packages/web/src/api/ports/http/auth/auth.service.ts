@@ -13,7 +13,7 @@ export class AuthService {
   public *authenticate(token: string) {
     const passport: AuthService.Passport = this.jwtService.verify(token)
 
-    const exists = yield * this.userService.expire([passport.id])
+    const exists = yield * this.userService.putLastActiveAt([passport.id])
 
     if (0 === exists.length) {
       return null

@@ -48,7 +48,7 @@ export class UserService extends ModuleRaii {
     users: readonly number[],
     seconds: number = this.defaultExpire.total('seconds'),
   ) {
-    const interval = `interval '${seconds.toFixed(0)} second'`
+    const interval = `${seconds.toFixed(0)} seconds`
 
     const scope = yield * useScope()
 
@@ -63,11 +63,11 @@ export class UserService extends ModuleRaii {
               update
                 users 
               set
-                expiredAt = users.lastActiveAt + ${interval}
+                expiredAt = users.lastActiveAt + ${interval}::interval
               from 
                 users
               where
-                ${now} < expiredAt
+                ${now} < expiredAt and
                 id = ${user}
               returning
                 users.expiredAt, users.id`,
@@ -131,6 +131,27 @@ export class UserService extends ModuleRaii {
     }
 
     return false
+  }
+
+  public *putLastActiveAt(users: readonly number[]) {
+    const now = new Date()
+
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
+        const _users = yield * this.selectValidUsersForUpdate(tx, users)
+
+        yield * call(tx.user.updateMany({
+          data: {
+            lastActiveAt: now,
+          },
+          where: { id: { in: _users.concat() } },
+        }))
+
+        return _users
+      }.bind(this))),
+    )
   }
 
   public *register(info: user.Info) {
@@ -255,7 +276,7 @@ export class UserService extends ModuleRaii {
 
   private *expireUsersEfficiently() {
     const interval = Temporal.Duration
-      .from({ hours: 1 })
+      .from({ minutes: 1 })
       .total('milliseconds')
 
     while (true) {
