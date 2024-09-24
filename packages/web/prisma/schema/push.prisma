@@ -1,0 +1,26 @@
+model Push {
+    createdAt    DateTime
+    expiredAt    DateTime
+    id           Int      @id @default(autoincrement())
+    lastActiveAt DateTime
+    source       Int
+    type         String
+}
+
+model Receiver {
+    createdAt    DateTime
+    expiredAt    DateTime
+    id           Int      @id @default(autoincrement())
+    lastActiveAt DateTime
+    claimer      Int?
+}
+
+model Subscription {
+    createdAt    DateTime
+    expiredAt    DateTime
+    lastActiveAt DateTime
+    push         Int
+    receiver     Int
+
+    @@id([push, receiver])
+}
