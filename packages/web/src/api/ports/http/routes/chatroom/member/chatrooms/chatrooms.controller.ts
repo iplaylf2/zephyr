@@ -6,7 +6,7 @@ import { chatrooms } from './chatrooms.dto.js'
 import { conversation } from '../../../../../../../domains/conversation/group/group.service.js'
 import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 
-@ApiTags('chatroom')
+@ApiTags('chatroom/member/chatrooms')
 @RequirePassport()
 @Controller('chatrooms')
 export class ChatroomsController {

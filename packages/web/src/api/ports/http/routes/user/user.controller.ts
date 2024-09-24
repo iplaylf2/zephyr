@@ -7,7 +7,11 @@ import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { UserService } from '../../../../../domains/user/user.service.js'
+import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
+import { cOperationEither } from '../../../../../common/fp-effection/c-operation-either.js'
+import { either } from 'fp-ts'
 import { globalScope } from '../../../../../kits/effection/global-scope.js'
+import { pipe } from 'fp-ts/lib/function.js'
 import { user } from './user.dto.js'
 
 @ApiTags('user')
@@ -25,12 +29,12 @@ export class UserController {
   })
   @RequirePassport()
   @Delete()
-  public [`@Delete()`](@Passport.param passport: Passport) {
-    return globalScope.run(function*(this: UserController) {
-      const deleted = yield * this.userService.unregister([passport.id])
-
-      return 0 < deleted.length
-    }.bind(this))
+  public [`@Delete()`](@Passport.param passport: Passport): Promise<boolean> {
+    return pipe(
+      () => this.userService.unregister([passport.id]),
+      cOperation.map(x => 0 < x.length),
+      x => globalScope.run(x),
+    )
   }
 
   @ApiOkResponse({
@@ -39,15 +43,19 @@ export class UserController {
   @RequirePassport()
   @Get('info')
   public async [`@Get('info')`](@Passport.param passport: Passport): Promise<user.InfoDto> {
-    return globalScope.run(function*(this: UserController) {
-      const infos = yield * this.userService.get([passport.id])
-
-      if (0 === infos.length) {
-        throw new InternalServerErrorException()
-      }
-
-      return infos[0]!
-    }.bind(this))
+    return pipe(
+      () => this.userService.get([passport.id]),
+      cOperation.map(
+        x => 0 === x.length
+          ? either.left(new InternalServerErrorException())
+          : either.right(x[0]!),
+      ),
+      cOperationEither.fold(
+        (e) => { throw e },
+        cOperation.Pointed.of,
+      ),
+      x => globalScope.run(x),
+    )
   }
 
   @ApiCreatedResponse({
@@ -55,14 +63,11 @@ export class UserController {
   })
   @Post()
   public async [`@Post()`](@Body() info: user.InfoDto): Promise<user.CreationResultDto> {
-    return globalScope.run(function*(this: UserController) {
-      const id = yield * this.userService.register(info)
-
-      return {
-        id: id,
-        token: this.authService.authorize(id),
-      }
-    }.bind(this))
+    return pipe(
+      () => this.userService.register(info),
+      cOperation.map(id => ({ id: id, token: this.authService.authorize(id) })),
+      x => globalScope.run(x),
+    )
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

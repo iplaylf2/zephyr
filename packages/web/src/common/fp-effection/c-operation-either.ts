@@ -122,6 +122,7 @@ export namespace cOperationEither{
   export const apPar = eitherT.ap(cOperation.ApplyPar)
   export const apSeq = eitherT.ap(cOperation.ApplySeq)
   export const chain = eitherT.chain(cOperation.Monad)
+  export const fold = eitherT.matchE(cOperation.Monad)
 }
 
 declare module 'fp-ts/HKT' {

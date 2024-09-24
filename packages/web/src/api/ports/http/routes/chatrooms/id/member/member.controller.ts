@@ -2,11 +2,13 @@ import { ApiResponse, ApiTags } from '@nestjs/swagger'
 import { Controller, Delete, Inject, NotFoundException, Put } from '@nestjs/common'
 import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
+import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
 import { conversation } from '../../../../../../../domains/conversation/group/group.service.js'
 import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 import { path } from '../../../../pattern.js'
+import { pipe } from 'fp-ts/lib/function.js'
 
-@ApiTags('chatrooms')
+@ApiTags('chatrooms/:id/member')
 @RequirePassport()
 @Controller('member')
 export class MemberController {
@@ -25,13 +27,14 @@ export class MemberController {
   })
   @Delete()
   public [`@Delete()`](): Promise<boolean> {
-    return globalScope.run(function*(this: MemberController) {
-      yield * this.check()
-
-      const deleted = yield * this.conversationService.deleteParticipants(this.chatroom, [this.passport.id])
-
-      return 0 < deleted.length
-    }.bind(this))
+    return pipe(
+      () => this.check(),
+      cOperation.chain(() =>
+        () => this.conversationService.deleteParticipants(this.chatroom, [this.passport.id]),
+      ),
+      cOperation.map(x => 0 < x.length),
+      x => globalScope.run(x),
+    )
   }
 
   @ApiResponse({
@@ -40,13 +43,14 @@ export class MemberController {
   })
   @Put()
   public [`@Put()`](): Promise<boolean> {
-    return globalScope.run(function*(this: MemberController) {
-      yield * this.check()
-
-      const put = yield * this.conversationService.putParticipants(this.chatroom, [this.passport.id])
-
-      return 0 < put.length
-    }.bind(this))
+    return pipe(
+      () => this.check(),
+      cOperation.chain(() =>
+        () => this.conversationService.putParticipants(this.chatroom, [this.passport.id]),
+      ),
+      cOperation.map(x => 0 < x.length),
+      x => globalScope.run(x),
+    )
   }
 
   private *check() {
