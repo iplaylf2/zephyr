@@ -30,11 +30,10 @@ export class UserController {
   @RequirePassport()
   @Delete()
   public [`@Delete()`](@Passport.param passport: Passport): Promise<boolean> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.userService.unregister([passport.id]),
       cOperation.map(x => 0 < x.length),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   @ApiOkResponse({
@@ -43,7 +42,7 @@ export class UserController {
   @RequirePassport()
   @Get('info')
   public async [`@Get('info')`](@Passport.param passport: Passport): Promise<user.InfoDto> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.userService.get([passport.id]),
       cOperation.map(
         x => 0 === x.length
@@ -54,8 +53,7 @@ export class UserController {
         (e) => { throw e },
         cOperation.Pointed.of,
       ),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   @ApiCreatedResponse({
@@ -63,11 +61,10 @@ export class UserController {
   })
   @Post()
   public async [`@Post()`](@Body() info: user.InfoDto): Promise<user.CreationResultDto> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.userService.register(info),
       cOperation.map(id => ({ id: id, token: this.authService.authorize(id) })),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

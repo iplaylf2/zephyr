@@ -24,10 +24,9 @@ export class DialogueController {
   })
   @Put()
   public [`@Put()`](@Body() creation: dialogue.CreationDto): Promise<number> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.conversationService.putDialogue(this.passport.id, creation.participant),
       cOperation.map(x => x.conversation),
-      x => globalScope.run(x),
-    )
+    ))
   }
 }

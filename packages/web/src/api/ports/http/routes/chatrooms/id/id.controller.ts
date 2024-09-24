@@ -31,11 +31,10 @@ export class IdController {
   })
   @Get('members')
   public [`@Get('members')`](): Promise<readonly number[]> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.check(),
       cOperation.chain(() => () => this.conversationService.getParticipants(this.id)),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   @ApiOkResponse({
@@ -44,12 +43,11 @@ export class IdController {
   })
   @Get('messages')
   public [`@Get('messages')`](@Query() query: id.MessageQueryDto): Promise<readonly id.MessageDto[]> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.check(),
       cOperation.chain(() =>
         () => this.conversationService.rangeMessages(this.id, query.start ?? '-', query.end ?? '+')),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   @ApiCreatedResponse({
@@ -65,12 +63,11 @@ export class IdController {
     @Passport.param passport: Passport,
     @Body() body: id.MessageBodyDto,
   ): Promise<string | null> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.check(),
       cOperation.chain(() =>
         () => this.conversationService.userPost(this.id, passport.id, body)),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   private *check() {

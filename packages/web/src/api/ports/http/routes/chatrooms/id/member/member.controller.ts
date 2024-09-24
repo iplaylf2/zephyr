@@ -27,14 +27,13 @@ export class MemberController {
   })
   @Delete()
   public [`@Delete()`](): Promise<boolean> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.check(),
       cOperation.chain(() =>
         () => this.conversationService.deleteParticipants(this.chatroom, [this.passport.id]),
       ),
       cOperation.map(x => 0 < x.length),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   @ApiResponse({
@@ -43,14 +42,13 @@ export class MemberController {
   })
   @Put()
   public [`@Put()`](): Promise<boolean> {
-    return pipe(
+    return globalScope.run(pipe(
       () => this.check(),
       cOperation.chain(() =>
         () => this.conversationService.putParticipants(this.chatroom, [this.passport.id]),
       ),
       cOperation.map(x => 0 < x.length),
-      x => globalScope.run(x),
-    )
+    ))
   }
 
   private *check() {
