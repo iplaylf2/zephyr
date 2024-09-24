@@ -8,6 +8,6 @@ import { path } from '../../../../pattern.js'
 @Module({
   controllers: [MemberController],
   imports: [AuthModule, UserModule, conversation.GroupModule],
-  providers: [path.chatroom.provider],
+  providers: [path.group.provider],
 })
 export class MemberModule {}

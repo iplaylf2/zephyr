@@ -4,23 +4,23 @@ import { createZodDto } from '@anatine/zod-nestjs'
 import { extendApi } from '@anatine/zod-openapi'
 import { z } from 'zod'
 
-export namespace chatrooms{
-  const chatroom = z.object({
+export namespace groups{
+  const group = z.object({
     conversationId: conversation.id,
     lastMessageId: z.string().nullable(),
   })
 
-  export class ChatroomDto extends createZodDto(chatroom) {}
+  export class GroupDto extends createZodDto(group) {}
 
   const dataRecord = z.record(
-    extendApi(conversation.id, { title: 'chatroom' }),
+    extendApi(conversation.id, { title: 'group' }),
     z.custom<JsonObject>(),
   )
 
   export class DataRecordDto extends createZodDto(dataRecord) {}
 
   const deleteDataRecord = z.record(
-    extendApi(conversation.id, { title: 'chatroom' }),
+    extendApi(conversation.id, { title: 'group' }),
     z.string(),
   )
 

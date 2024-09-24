@@ -1,10 +1,10 @@
 import { APP_PIPE } from '@nestjs/core'
-import { IdModule as ChatroomIdModule } from './routes/chatrooms/id/id.module.js'
-import { ChatroomsModule } from './routes/chatroom/member/chatrooms/chatrooms.module.js'
 import { IdModule as DialogueIdModule } from './routes/dialogues/id/id.module.js'
 import { DialogueModule } from './routes/dialogue/dialogue.module.js'
 import { DialoguesModule } from './routes/dialogues/dialogues.module.js'
-import { MemberModule } from './routes/chatrooms/id/member/member.module.js'
+import { IdModule as GroupIdModule } from './routes/groups/id/id.module.js'
+import { GroupsModule } from './routes/group/member/groups/groups.module.js'
+import { MemberModule } from './routes/groups/id/member/member.module.js'
 import { Module } from '@nestjs/common'
 import { SubscriptionsModule as ReceiverSubscriptionsModule } from './routes/receivers/id/subscriptions/subscriptions.module.js'
 import { UserModule as ReceiverUserModule } from './routes/receiver/user/user.module.js'
@@ -24,15 +24,15 @@ import { router } from './kits/router.js'
     UsersModule,
     ...router.register([
       {
-        module: ChatroomsModule,
-        path: 'chatroom/member',
+        module: GroupsModule,
+        path: 'group/member',
       },
       {
         children: [
-          ChatroomIdModule,
-          { children: [MemberModule], path: path.chatroom.pattern },
+          GroupIdModule,
+          { children: [MemberModule], path: path.group.pattern },
         ],
-        path: 'chatrooms',
+        path: 'groups',
       },
       {
         module: ReceiverUserModule,

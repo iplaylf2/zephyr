@@ -15,7 +15,7 @@ export const idPath = urlPattern.path('id', Number)
   name: idPath.name,
   type: String,
 })
-@ApiTags('chatrooms/:id')
+@ApiTags('groups/:id')
 @Controller(idPath.pattern)
 export class IdController {
   @Inject()
