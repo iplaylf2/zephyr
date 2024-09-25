@@ -14,6 +14,7 @@ import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../user/user.service.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
+import { commonWhere } from '../../repositories/prisma/common/common-where.js'
 import { conversation } from '../../models/conversation.js'
 import defaults from 'defaults'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
@@ -649,24 +650,11 @@ export abstract class ConversationService extends ModuleRaii {
       .total('milliseconds')
 
     while (true) {
-      const halfSeconds = this.defaultConversationExpire.total('seconds') / 2
-      const halfExpiredAt = Temporal.Now
-        .zonedDateTimeISO()
-        .add({ seconds: halfSeconds })
-
       const conversations = yield * pipe(
         () => this.prismaClient.conversation.findMany({
           select: { id: true },
           where: {
-            AND: [
-              { expiredAt: { gt: new Date() } },
-              { expiredAt: { lte: new Date(halfExpiredAt.epochMilliseconds) } },
-            ],
-            lastActiveAt: {
-              gt: new Date(
-                halfExpiredAt.subtract(this.defaultConversationExpire).epochMilliseconds,
-              ),
-            },
+            ...commonWhere.halfLife(this.defaultConversationExpire),
             type: this.type,
           },
         }),
@@ -690,24 +678,11 @@ export abstract class ConversationService extends ModuleRaii {
       .total('milliseconds')
 
     while (true) {
-      const halfSeconds = this.defaultParticipantExpire.total('seconds') / 2
-      const halfExpiredAt = Temporal.Now
-        .zonedDateTimeISO()
-        .add({ seconds: halfSeconds })
-
       const group = yield * pipe(
         () => this.prismaClient.conversationXParticipant.findMany({
           select: { conversation: true, participant: true },
           where: {
-            AND: [
-              { expiredAt: { gt: new Date() } },
-              { expiredAt: { lte: new Date(halfExpiredAt.epochMilliseconds) } },
-            ],
-            lastActiveAt: {
-              gt: new Date(
-                halfExpiredAt.subtract(this.defaultParticipantExpire).epochMilliseconds,
-              ),
-            },
+            ...commonWhere.halfLife(this.defaultParticipantExpire),
             xConversation: { type: this.type },
           },
         }),

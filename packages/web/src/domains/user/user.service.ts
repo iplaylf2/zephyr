@@ -8,6 +8,7 @@ import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { coerceReadonly } from '../../utils/identity.js'
+import { commonWhere } from '../../repositories/prisma/common/common-where.js'
 import { readonlyRecordPlus } from '../../kits/fp-ts/readonly-record-plus.js'
 import { user } from '../../models/user.js'
 
@@ -277,25 +278,10 @@ export class UserService extends ModuleRaii {
       .total('milliseconds')
 
     while (true) {
-      const halfSeconds = this.defaultExpire.total('seconds') / 2
-      const halfExpiredAt = Temporal.Now
-        .zonedDateTimeISO()
-        .add({ seconds: halfSeconds })
-
       const halfExpiredUsers = yield * pipe(
         () => this.prismaClient.user.findMany({
           select: { id: true },
-          where: {
-            AND: [
-              { expiredAt: { gt: new Date() } },
-              { expiredAt: { lte: new Date(halfExpiredAt.epochMilliseconds) } },
-            ],
-            lastActiveAt: {
-              gt: new Date(
-                halfExpiredAt.subtract(this.defaultExpire).epochMilliseconds,
-              ),
-            },
-          },
+          where: commonWhere.halfLife(this.defaultExpire),
         }),
         cOperation.FromTask.fromTask,
         cOperation.map(
