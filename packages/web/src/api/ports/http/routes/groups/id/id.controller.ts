@@ -13,9 +13,9 @@ export const idPath = urlPattern.path('id', Number)
 
 @ApiParam({
   name: idPath.name,
-  type: String,
+  type: Number,
 })
-@ApiTags('groups/:id')
+@ApiTags(`groups/${idPath.pattern}`)
 @Controller(idPath.pattern)
 export class IdController {
   @Inject()

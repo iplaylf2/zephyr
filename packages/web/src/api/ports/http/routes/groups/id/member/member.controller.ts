@@ -1,4 +1,4 @@
-import { ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { Controller, Delete, Inject, NotFoundException, Put } from '@nestjs/common'
 import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
@@ -8,7 +8,11 @@ import { globalScope } from '../../../../../../../kits/effection/global-scope.js
 import { path } from '../../../../pattern.js'
 import { pipe } from 'fp-ts/lib/function.js'
 
-@ApiTags('groups/:group/member')
+@ApiParam({
+  name: path.group.name,
+  type: Number,
+})
+@ApiTags(`groups/${path.group.pattern}/member`)
 @RequirePassport()
 @Controller('member')
 export class MemberController {

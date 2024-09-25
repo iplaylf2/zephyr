@@ -11,9 +11,9 @@ export const idPath = urlPattern.path('id', Number)
 
 @ApiParam({
   name: idPath.name,
-  type: String,
+  type: Number,
 })
-@ApiTags('dialogues/:id')
+@ApiTags(`dialogues/${idPath.pattern}`)
 @RequirePassport()
 @Controller(idPath.pattern)
 export class IdController {

@@ -8,8 +8,8 @@ import { GroupsModule } from './routes/group/member/groups/groups.module.js'
 import { MemberModule } from './routes/groups/id/member/member.module.js'
 import { Module } from '@nestjs/common'
 import { PushModule } from './routes/push/push.module.js'
-import { PushesModule } from './routes/push/receivers/token/pushes/pushes.module.js'
 import { ReceiverModule } from './routes/push/claimer/receiver/receiver.module.js'
+import { ReceiversModule } from './routes/push/receivers/receivers.module.js'
 import { UserModule } from './routes/user/user.module.js'
 import { UsersModule } from './routes/users/users.module.js'
 import { ZodValidationPipe } from '@anatine/zod-nestjs'
@@ -42,7 +42,11 @@ import { router } from './kits/router.js'
       {
         children: [
           { module: ReceiverModule, path: 'claimer' },
-          { children: [ClaimerModule, PushesModule], path: `receivers/${path.token.pattern}` },
+          {
+            children: [{ module: ClaimerModule, path: path.token.pattern }],
+            module: ReceiversModule,
+            path: 'receivers',
+          },
         ],
         path: 'push',
       },
