@@ -14,7 +14,7 @@ model Push {
 }
 
 model PushReceiver {
-    claimer      Int?
+    claimer      Int?     @unique
     createdAt    DateTime
     expiredAt    DateTime
     id           Int      @id @default(autoincrement())
@@ -24,7 +24,6 @@ model PushReceiver {
     pushes PushSubscription[]
 
     @@index([expiredAt])
-    @@index([claimer])
     @@map("push_receivers")
 }
 

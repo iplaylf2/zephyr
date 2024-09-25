@@ -33,10 +33,10 @@ export class DialoguesController {
 
   @ApiOkResponse({
     isArray: true,
-    type: dialogues.DialogueDto,
+    type: dialogues.DialogueInfoDto,
   })
-  @Get()
-  public [`@Get()`](): Promise<readonly dialogues.DialogueDto[]> {
+  @Get('info')
+  public [`@Get('info')`](): Promise<readonly dialogues.DialogueInfoDto[]> {
     return globalScope.run(() =>
       this.conversationService.getConversationsRecord(this.passport.id),
     )

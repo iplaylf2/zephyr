@@ -36,10 +36,10 @@ export class GroupsController {
 
   @ApiOkResponse({
     isArray: true,
-    type: groups.GroupDto,
+    type: groups.GroupInfoDto,
   })
-  @Get()
-  public [`@Get()`](): Promise<readonly groups.GroupDto[]> {
+  @Get('info')
+  public [`@Get('info')`](): Promise<readonly groups.GroupInfoDto[]> {
     return globalScope.run(() =>
       this.conversationService.getConversationsRecord(this.passport.id),
     )

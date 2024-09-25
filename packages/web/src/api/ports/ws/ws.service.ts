@@ -24,7 +24,7 @@ export class WsService extends ModuleRaii {
   }
 
   private *listen() {
-    const urlPattern = new URLPattern({ pathname: '/receiver/:id' })
+    const urlPattern = new URLPattern({ pathname: '/push/receivers/:id' })
     const websocketServer = new WebSocketServer({ noServer: true })
     const upgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
       const patternResult = urlPattern.exec(request.url, 'ws://x')

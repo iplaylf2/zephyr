@@ -8,7 +8,7 @@ import { globalScope } from '../../../../../../../kits/effection/global-scope.js
 import { path } from '../../../../pattern.js'
 import { pipe } from 'fp-ts/lib/function.js'
 
-@ApiTags('groups/:id/member')
+@ApiTags('groups/:group/member')
 @RequirePassport()
 @Controller('member')
 export class MemberController {

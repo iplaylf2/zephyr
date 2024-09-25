@@ -5,14 +5,14 @@ import { extendApi } from '@anatine/zod-openapi'
 import { z } from 'zod'
 
 export namespace dialogues{
-  const dialogue = z.object({
+  const dialogueInfo = z.object({
     conversationId: conversation.id,
     initiatorId: conversation.id,
     lastMessageId: z.string().nullable(),
     participantId: conversation.id,
   })
 
-  export class DialogueDto extends createZodDto(dialogue) {}
+  export class DialogueInfoDto extends createZodDto(dialogueInfo) {}
 
   const dataRecord = z.record(
     extendApi(conversation.id, { title: 'dialogue' }),

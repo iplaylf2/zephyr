@@ -5,12 +5,12 @@ import { extendApi } from '@anatine/zod-openapi'
 import { z } from 'zod'
 
 export namespace groups{
-  const group = z.object({
+  const groupInfo = z.object({
     conversationId: conversation.id,
     lastMessageId: z.string().nullable(),
   })
 
-  export class GroupDto extends createZodDto(group) {}
+  export class GroupInfoDto extends createZodDto(groupInfo) {}
 
   const dataRecord = z.record(
     extendApi(conversation.id, { title: 'group' }),
