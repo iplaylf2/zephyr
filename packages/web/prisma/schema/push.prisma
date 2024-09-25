@@ -5,22 +5,41 @@ model Push {
     lastActiveAt DateTime
     source       Int
     type         String
+
+    receivers PushSubscription[]
+
+    @@index([expiredAt])
+    @@index([type])
+    @@map("pushes")
 }
 
-model Receiver {
+model PushReceiver {
+    claimer      Int?
     createdAt    DateTime
     expiredAt    DateTime
     id           Int      @id @default(autoincrement())
     lastActiveAt DateTime
-    claimer      Int?
+    token        String   @unique @default(cuid())
+
+    pushes PushSubscription[]
+
+    @@index([expiredAt])
+    @@index([claimer])
+    @@map("push_receivers")
 }
 
-model Subscription {
+model PushSubscription {
     createdAt    DateTime
     expiredAt    DateTime
     lastActiveAt DateTime
     push         Int
     receiver     Int
 
+    xPush     Push         @relation(fields: [push], references: [id])
+    xReceiver PushReceiver @relation(fields: [receiver], references: [id])
+
     @@id([push, receiver])
+    @@unique([receiver, push])
+    @@index([expiredAt])
+    @@map("push_subscriptions")
 }
