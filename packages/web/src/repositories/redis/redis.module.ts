@@ -1,7 +1,7 @@
 import { FactoryProvider, Module } from '@nestjs/common'
 import { ConversationService } from './entities/conversation.service.js'
 import { GenericService } from './entities/generic.service.js'
-import { ReceiverService } from './entities/receiver.service.js'
+import { PushService } from './entities/push.service.js'
 import { RedisService } from './redis.service.js'
 import { ResourceManagerModule } from '../../common/resource-manager/resource-manager.module.js'
 import { ResourceManagerService } from '../../common/resource-manager/resource-manager.service.js'
@@ -36,7 +36,7 @@ const redisServiceProvider = {
   exports: [
     ConversationService,
     GenericService,
-    ReceiverService,
+    PushService,
     redisServiceProvider,
     UserService,
   ],
@@ -44,7 +44,7 @@ const redisServiceProvider = {
   providers: [
     ConversationService,
     GenericService,
-    ReceiverService,
+    PushService,
     redisServiceProvider,
     UserService,
   ],
