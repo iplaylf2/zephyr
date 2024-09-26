@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from '../../repositories/prisma/prisma.module.js'
-import { ReceiverService } from './receiver.service.js'
+import { PushService } from './push.service.js'
 import { RedisModule } from '../../repositories/redis/redis.module.js'
 
 @Module({
-  exports: [ReceiverService],
+  exports: [PushService],
   imports: [RedisModule, PrismaModule],
-  providers: [ReceiverService],
+  providers: [PushService],
 })
-export class ReceiverModule {}
+export class PushModule {}

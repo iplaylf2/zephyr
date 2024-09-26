@@ -1,11 +1,13 @@
 import { IncomingMessage, Server } from 'http'
 import { Inject, Injectable } from '@nestjs/common'
 import { Duplex } from 'stream'
+import { EMPTY } from 'rxjs'
 import { HttpAdapterHost } from '@nestjs/core'
 import { ModuleRaii } from '../../../common/module-raii.js'
-import { ReceiverService } from '../../../domains/receiver/receiver.service.js'
+import { PushService } from '../../../domains/push/push.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
+import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { globalScope } from '../../../kits/effection/global-scope.js'
 import { suspend } from 'effection'
 
@@ -15,10 +17,12 @@ export class WsService extends ModuleRaii {
   private readonly httpAdapterHost!: HttpAdapterHost
 
   @Inject()
-  private readonly receiverService!: ReceiverService
+  private readonly pushService!: PushService
 
   public constructor() {
     super()
+
+    void this.pushService
 
     this.initializeCallbacks.push(() => this.listen())
   }
@@ -60,8 +64,10 @@ export class WsService extends ModuleRaii {
     id: string,
   ) {
     try {
-      const channel = yield * this.receiverService.getChannel(id)
+      void id
+      const channel = yield * cOperation.Pointed.of(EMPTY)()
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (null === channel) {
         socket.destroy()
 

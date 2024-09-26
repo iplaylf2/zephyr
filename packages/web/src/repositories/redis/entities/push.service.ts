@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { RedisClientType } from '@redis/client'
 import { RedisService } from '../redis.service.js'
 import { jsonPubSub } from './common/json-pub-sub/shard.js'
-import { receiver } from '../../../models/receiver.js'
+import { push } from '../../../models/push.js'
 
 @Injectable()
 export class PushService {
@@ -15,7 +15,7 @@ export class PushService {
 }
 
 export namespace PushService{
-  export class Notification extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, receiver.Notification> {
+  export class Notification extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, push.Notification> {
     public constructor(public override client: RedisClientType) {
       super()
     }

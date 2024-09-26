@@ -1,12 +1,13 @@
-import { JsonValue, ReadonlyDeep } from 'type-fest'
+import { JsonValue } from 'type-fest'
 import { user } from './user.js'
 import { z } from 'zod'
 
-export namespace receiver{
-  const id = z.string()
+export namespace push{
+  export const id = z.number().int().nonnegative()
 
   export const receiver = z.object({
     claim: user.id.nullable(),
+    token: z.string().min(1),
   })
 
   export type Receiver = Readonly<z.infer<typeof receiver>>
@@ -18,11 +19,4 @@ export namespace receiver{
   })
 
   export type Notification = Readonly<z.infer<typeof notification>>
-
-  export const subscriptions = z.record(
-    z.string(),
-    z.record(z.string(), z.custom<JsonValue>()),
-  )
-
-  export type Subscriptions = ReadonlyDeep<z.infer<typeof subscriptions>>
 }
