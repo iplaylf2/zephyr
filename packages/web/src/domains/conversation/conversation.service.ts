@@ -188,15 +188,24 @@ export abstract class ConversationService extends ModuleRaii {
     participants: readonly number[],
     tx: Prisma.TransactionClient = this.prismaClient,
   ) {
+    if (0 === participants.length) {
+      return cOperation.Pointed.of([])()
+    }
+
     return pipe(
-      () => tx.conversationXParticipant.findMany({
-        select: { participant: true },
-        where: {
-          conversation,
-          participant: { in: participants.concat() },
-          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
-        },
-      }),
+      () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
+        select
+          x.participant
+        from
+          "conversation-x-participant" x
+        join conversations on
+          conversations.id = x.conversation
+        where
+          ${new Date()} < conversations."expiredAt" and
+          conversations.type = ${this.type} and
+          x.conversation = ${conversation} and
+          x.participant in ${Prisma.join(participants)}
+        for share`,
       task.map(
         readonlyArray.map(x => x.participant),
       ),
@@ -605,13 +614,8 @@ export abstract class ConversationService extends ModuleRaii {
 
   private *deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
     const deletedUsers = yield * pipe(
-      () => this.prismaClient.user.findMany({
-        select: { id: true },
-        where: { id: { in: event.users.concat() } },
-      }),
-      cOperation.FromTask.fromTask,
+      () => this.userService.selectUsersForShare(event.users),
       cOperation.map(flow(
-        readonlyArray.map(x => x.id),
         a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
         identity.ap(event.users),
       )),

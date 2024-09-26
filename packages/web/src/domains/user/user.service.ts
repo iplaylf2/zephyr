@@ -186,6 +186,26 @@ export class UserService extends ModuleRaii {
     )
   }
 
+  public selectUsersForShare(
+    users: readonly number[],
+     tx: Prisma.TransactionClient = this.prismaClient,
+  ) {
+    return pipe(
+      () => tx.$queryRaw<Pick<User, 'id'>[]>`
+        select
+          id
+        from 
+          users
+        where
+          id in ${Prisma.join(users)}
+        for share`,
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
+  }
+
   public selectUsersForUpdate(tx: Prisma.TransactionClient, users: readonly number[]) {
     return pipe(
       () => tx.$queryRaw<Pick<User, 'id'>[]>`

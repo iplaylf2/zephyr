@@ -26,17 +26,14 @@ model PushReceiver {
 }
 
 model PushSubscription {
-    createdAt    DateTime
-    expiredAt    DateTime
-    lastActiveAt DateTime
-    push         Int
-    receiver     Int
+    createdAt DateTime
+    push      Int
+    receiver  Int
 
     xPush     Push         @relation(fields: [push], references: [id])
     xReceiver PushReceiver @relation(fields: [receiver], references: [id])
 
     @@id([push, receiver])
     @@unique([receiver, push])
-    @@index([expiredAt])
     @@map("push_subscriptions")
 }

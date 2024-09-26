@@ -25,6 +25,10 @@ export class PushService extends ModuleRaii {
     // this.initializeCallbacks.push(() => this.deleteExpiredSubscriptions())
   }
 
+  public expireReceivers() {
+
+  }
+
   public patchPushes() {
   }
 
