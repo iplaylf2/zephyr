@@ -1,10 +1,8 @@
 model Push {
-    createdAt    DateTime
-    expiredAt    DateTime
-    id           Int      @id @default(autoincrement())
-    lastActiveAt DateTime
-    source       Int
-    type         String
+    expiredAt DateTime
+    id        Int      @id @default(autoincrement())
+    source    Int
+    type      String
 
     receivers PushSubscription[]
 

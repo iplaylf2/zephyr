@@ -1,5 +1,5 @@
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Put } from '@nestjs/common'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Patch } from '@nestjs/common'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { conversation } from '../../../../../domains/conversation/dialogue/dialogue.service.js'
@@ -43,8 +43,8 @@ export class DialoguesController {
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Put('data')
-  public async [`@Put('data')`](@Body() dataRecord: dialogues.DataRecordDto) {
+  @Patch('data')
+  public async [`@Patch('data')`](@Body() dataRecord: dialogues.DataRecordDto) {
     await globalScope.run(() =>
       this.conversationService.patchData(this.passport.id, dataRecord),
     )

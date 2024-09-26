@@ -1,7 +1,7 @@
 import { ApiCreatedResponse, ApiOkResponse, ApiResponse, ApiTags } from '@nestjs/swagger'
 import {
   Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Inject, InternalServerErrorException, Post, Put,
+  Inject, InternalServerErrorException, Patch, Post,
 } from '@nestjs/common'
 import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
@@ -56,6 +56,15 @@ export class UserController {
     ))
   }
 
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePassport()
+  @Patch('info')
+  public async [`@Patch('info')`](@Passport.param passport: Passport, @Body() info: user.InfoDto) {
+    await globalScope.run(() =>
+      this.userService.patch(passport.id, info),
+    )
+  }
+
   @ApiCreatedResponse({
     type: user.CreationResultDto,
   })
@@ -65,14 +74,5 @@ export class UserController {
       () => this.userService.register(info),
       cOperation.map(id => ({ id: id, token: this.authService.authorize(id) })),
     ))
-  }
-
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @RequirePassport()
-  @Put('info')
-  public async [`@Put('info')`](@Passport.param passport: Passport, @Body() info: user.InfoDto) {
-    await globalScope.run(() =>
-      this.userService.put(passport.id, info),
-    )
   }
 }

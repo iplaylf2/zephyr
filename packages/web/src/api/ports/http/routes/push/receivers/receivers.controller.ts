@@ -1,5 +1,5 @@
 import { ApiParam, ApiTags } from '@nestjs/swagger'
-import { Controller, Delete, Get, Inject, Put, Sse } from '@nestjs/common'
+import { Controller, Delete, Get, Inject, Patch, Sse } from '@nestjs/common'
 import { urlPattern } from '../../../kits/url-pattern.js'
 
 export const tokenPath = urlPattern.path('token')
@@ -22,8 +22,8 @@ export class ReceiversController {
   @Get('pushes')
   public [`@Get('pushes')`]() {}
 
-  @Put('pushes')
-  public [`@Put('pushes')`]() {}
+  @Patch('pushes')
+  public [`@Patch('pushes')`]() {}
 
   @Sse()
   public [`@Sse()`]() {}

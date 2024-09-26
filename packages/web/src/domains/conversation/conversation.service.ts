@@ -451,9 +451,9 @@ export abstract class ConversationService extends ModuleRaii {
       )
     }
 
-    const exist = yield * this.exists([conversation], tx)
+    const exists = yield * this.exists([conversation], tx)
 
-    if (0 === exist.length) {
+    if (0 === exists.length) {
       return []
     }
 
@@ -533,9 +533,9 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public *userPost(conversation: number, participant: number, body: conversation.MessageBody) {
-    const exist = yield * this.existsParticipants(conversation, [participant])
+    const exists = yield * this.existsParticipants(conversation, [participant])
 
-    if (0 === exist.length) {
+    if (0 === exists.length) {
       return null
     }
 

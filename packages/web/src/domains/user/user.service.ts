@@ -130,7 +130,7 @@ export class UserService extends ModuleRaii {
     )()
   }
 
-  public *put(id: number, user: Partial<user.Info>) {
+  public *patch(id: number, user: Partial<user.Info>) {
     if ('name' in user) {
       try {
         yield * call(this.prismaClient.user.update({
