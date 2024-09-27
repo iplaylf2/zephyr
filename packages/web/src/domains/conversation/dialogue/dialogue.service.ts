@@ -47,6 +47,13 @@ export namespace conversation{
       this.participantsExpireCallbacks.push(e => this.expireDialogueByEvent(e))
     }
 
+    public existsDialogues(
+      participant: number,
+      tx: Prisma.TransactionClient = this.prismaClient,
+    ) {
+      return this.selectDialoguesForQuery(tx, participant)
+    }
+
     public *expireDialogue(
       participant: number,
       expireAt: number,
@@ -62,14 +69,14 @@ export namespace conversation{
         )
       }
 
-      const dialogues = yield * this.getDialogues(participant, tx)
+      const dialogues = yield * this.selectDialoguesForUpdate(tx, participant)
 
       if (0 === dialogues.length) {
         return []
       }
 
       const _expireAt = new Date(expireAt)
-      const conversations = dialogues.map(x => x.conversation)
+      const conversations = dialogues.concat()
 
       yield * pipe([
         () => tx.dialogue.updateMany({
@@ -81,7 +88,7 @@ export namespace conversation{
           where: { expiredAt: { lt: _expireAt }, id: { in: conversations } },
         }),
         () => tx.conversationXParticipant.updateMany({
-          data: { expiredAt: _expireAt },
+          data: { expiredAt: _expireAt, updatedAt: new Date() },
           where: {
             conversation: { in: conversations },
             expiredAt: { lt: _expireAt },
@@ -102,7 +109,16 @@ export namespace conversation{
     }
 
     public override *getConversationsRecord(participant: number) {
-      const [conversations, dialogues] = yield * all([super.getConversationsRecord(participant), this.getDialogues(participant)])
+      const [conversations, dialogues] = yield * all([
+        super.getConversationsRecord(participant),
+        call(this.prismaClient.dialogue.findMany({
+          select: { conversation: true, initiator: true, participant: true },
+          where: {
+            OR: [{ initiator: participant }, { participant }],
+            expiredAt: { gt: new Date() },
+          },
+        })),
+      ])
 
       const dialogueMap = Object.fromEntries(dialogues.map(x => [x.conversation, x]))
 
@@ -135,21 +151,6 @@ export namespace conversation{
       )()
     }
 
-    public *getDialogues(
-      participant: number,
-       tx: Prisma.TransactionClient = this.prismaClient,
-    ): Operation<readonly Dialogue[]> {
-      return yield * call(tx.dialogue.findMany({
-        where: {
-          OR: [
-            { initiator: participant },
-            { participant },
-          ],
-          expiredAt: { gt: new Date() },
-        },
-      }))
-    }
-
     public *putDialogue(initiator: number, participant: number) {
       const dialogue = yield * this.getDialogue(initiator, participant)
 
@@ -174,6 +175,50 @@ export namespace conversation{
           }))
         }.bind(this))),
       )
+    }
+
+    public selectDialoguesForQuery(
+      tx: Prisma.TransactionClient,
+      participant: number,
+    ) {
+      return pipe(
+        () => tx.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
+          select
+            conversation
+          from 
+            dialogues
+          where
+            ${new Date()} < "expiredAt" and
+            ( initiator = ${participant} or
+              participant = ${participant} )
+          for key share`,
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyArray.map(x => x.conversation),
+        ),
+      )()
+    }
+
+    public selectDialoguesForUpdate(
+      tx: Prisma.TransactionClient,
+      participant: number,
+    ) {
+      return pipe(
+        () => tx.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
+          select
+            conversation
+          from 
+            dialogues
+          where
+            ${new Date()} < "expiredAt" and
+            ( initiator = ${participant} or
+              participant = ${participant} )
+          for no key update`,
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyArray.map(x => x.conversation),
+        ),
+      )()
     }
 
     private *deleteExpiredDialogues() {

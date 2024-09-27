@@ -34,11 +34,14 @@ export class UserService extends ModuleRaii {
 
     return yield * call(
       this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
-        const _users = yield * this.selectValidUsersForUpdate(tx, users)
+        const _users = yield * this.selectUsersForUpdate(tx, users)
+
+        const now = new Date()
 
         yield * call(tx.user.updateMany({
           data: {
-            lastActiveAt: new Date(),
+            lastActiveAt: now,
+            updatedAt: now,
           },
           where: { id: { in: _users.concat() } },
         }))
@@ -48,20 +51,11 @@ export class UserService extends ModuleRaii {
     )
   }
 
-  public exists(users: readonly number[]) {
-    return pipe(
-      () => this.prismaClient.user.findMany({
-        select: { id: true },
-        where: {
-          expiredAt: { gt: new Date() },
-          id: { in: users.concat() },
-        },
-      }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
+  public exists(
+    users: readonly number[],
+    tx: Prisma.TransactionClient = this.prismaClient,
+  ) {
+    return this.selectUsersForQuery(tx, users)
   }
 
   public *expire(
@@ -83,7 +77,8 @@ export class UserService extends ModuleRaii {
               update
                 users 
               set
-                "expiredAt" = users."lastActiveAt" + ${interval}::interval
+                "expiredAt" = users."lastActiveAt" + ${interval}::interval,
+                "updateAd" = ${now}
               where
                 ${now} < users."expiredAt" and
                 users."expiredAt" < users."lastActiveAt" + ${interval}::interval and
@@ -137,6 +132,7 @@ export class UserService extends ModuleRaii {
           data: {
             id,
             name: user.name,
+            updatedAt: new Date(),
           },
           select: {},
           where: { id },
@@ -168,6 +164,7 @@ export class UserService extends ModuleRaii {
               expiredAt,
               lastActiveAt: createdAt,
               name: info.name,
+              updatedAt: createdAt,
             },
             select: { id: true },
           }),
@@ -186,34 +183,21 @@ export class UserService extends ModuleRaii {
     )
   }
 
-  public selectUsersForShare(
+  public selectUsersForDelete(
+    tx: Prisma.TransactionClient,
     users: readonly number[],
-     tx: Prisma.TransactionClient = this.prismaClient,
   ) {
-    return pipe(
-      () => tx.$queryRaw<Pick<User, 'id'>[]>`
-        select
-          id
-        from 
-          users
-        where
-          id in ${Prisma.join(users)}
-        for share`,
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
-  }
+    if (0 === users.length) {
+      return cOperation.Pointed.of([])()
+    }
 
-  public selectUsersForUpdate(tx: Prisma.TransactionClient, users: readonly number[]) {
     return pipe(
       () => tx.$queryRaw<Pick<User, 'id'>[]>`
         select
           id
         from 
           users
-        where
+        where 
           id in ${Prisma.join(users)}
         for update`,
       cOperation.FromTask.fromTask,
@@ -223,7 +207,38 @@ export class UserService extends ModuleRaii {
     )()
   }
 
-  public selectValidUsersForUpdate(tx: Prisma.TransactionClient, users: readonly number[]) {
+  public selectUsersForKey(
+    tx: Prisma.TransactionClient,
+    users: readonly number[],
+  ) {
+    if (0 === users.length) {
+      return cOperation.Pointed.of([])()
+    }
+
+    return pipe(
+      () => tx.$queryRaw<Pick<User, 'id'>[]>`
+        select
+          id
+        from 
+          users
+        where
+          id in ${Prisma.join(users)}
+        for key share`,
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
+  }
+
+  public selectUsersForQuery(
+    tx: Prisma.TransactionClient,
+    users: readonly number[],
+  ) {
+    if (0 === users.length) {
+      return cOperation.Pointed.of([])()
+    }
+
     return pipe(
       () => tx.$queryRaw<Pick<User, 'id'>[]>`
         select
@@ -233,7 +248,32 @@ export class UserService extends ModuleRaii {
         where 
           ${Date.now()} < expiredAt and
           id in ${Prisma.join(users)}
-        for update`,
+        for key share`,
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
+  }
+
+  public selectUsersForUpdate(
+    tx: Prisma.TransactionClient,
+    users: readonly number[],
+  ) {
+    if (0 === users.length) {
+      return cOperation.Pointed.of([])()
+    }
+
+    return pipe(
+      () => tx.$queryRaw<Pick<User, 'id'>[]>`
+        select
+          id
+        from 
+          users
+        where 
+          ${Date.now()} < expiredAt and
+          id in ${Prisma.join(users)}
+        for no key update`,
       cOperation.FromTask.fromTask,
       cOperation.map(
         readonlyArray.map(x => x.id),
@@ -246,7 +286,7 @@ export class UserService extends ModuleRaii {
 
     return yield * call(
       this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
-        const ids = yield * this.selectUsersForUpdate(tx, users)
+        const ids = yield * this.selectUsersForDelete(tx, users)
 
         if (0 === ids.length) {
           return []

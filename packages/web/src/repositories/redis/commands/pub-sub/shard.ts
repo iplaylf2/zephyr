@@ -59,7 +59,11 @@ export namespace pubSub{
     }
 
     public override subscribe(channels: Channel, listener: Listener<T, Channel>) {
-      return call(this.client.sSubscribe(channels as any, this.cacheAndTransformListener(listener), this.bufferMode))
+      return call(this.client.sSubscribe(
+        channels as any,
+        this.cacheAndTransformListener(listener),
+        this.bufferMode,
+      ))
     }
 
     public override unsubscribe(channels?: Channel, listener?: Listener<T, Channel>) {

@@ -4,6 +4,7 @@ model User {
   id           Int      @id @default(autoincrement())
   lastActiveAt DateTime
   name         String
+  updatedAt    DateTime
 
   @@map("users")
 }
