@@ -57,7 +57,7 @@ export class UserService extends ModuleRaii {
 
   public *expire(
     users: readonly number[],
-    seconds: number = this.defaultExpire.total('seconds'),
+    seconds = this.defaultExpire.total('seconds'),
   ) {
     const interval = `${seconds.toFixed(0)} seconds`
 
@@ -70,9 +70,8 @@ export class UserService extends ModuleRaii {
         const _users = yield * pipe(
           users,
           readonlyArray.map(
-            user => () => tx.$queryRaw<Pick<User, 'expiredAt' | 'id'> | null>`
-              update
-                users 
+            user => () => tx.$queryRaw<Pick<User, 'expiredAt' | 'id'>[]>`
+              update users 
               set
                 "expiredAt" = users."lastActiveAt" + ${interval}::interval
               where
@@ -86,7 +85,7 @@ export class UserService extends ModuleRaii {
           cOperation.FromTask.fromTask,
           cOperation.map(
             readonlyArray.filterMap(flow(
-              option.fromNullable,
+              readonlyArray.head,
               option.map(
                 readonlyRecordPlus.modifyAt('expiredAt', x => x.valueOf()),
               ),

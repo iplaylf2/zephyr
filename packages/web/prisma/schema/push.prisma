@@ -22,7 +22,7 @@ model PushReceiver {
     pushes PushSubscription[]
 
     @@index([expiredAt])
-    @@map("push_receivers")
+    @@map("push-receivers")
 }
 
 model PushSubscription {
@@ -30,10 +30,10 @@ model PushSubscription {
     push      Int
     receiver  Int
 
-    xPush     Push         @relation(fields: [push], references: [id])
-    xReceiver PushReceiver @relation(fields: [receiver], references: [id])
+    xPush     Push         @relation(fields: [push], references: [id], onDelete: Cascade)
+    xReceiver PushReceiver @relation(fields: [receiver], references: [id], onDelete: Cascade)
 
     @@id([push, receiver])
     @@unique([receiver, push])
-    @@map("push_subscriptions")
+    @@map("push-subscriptions")
 }

@@ -3,12 +3,11 @@ import {
   functor, monad, monadIO, monadTask, pointed, task,
   taskEither,
 } from 'fp-ts'
-import { Either } from 'fp-ts/lib/Either.js'
 import { cOperation } from './c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace cOperationEither{
-  export type COperationEither<E, A> = cOperation.COperation<Either<E, A>>
+  export type COperationEither<E, A> = cOperation.COperation<either.Either<E, A>>
   export const URI = 'COperationEither.effection'
   export type URI = typeof URI
 

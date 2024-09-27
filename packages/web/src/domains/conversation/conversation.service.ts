@@ -16,7 +16,6 @@ import { UserService } from '../user/user.service.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { commonWhere } from '../../repositories/prisma/common/common-where.js'
 import { conversation } from '../../models/conversation.js'
-import defaults from 'defaults'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
 import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
@@ -110,8 +109,7 @@ export abstract class ConversationService extends ModuleRaii {
         readonlyArray.map(
           ([conversation, key]) => pipe(
             () => tx.$executeRaw`
-              update
-                "conversation-x-participant" x
+              update "conversation-x-participant" x
               set
                 data = x.data - ${key}
               from
@@ -183,51 +181,42 @@ export abstract class ConversationService extends ModuleRaii {
 
   public *expire(
     conversations: readonly number[],
-    options?: { seconds?: number, tx?: Prisma.TransactionClient },
-  ): Operation<readonly number[]> {
-    const { seconds, tx } = defaults(options ?? {}, {
-      seconds: this.defaultConversationExpire.total('seconds'),
-    })
+    seconds = this.defaultConversationExpire.total('seconds'),
+  ) {
+    const scope = yield * useScope()
 
-    if (!tx) {
-      const scope = yield * useScope()
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        const interval = `${seconds.toFixed(0)} seconds`
+        const now = new Date()
 
-      return yield * call(
-        this.prismaClient.$transaction(tx =>
-          scope.run(() => this.expire(conversations, { seconds, tx })),
-        ),
-      )
-    }
+        const _conversations = yield * pipe(
+          conversations,
+          readonlyArray.map(
+            conversation => () => tx.$queryRaw<Pick<Conversation, 'expiredAt' | 'id'>[]>`
+              update conversations
+              set
+                "expiredAt" = conversations."lastActiveAt" + ${interval}::interval
+              where
+                conversations.type = ${this.type} and
+                ${now} < conversations."expiredAt" and
+                conversations."expiredAt" < conversations."lastActiveAt" + ${interval}::interval and
+                conversations.id = ${conversation}
+              returning
+                conversations."expiredAt", conversations.id`,
+          ),
+          task.sequenceArray,
+          cOperation.FromTask.fromTask,
+          cOperation.map(
+            readonlyArray.filterMap(readonlyArray.head),
+          ),
+        )()
 
-    const interval = `${seconds.toFixed(0)} seconds`
-    const now = new Date()
+        yield * this.expireRecords(_conversations)
 
-    const _conversations = yield * pipe(
-      conversations,
-      readonlyArray.map(
-        conversation => () => tx.$queryRaw<Pick<Conversation, 'expiredAt' | 'id'> | null>`
-          update
-            conversations
-          set
-            "expiredAt" = conversations."lastActiveAt" + ${interval}::interval
-          where
-            conversations.type = ${this.type} and
-            ${now} < conversations."expiredAt" and
-            conversations."expiredAt" < conversations."lastActiveAt" + ${interval}::interval and
-            conversations.id = ${conversation}
-          returning
-            conversations."expiredAt", conversations.id`,
-      ),
-      task.sequenceArray,
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.filterMap(option.fromNullable),
-      ),
-    )()
-
-    yield * this.expireRecords(_conversations)
-
-    return _conversations.map(x => x.id)
+        return _conversations.map(x => x.id)
+      })),
+    )
   }
 
   public *expireParticipants(
@@ -244,9 +233,8 @@ export abstract class ConversationService extends ModuleRaii {
         return yield * pipe(
           participants,
           readonlyArray.map(
-            participant => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'> | null>`
-              update
-                "conversation-x-participant" x
+            participant => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
+              update "conversation-x-participant" x
               set
                 "expiredAt" = x."lastActiveAt" + ${interval}::interval
               from
@@ -264,7 +252,7 @@ export abstract class ConversationService extends ModuleRaii {
           cOperation.FromTask.fromTask,
           cOperation.map(
             readonlyArray.filterMap(flow(
-              option.fromNullable,
+              readonlyArray.head,
               option.map(x => x.participant),
             )),
           ),
@@ -355,8 +343,7 @@ export abstract class ConversationService extends ModuleRaii {
         flip((now: Date) => readonlyArray.map(
           ([conversation, data]) => pipe(
             () => tx.$executeRaw`
-              update
-                "conversation-x-participant" x
+              update "conversation-x-participant" x
               set
                 data = x.data || ${data},
                 "lastActiveAt" = ${now}

@@ -2,7 +2,6 @@ import { Operation, call } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyRecord } from 'fp-ts'
 import { Model } from './common.js'
-import { Option } from 'fp-ts/lib/Option.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from './generic.js'
 
@@ -31,7 +30,7 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     )
   }
 
-  public *get<K extends string & keyof T>(field: K): Operation<Option<T[K]>> {
+  public *get<K extends string & keyof T>(field: K): Operation<option.Option<T[K]>> {
     const value = yield * call(this.client.hGet(this.key, field))
 
     return pipe(

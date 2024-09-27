@@ -21,7 +21,7 @@ model ConversationXParticipant {
     lastActiveAt DateTime
     participant  Int
 
-    xConversation Conversation @relation(fields: [conversation], references: [id])
+    xConversation Conversation @relation(fields: [conversation], references: [id], onDelete: Cascade)
 
     @@id([conversation, participant])
     @@unique([participant, conversation])
