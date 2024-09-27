@@ -105,12 +105,18 @@ export class PushService extends ModuleRaii {
 
   public *putReceiver(claimer: number) {
     const receiver = yield * call(this.prismaClient.pushReceiver.findUnique({
-      select: { id: true, token: true },
+      select: { expiredAt: true, id: true, token: true },
       where: { claimer },
     }))
 
     if (receiver) {
-      return receiver
+      if (new Date() < receiver.expiredAt) {
+        return receiver // fixme: pick
+      }
+
+      yield * call(this.prismaClient.pushReceiver.delete({
+        where: { token: receiver.token },
+      }))
     }
 
     return yield * this.postReceiver(claimer)
