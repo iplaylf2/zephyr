@@ -24,7 +24,8 @@ export class PushService extends ModuleRaii {
 
     void this.entityPushService
     this.initializeCallbacks.push(() => this.expireReceiversEfficiently())
-    // this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
+    this.initializeCallbacks.push(() => this.deleteExpiredPushes())
+    this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
   }
 
   public *expireReceivers(
@@ -113,6 +114,34 @@ export class PushService extends ModuleRaii {
     }
 
     return yield * this.postReceiver(claimer)
+  }
+
+  private *deleteExpiredPushes() {
+    const interval = Temporal.Duration
+      .from({ minutes: 10 })
+      .total('milliseconds')
+
+    while (true) {
+      yield * call(this.prismaClient.push.deleteMany({
+        where: { expiredAt: { lte: new Date() } },
+      }))
+
+      yield * sleep(interval)
+    }
+  }
+
+  private *deleteExpiredReceivers() {
+    const interval = Temporal.Duration
+      .from({ minutes: 10 })
+      .total('milliseconds')
+
+    while (true) {
+      yield * call(this.prismaClient.pushReceiver.deleteMany({
+        where: { expiredAt: { lte: new Date() } },
+      }))
+
+      yield * sleep(interval)
+    }
   }
 
   private *expireReceiversEfficiently() {
