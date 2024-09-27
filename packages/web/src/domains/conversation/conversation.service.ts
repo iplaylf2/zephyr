@@ -92,12 +92,9 @@ export abstract class ConversationService extends ModuleRaii {
 
     const _participants = yield * this.selectParticipantsForUpdate(tx, conversation, participants)
 
-    const now = new Date()
-
     yield * call(tx.conversationXParticipant.updateMany({
       data: {
-        lastActiveAt: now,
-        updatedAt: now,
+        lastActiveAt: new Date(),
       },
       where: { conversation, participant: { in: _participants.concat() } },
     }))
@@ -246,13 +243,12 @@ export abstract class ConversationService extends ModuleRaii {
       this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
         return yield * pipe(
           participants,
-          flip((now: Date) => readonlyArray.map(
+          readonlyArray.map(
             participant => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'> | null>`
               update
                 "conversation-x-participant" x
               set
-                "expiredAt" = x."lastActiveAt" + ${interval}::interval,
-                "updatedAt" = ${now}
+                "expiredAt" = x."lastActiveAt" + ${interval}::interval
               from
                 conversations
               where
@@ -263,8 +259,7 @@ export abstract class ConversationService extends ModuleRaii {
                 x.participant = ${participant}
               returning
                 x.participant`,
-          )),
-          identity.ap(new Date()),
+          ),
           task.sequenceArray,
           cOperation.FromTask.fromTask,
           cOperation.map(
@@ -364,7 +359,7 @@ export abstract class ConversationService extends ModuleRaii {
                 "conversation-x-participant" x
               set
                 data = x.data || ${data},
-                "updatedAt" = ${now}
+                "lastActiveAt" = ${now}
               from conversations
               where
                 conversations.id = x.conversation and
@@ -479,7 +474,6 @@ export abstract class ConversationService extends ModuleRaii {
         expiredAt,
         lastActiveAt: createdAt,
         participant,
-        updatedAt: createdAt,
       }),
       ),
     }))

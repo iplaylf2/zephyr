@@ -20,7 +20,6 @@ model ConversationXParticipant {
     expiredAt    DateTime
     lastActiveAt DateTime
     participant  Int
-    updatedAt    DateTime
 
     xConversation Conversation @relation(fields: [conversation], references: [id])
 

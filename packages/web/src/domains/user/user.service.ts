@@ -36,12 +36,9 @@ export class UserService extends ModuleRaii {
       this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
         const _users = yield * this.selectUsersForUpdate(tx, users)
 
-        const now = new Date()
-
         yield * call(tx.user.updateMany({
           data: {
-            lastActiveAt: now,
-            updatedAt: now,
+            lastActiveAt: new Date(),
           },
           where: { id: { in: _users.concat() } },
         }))
@@ -77,8 +74,7 @@ export class UserService extends ModuleRaii {
               update
                 users 
               set
-                "expiredAt" = users."lastActiveAt" + ${interval}::interval,
-                "updateAd" = ${now}
+                "expiredAt" = users."lastActiveAt" + ${interval}::interval
               where
                 ${now} < users."expiredAt" and
                 users."expiredAt" < users."lastActiveAt" + ${interval}::interval and
@@ -131,8 +127,8 @@ export class UserService extends ModuleRaii {
         yield * call(this.prismaClient.user.update({
           data: {
             id,
+            lastActiveAt: new Date(),
             name: user.name,
-            updatedAt: new Date(),
           },
           select: {},
           where: { id },
@@ -164,7 +160,6 @@ export class UserService extends ModuleRaii {
               expiredAt,
               lastActiveAt: createdAt,
               name: info.name,
-              updatedAt: createdAt,
             },
             select: { id: true },
           }),

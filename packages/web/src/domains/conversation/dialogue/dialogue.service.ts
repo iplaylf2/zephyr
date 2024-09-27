@@ -88,7 +88,7 @@ export namespace conversation{
           where: { expiredAt: { lt: _expireAt }, id: { in: conversations } },
         }),
         () => tx.conversationXParticipant.updateMany({
-          data: { expiredAt: _expireAt, updatedAt: new Date() },
+          data: { expiredAt: _expireAt },
           where: {
             conversation: { in: conversations },
             expiredAt: { lt: _expireAt },
