@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
-import { call, sleep, useScope } from 'effection'
+import { call, sleep } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
@@ -30,11 +30,9 @@ export class UserService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.deleteExpiredUsers())
   }
 
-  public *active(users: readonly number[]) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
+  public active(users: readonly number[]) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: UserService) {
         const _users = yield * tx.$user().forUpdate(users)
 
         yield * call(tx.user.updateMany({
@@ -45,7 +43,7 @@ export class UserService extends ModuleRaii {
         }))
 
         return _users
-      }.bind(this))),
+      }.bind(this),
     )
   }
 
@@ -56,16 +54,14 @@ export class UserService extends ModuleRaii {
     return tx.$user().forQuery(users)
   }
 
-  public *expire(
+  public expire(
     users: readonly number[],
     seconds = this.defaultExpire.total('seconds'),
   ) {
     const interval = `${seconds.toFixed(0)} seconds`
 
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: UserService) {
         const now = new Date()
 
         const _users = yield * pipe(
@@ -104,7 +100,7 @@ export class UserService extends ModuleRaii {
         })
 
         return _users.map(x => x.id)
-      }.bind(this))),
+      }.bind(this),
     )
   }
 
@@ -144,11 +140,9 @@ export class UserService extends ModuleRaii {
     return false
   }
 
-  public *register(info: user.Info) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
+  public register(info: user.Info) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: UserService) {
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
@@ -174,15 +168,13 @@ export class UserService extends ModuleRaii {
         })
 
         return user
-      }.bind(this))),
+      }.bind(this),
     )
   }
 
-  public *unregister(users: readonly number[]) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: UserService) {
+  public unregister(users: readonly number[]) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: UserService) {
         const ids = yield * tx.$user().forDelete(users)
 
         if (0 === ids.length) {
@@ -200,7 +192,7 @@ export class UserService extends ModuleRaii {
         })
 
         return ids
-      }.bind(this))),
+      }.bind(this),
     )
   }
 

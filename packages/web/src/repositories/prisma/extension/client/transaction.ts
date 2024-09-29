@@ -7,7 +7,7 @@ export const effection = Prisma.defineExtension({
   client: {
     *$callTransaction<T, R>(
       this: T,
-      operation: (tx: Omit<T, ClientDenyList>) => Operation<R>,
+      fn: (tx: Omit<T, ClientDenyList>) => () => Operation<R>,
       options?: {
         isolationLevel?: Prisma.TransactionIsolationLevel
         maxWait?: number
@@ -20,7 +20,7 @@ export const effection = Prisma.defineExtension({
 
       return yield * call(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        client.$transaction(tx => scope.run(() => operation(tx as any)), options),
+        client.$transaction(tx => scope.run(fn(tx as any)), options),
       )
     },
   },

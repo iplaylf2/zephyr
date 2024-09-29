@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { Operation, all, call, sleep, spawn, useScope } from 'effection'
+import { Operation, all, call, sleep, spawn } from 'effection'
 import { PrismaClient, PrismaTransaction } from '../../../repositories/prisma/client.js'
 import { option, readonlyArray } from 'fp-ts'
 import { ConversationService } from '../conversation.service.js'
@@ -62,12 +62,8 @@ export namespace conversation{
       tx?: PrismaTransaction,
     ): Operation<readonly number[]> {
       if (!tx) {
-        const scope = yield * useScope()
-
-        return yield * call(
-          this.prismaClient.$transaction(tx =>
-            scope.run(() => this.expireDialogue(participant, expireAt, tx)),
-          ),
+        return yield * this.prismaClient.$callTransaction(tx =>
+          () => this.expireDialogue(participant, expireAt, tx),
         )
       }
 
@@ -161,10 +157,9 @@ export namespace conversation{
       }
 
       const conversation = yield * this.postConversation({ name: '' })
-      const scope = yield * useScope()
 
-      return yield * call(
-        this.prismaClient.$transaction(tx => scope.run(function*(this: DialogueService) {
+      return yield * this.prismaClient.$callTransaction(tx =>
+        function*(this: DialogueService) {
           void (yield * spawn(() => this.putParticipants(conversation.id, [initiator, participant], tx)))
 
           return yield * call(tx.dialogue.create({
@@ -175,7 +170,7 @@ export namespace conversation{
               participant,
             },
           }))
-        }.bind(this))),
+        }.bind(this),
       )
     }
 
@@ -238,19 +233,13 @@ export namespace conversation{
     }
 
     private *expireDialogueByEvent(event: Extract<user.Event, { type: 'expire' }>) {
-      const scope = yield * useScope()
-
-      yield * call(
-        this.prismaClient.$transaction(tx =>
-          scope.run(pipe(
-            event.users,
-            readonlyArray.map(user =>
-              () => this.expireDialogue(user.id, user.expiredAt, tx),
-            ),
-            cOperation.sequenceArray,
-          )),
+      yield * this.prismaClient.$callTransaction(tx => pipe(
+        event.users,
+        readonlyArray.map(user =>
+          () => this.expireDialogue(user.id, user.expiredAt, tx),
         ),
-      )
+        cOperation.sequenceArray,
+      ))
     }
   }
 }

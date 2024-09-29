@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { Prisma, PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
-import { call, sleep, useScope } from 'effection'
+import { call, sleep } from 'effection'
 import { readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
@@ -30,11 +30,9 @@ export class PushService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
   }
 
-  public *active(receivers: readonly number[]) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: PushService) {
+  public active(receivers: readonly number[]) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: PushService) {
         const _receivers = yield * this.selectReceiversForUpdate(tx, receivers)
 
         yield * call(tx.pushReceiver.updateMany({
@@ -45,7 +43,7 @@ export class PushService extends ModuleRaii {
         }))
 
         return _receivers
-      }.bind(this))),
+      }.bind(this),
     )
   }
 
@@ -53,14 +51,12 @@ export class PushService extends ModuleRaii {
     yield subscriptions
   }
 
-  public *expireReceivers(
+  public expireReceivers(
     receivers: readonly number[],
     seconds = this.defaultExpire.total('seconds'),
   ) {
-    const scope = yield * useScope()
-
-    return yield * call(
-      this.prismaClient.$transaction(tx => scope.run(function*(this: PushService) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: PushService) {
         const interval = `${seconds.toFixed(0)} seconds`
         const now = new Date()
 
@@ -105,7 +101,7 @@ export class PushService extends ModuleRaii {
         )()
 
         return _receivers.map(x => x.id)
-      })),
+      }.bind(this),
     )
   }
 
