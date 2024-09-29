@@ -1,8 +1,9 @@
-import { Dialogue, Prisma, PrismaClient } from '../../../repositories/prisma/generated/index.js'
 import { Inject, Injectable } from '@nestjs/common'
 import { Operation, all, call, sleep, spawn, useScope } from 'effection'
+import { PrismaClient, PrismaTransaction } from '../../../repositories/prisma/client.js'
 import { option, readonlyArray } from 'fp-ts'
 import { ConversationService } from '../conversation.service.js'
+import { Dialogue } from '../../../repositories/prisma/generated/index.js'
 import {
   ConversationService as EntityConversationService,
 } from '../../../repositories/redis/entities/conversation.service.js'
@@ -14,6 +15,7 @@ import { UserService } from '../../user/user.service.js'
 import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { user } from '../../../models/user.js'
+import { where } from '../../../repositories/prisma/common/where.js'
 
 export namespace conversation{
   @Injectable()
@@ -49,7 +51,7 @@ export namespace conversation{
 
     public existsDialogues(
       participant: number,
-      tx: Prisma.TransactionClient = this.prismaClient,
+      tx: PrismaTransaction = this.prismaClient,
     ) {
       return this.selectDialoguesForQuery(tx, participant)
     }
@@ -57,7 +59,7 @@ export namespace conversation{
     public *expireDialogue(
       participant: number,
       expireAt: number,
-      tx?: Prisma.TransactionClient,
+      tx?: PrismaTransaction,
     ): Operation<readonly number[]> {
       if (!tx) {
         const scope = yield * useScope()
@@ -76,7 +78,7 @@ export namespace conversation{
       }
 
       const _expireAt = new Date(expireAt)
-      const conversations = dialogues.concat()
+      const conversations = where.writable(dialogues)
 
       yield * pipe([
         () => tx.dialogue.updateMany({
@@ -178,7 +180,7 @@ export namespace conversation{
     }
 
     public selectDialoguesForQuery(
-      tx: Prisma.TransactionClient,
+      tx: PrismaTransaction,
       participant: number,
     ) {
       return pipe(
@@ -200,7 +202,7 @@ export namespace conversation{
     }
 
     public selectDialoguesForUpdate(
-      tx: Prisma.TransactionClient,
+      tx: PrismaTransaction,
       participant: number,
     ) {
       return pipe(

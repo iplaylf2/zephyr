@@ -1,6 +1,7 @@
 import { Temporal } from 'temporal-polyfill'
+import { Writable } from 'type-fest'
 
-export namespace commonWhere{
+export namespace where{
   export function halfLife(expire: Temporal.Duration) {
     const halfSeconds = expire.total('seconds') / 2
     const halfExpiredAt = Temporal.Now
@@ -18,5 +19,9 @@ export namespace commonWhere{
         ),
       },
     }
+  }
+
+  export function writable<T>(x: T): Writable<T> {
+    return x as Writable<T>
   }
 }

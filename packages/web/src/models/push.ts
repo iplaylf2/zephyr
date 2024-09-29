@@ -6,7 +6,7 @@ export namespace push{
   export const id = z.number().int().nonnegative()
 
   export const receiver = z.object({
-    claim: user.id.nullable(),
+    claimer: user.id.nullable(),
     token: z.string().min(1),
   })
 
@@ -19,4 +19,8 @@ export namespace push{
   })
 
   export type Notification = Readonly<z.infer<typeof notification>>
+
+  export const subscription = z.tuple([z.string(), z.number()])
+
+  export type Subscription = Readonly<z.infer<typeof subscription>>
 }

@@ -1,13 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { Prisma, PrismaClient, PushReceiver } from '../../repositories/prisma/generated/index.js'
+import { Prisma, PushReceiver } from '../../repositories/prisma/generated/index.js'
+import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { call, sleep, useScope } from 'effection'
 import { readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
-import { commonWhere } from '../../repositories/prisma/common/common-where.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { push } from '../../models/push.js'
+import { where } from '../../repositories/prisma/common/where.js'
 
 @Injectable()
 export class PushService extends ModuleRaii {
@@ -39,12 +41,16 @@ export class PushService extends ModuleRaii {
           data: {
             lastActiveAt: new Date(),
           },
-          where: { id: { in: _receivers.concat() } },
+          where: { id: { in: where.writable(_receivers) } },
         }))
 
         return _receivers
       }.bind(this))),
     )
+  }
+
+  public *deleteSubscriptions(subscriptions: readonly push.Subscription[]) {
+    yield subscriptions
   }
 
   public *expireReceivers(
@@ -142,7 +148,7 @@ export class PushService extends ModuleRaii {
   }
 
   public selectReceiversForUpdate(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTransaction,
     receivers: readonly number[],
   ) {
     if (0 === receivers.length) {
@@ -203,7 +209,7 @@ export class PushService extends ModuleRaii {
       const receivers = yield * pipe(
         () => this.prismaClient.pushReceiver.findMany({
           select: { id: true },
-          where: commonWhere.halfLife(this.defaultExpire),
+          where: where.halfLife(this.defaultExpire),
         }),
         cOperation.FromTask.fromTask,
         cOperation.map(

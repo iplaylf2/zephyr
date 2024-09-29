@@ -1,8 +1,9 @@
-import { Conversation, ConversationXParticipant, Prisma, PrismaClient } from '../../repositories/prisma/generated/index.js'
+import { Conversation, ConversationXParticipant, Prisma } from '../../repositories/prisma/generated/index.js'
 import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'
 import { Operation, all, call, sleep, useScope } from 'effection'
+import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { flip, flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, number, option, readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
@@ -14,13 +15,13 @@ import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../user/user.service.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
-import { commonWhere } from '../../repositories/prisma/common/common-where.js'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
 import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
 import { readonlyNonEmptyArrayPlus } from '../../kits/fp-ts/readonly-non-empty-array-plus.js'
 import { user } from '../../models/user.js'
+import { where } from '../../repositories/prisma/common/where.js'
 
 export abstract class ConversationService extends ModuleRaii {
   protected readonly participantsExpireCallbacks
@@ -62,7 +63,7 @@ export abstract class ConversationService extends ModuleRaii {
           data: {
             lastActiveAt: new Date(),
           },
-          where: { id: { in: _conversations.concat() } },
+          where: { id: { in: where.writable(_conversations) } },
         }))
 
         return _conversations
@@ -81,7 +82,7 @@ export abstract class ConversationService extends ModuleRaii {
           data: {
             lastActiveAt: new Date(),
           },
-          where: { conversation, participant: { in: _participants.concat() } },
+          where: { conversation, participant: { in: where.writable(_participants) } },
         }))
 
         return _participants
@@ -134,7 +135,7 @@ export abstract class ConversationService extends ModuleRaii {
         yield * call(tx.conversationXParticipant.deleteMany({
           where: {
             conversation,
-            participant: { in: _participants.concat() },
+            participant: { in: where.writable(_participants) },
             xConversation: { type: this.type },
           },
         }))
@@ -154,7 +155,7 @@ export abstract class ConversationService extends ModuleRaii {
 
   public exists(
     conversations: readonly number[],
-    tx: Prisma.TransactionClient = this.prismaClient,
+    tx: PrismaTransaction = this.prismaClient,
   ) {
     return this.selectConversationsForQuery(tx, conversations)
   }
@@ -162,7 +163,7 @@ export abstract class ConversationService extends ModuleRaii {
   public existsParticipants(
     conversation: number,
     participants: readonly number[],
-    tx: Prisma.TransactionClient = this.prismaClient,
+    tx: PrismaTransaction = this.prismaClient,
   ) {
     return this.selectParticipantsForQuery(tx, conversation, participants)
   }
@@ -393,7 +394,7 @@ export abstract class ConversationService extends ModuleRaii {
   public *putParticipants(
     conversation: number,
     users: readonly number[],
-    tx?: Prisma.TransactionClient,
+    tx?: PrismaTransaction,
   ): Operation<readonly number[]> {
     if (!tx) {
       const scope = yield * useScope()
@@ -422,7 +423,7 @@ export abstract class ConversationService extends ModuleRaii {
         select: { participant: true },
         where: {
           conversation,
-          participant: { in: _users.concat() },
+          participant: { in: where.writable(_users) },
         },
       }),
       cOperation.FromTask.fromTask,
@@ -475,7 +476,7 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public selectConversationsForQuery(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTransaction,
     conversations: readonly number[],
   ) {
     if (0 === conversations.length) {
@@ -501,7 +502,7 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public selectConversationsForUpdate(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTransaction,
     conversations: readonly number[],
   ) {
     if (0 === conversations.length) {
@@ -527,7 +528,7 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public selectParticipantsForDelete(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTransaction,
     conversation: number,
     participants: readonly number[],
   ) {
@@ -556,7 +557,7 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public selectParticipantsForQuery(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTransaction,
     conversation: number,
     participants: readonly number[],
   ) {
@@ -586,7 +587,7 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   public selectParticipantsForUpdate(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTransaction,
     conversation: number,
     participants: readonly number[],
   ) {
@@ -688,7 +689,7 @@ export abstract class ConversationService extends ModuleRaii {
 
   private *deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
     const deletedUsers = yield * pipe(
-      () => this.userService.selectUsersForKey(this.prismaClient, event.users),
+      () => this.prismaClient.$user().forKey(event.users),
       cOperation.map(flow(
         a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
         identity.ap(event.users),
@@ -703,7 +704,7 @@ export abstract class ConversationService extends ModuleRaii {
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversation: true, participant: true },
         where: {
-          participant: { in: deletedUsers.concat() },
+          participant: { in: where.writable(deletedUsers) },
           xConversation: { type: this.type },
         },
       }),
@@ -732,7 +733,7 @@ export abstract class ConversationService extends ModuleRaii {
         () => this.prismaClient.conversation.findMany({
           select: { id: true },
           where: {
-            ...commonWhere.halfLife(this.defaultConversationExpire),
+            ...where.halfLife(this.defaultConversationExpire),
             type: this.type,
           },
         }),
@@ -760,7 +761,7 @@ export abstract class ConversationService extends ModuleRaii {
         () => this.prismaClient.conversationXParticipant.findMany({
           select: { conversation: true, participant: true },
           where: {
-            ...commonWhere.halfLife(this.defaultParticipantExpire),
+            ...where.halfLife(this.defaultParticipantExpire),
             xConversation: { type: this.type },
           },
         }),
