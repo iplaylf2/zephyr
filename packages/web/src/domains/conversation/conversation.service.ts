@@ -1,4 +1,4 @@
-import { Conversation, ConversationXParticipant, Prisma } from '../../repositories/prisma/generated/index.js'
+import { Conversation, ConversationXParticipant } from '../../repositories/prisma/generated/index.js'
 import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'
@@ -55,7 +55,7 @@ export abstract class ConversationService extends ModuleRaii {
   public active(conversations: readonly number[]) {
     return this.prismaClient.$callTransaction(tx =>
       function*(this: ConversationService) {
-        const _conversations = yield * this.selectConversationsForUpdate(tx, conversations)
+        const _conversations = yield * tx.$conversation().forUpdate(this.type, conversations)
 
         yield * call(tx.conversation.updateMany({
           data: {
@@ -72,7 +72,9 @@ export abstract class ConversationService extends ModuleRaii {
   public activeParticipants(conversation: number, participants: readonly number[]) {
     return this.prismaClient.$callTransaction(tx =>
       function*(this: ConversationService) {
-        const _participants = yield * this.selectParticipantsForUpdate(tx, conversation, participants)
+        const _participants = yield * tx
+          .$conversationXParticipant()
+          .forUpdate(this.type, conversation, participants)
 
         yield * call(tx.conversationXParticipant.updateMany({
           data: {
@@ -118,7 +120,9 @@ export abstract class ConversationService extends ModuleRaii {
   public deleteParticipants(conversation: number, participants: readonly number[]) {
     return this.prismaClient.$callTransaction(tx =>
       function*(this: ConversationService) {
-        const _participants = yield * this.selectParticipantsForDelete(tx, conversation, participants)
+        const _participants = yield * tx
+          .$conversationXParticipant()
+          .forDelete(this.type, conversation, participants)
 
         if (0 === _participants.length) {
           return []
@@ -151,7 +155,7 @@ export abstract class ConversationService extends ModuleRaii {
     conversations: readonly number[],
     tx: PrismaTransaction = this.prismaClient,
   ) {
-    return this.selectConversationsForQuery(tx, conversations)
+    return tx.$conversation().forQuery(this.type, conversations)
   }
 
   public existsParticipants(
@@ -159,7 +163,7 @@ export abstract class ConversationService extends ModuleRaii {
     participants: readonly number[],
     tx: PrismaTransaction = this.prismaClient,
   ) {
-    return this.selectParticipantsForQuery(tx, conversation, participants)
+    return tx.$conversationXParticipant().forQuery(this.type, conversation, participants)
   }
 
   public expire(
@@ -456,147 +460,6 @@ export abstract class ConversationService extends ModuleRaii {
       cOperation.map(
         readonlyArray.map(x => ({ id: x.id, ...x.message })),
       ),
-    )()
-  }
-
-  public selectConversationsForQuery(
-    tx: PrismaTransaction,
-    conversations: readonly number[],
-  ) {
-    if (0 === conversations.length) {
-      return cOperation.Pointed.of([])()
-    }
-
-    return pipe(
-      () => tx.$queryRaw<Pick<Conversation, 'id'>[]>`
-        select
-          id
-        from 
-          conversations
-        where
-          type = ${this.type} and
-          ${new Date()} < "expiredAt" and
-          id in ${Prisma.join(conversations)}
-        for key share`,
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
-  }
-
-  public selectConversationsForUpdate(
-    tx: PrismaTransaction,
-    conversations: readonly number[],
-  ) {
-    if (0 === conversations.length) {
-      return cOperation.Pointed.of([])()
-    }
-
-    return pipe(
-      () => tx.$queryRaw<Pick<Conversation, 'id'>[]>`
-        select
-          id
-        from 
-          conversations
-        where
-          type = ${this.type} and
-          ${new Date()} < "expiredAt" and
-          id in ${Prisma.join(conversations)}
-        for no key update`,
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
-  }
-
-  public selectParticipantsForDelete(
-    tx: PrismaTransaction,
-    conversation: number,
-    participants: readonly number[],
-  ) {
-    if (0 === participants.length) {
-      return cOperation.Pointed.of([])()
-    }
-
-    return pipe(
-      () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
-        select
-          x.participant
-        from
-          "conversation-x-participant" x
-        join conversations on
-          conversations.id = x.conversation
-        where
-          conversations.type = ${this.type} and
-          x.conversation = ${conversation} and
-          x.participant in ${Prisma.join(participants)}
-        for update`,
-      task.map(
-        readonlyArray.map(x => x.participant),
-      ),
-      cOperation.FromTask.fromTask,
-    )()
-  }
-
-  public selectParticipantsForQuery(
-    tx: PrismaTransaction,
-    conversation: number,
-    participants: readonly number[],
-  ) {
-    if (0 === participants.length) {
-      return cOperation.Pointed.of([])()
-    }
-
-    return pipe(
-      () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
-        select
-          x.participant
-        from
-          "conversation-x-participant" x
-        join conversations on
-          conversations.id = x.conversation
-        where
-          ${new Date()} < conversations."expiredAt" and
-          conversations.type = ${this.type} and
-          x.conversation = ${conversation} and
-          x.participant in ${Prisma.join(participants)}
-        for key share`,
-      task.map(
-        readonlyArray.map(x => x.participant),
-      ),
-      cOperation.FromTask.fromTask,
-    )()
-  }
-
-  public selectParticipantsForUpdate(
-    tx: PrismaTransaction,
-    conversation: number,
-    participants: readonly number[],
-  ) {
-    if (0 === participants.length) {
-      return cOperation.Pointed.of([])()
-    }
-
-    return pipe(
-      () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
-        select
-          x.participant
-        from
-          "conversation-x-participant" x
-        join conversations on
-          conversations.id = x.conversation
-        where
-          ${new Date()} < conversations."expiredAt" and
-          conversations.type = ${this.type} and
-          x.conversation = ${conversation} and
-          x.participant in ${Prisma.join(participants)}
-        for no key update`,
-      task.map(
-        readonlyArray.map(x => x.participant),
-      ),
-      cOperation.FromTask.fromTask,
     )()
   }
 

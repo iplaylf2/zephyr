@@ -4,6 +4,8 @@ import { FactoryProvider } from '@nestjs/common'
 import { PrismaClient as RawClient } from './generated/index.js'
 import { ResourceManagerService } from '../../common/resource-manager/resource-manager.service.js'
 import { call } from 'effection'
+import { conversation } from './extension/client/conversation.js'
+import { conversationXParticipant } from './extension/client/conversation-x-participant.js'
 import { effection } from './extension/client/transaction.js'
 import { env } from '../../env.js'
 import { globalScope } from '../../kits/effection/global-scope.js'
@@ -15,6 +17,8 @@ const useFactory = (resourceManagerService: ResourceManagerService) => globalSco
       const client = new RawClient({ datasourceUrl: env.prisma.datasourceUrl })
         .$extends(effection)
         .$extends(user)
+        .$extends(conversation)
+        .$extends(conversationXParticipant)
 
       yield * call(client.$connect())
 
