@@ -51,27 +51,23 @@ export abstract class ConversationService extends ModuleRaii {
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
   }
 
-  public *active(conversations: readonly number[], tx?: Prisma.TransactionClient): Operation<readonly number[]> {
-    if (!tx) {
-      const scope = yield * useScope()
+  public *active(conversations: readonly number[]) {
+    const scope = yield * useScope()
 
-      return yield * call(
-        this.prismaClient.$transaction(tx =>
-          scope.run(() => this.active(conversations, tx)),
-        ),
-      )
-    }
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: ConversationService) {
+        const _conversations = yield * this.selectConversationsForUpdate(tx, conversations)
 
-    const _conversations = yield * this.selectConversationsForUpdate(tx, conversations)
+        yield * call(tx.conversation.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { id: { in: _conversations.concat() } },
+        }))
 
-    yield * call(tx.conversation.updateMany({
-      data: {
-        lastActiveAt: new Date(),
-      },
-      where: { id: { in: _conversations.concat() } },
-    }))
-
-    return _conversations
+        return _conversations
+      })),
+    )
   }
 
   public *activeParticipants(

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { PrismaClient, PushReceiver } from '../../repositories/prisma/generated/index.js'
+import { Prisma, PrismaClient, PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { call, sleep, useScope } from 'effection'
 import { readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
@@ -26,6 +26,25 @@ export class PushService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.expireReceiversEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredPushes())
     this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
+  }
+
+  public *active(receivers: readonly number[]) {
+    const scope = yield * useScope()
+
+    return yield * call(
+      this.prismaClient.$transaction(tx => scope.run(function*(this: PushService) {
+        const _receivers = yield * this.selectReceiversForUpdate(tx, receivers)
+
+        yield * call(tx.pushReceiver.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { id: { in: _receivers.concat() } },
+        }))
+
+        return _receivers
+      }.bind(this))),
+    )
   }
 
   public *expireReceivers(
@@ -120,6 +139,31 @@ export class PushService extends ModuleRaii {
     }
 
     return yield * this.postReceiver(claimer)
+  }
+
+  public selectReceiversForUpdate(
+    tx: Prisma.TransactionClient,
+    receivers: readonly number[],
+  ) {
+    if (0 === receivers.length) {
+      return cOperation.Pointed.of([])()
+    }
+
+    return pipe(
+      () => tx.$queryRaw<Pick<PushReceiver, 'id'>[]>`
+        select
+          id
+        from 
+          push-receivers
+        where 
+          ${Date.now()} < expiredAt and
+          id in ${Prisma.join(receivers)}
+        for no key update`,
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
   }
 
   private *deleteExpiredPushes() {
