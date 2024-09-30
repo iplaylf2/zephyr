@@ -6,7 +6,7 @@ model Push {
 
     receivers PushSubscription[]
 
-    @@unique([source, type])
+    @@unique(name: "rawId", [source, type])
     @@unique([type, source])
     @@index([expiredAt])
     @@map("pushes")

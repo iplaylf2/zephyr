@@ -105,13 +105,13 @@ export abstract class ConversationService extends ModuleRaii {
                 conversations.type = ${this.type} and
                 x.conversation = ${conversation} and
                 x.participant = ${participant}`,
-          task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
+          task.map(x => 0 < x ? Number(conversation) : null),
           cOperation.FromTask.fromTask,
         ),
       ),
       cOperation.sequenceArray,
       cOperation.map(
-        readonlyArray.filterMap(identity.of),
+        readonlyArray.filterMap(option.fromNullable),
       ),
     ),
     )
@@ -335,14 +335,14 @@ export abstract class ConversationService extends ModuleRaii {
               conversations.type = ${this.type} and
               x.conversation = ${conversation} and
               x.participant = ${participant}`,
-          task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
+          task.map(x => 0 < x ? Number(conversation) : null),
           cOperation.FromTask.fromTask,
         ),
       )),
       identity.ap(new Date()),
       cOperation.sequenceArray,
       cOperation.map(
-        readonlyArray.filterMap(identity.of),
+        readonlyArray.filterMap(option.fromNullable),
       ),
     ),
     )

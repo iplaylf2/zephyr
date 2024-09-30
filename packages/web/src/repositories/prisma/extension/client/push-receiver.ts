@@ -9,6 +9,27 @@ export const pushReceiver = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
+        forQuery(receivers: readonly number[]) {
+          if (0 === receivers.length) {
+            return cOperation.Pointed.of([])()
+          }
+
+          return pipe(
+            () => client.$queryRaw<Pick<PushReceiver, 'id'>[]>`
+              select
+                id
+              from 
+                push-receivers
+              where 
+                ${Date.now()} < expiredAt and
+                id in ${Prisma.join(receivers)}
+              for key share`,
+            cOperation.FromTask.fromTask,
+            cOperation.map(
+              readonlyArray.map(x => x.id),
+            ),
+          )()
+        },
         forUpdate(receivers: readonly number[]) {
           if (0 === receivers.length) {
             return cOperation.Pointed.of([])()

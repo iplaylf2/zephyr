@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { call, sleep } from 'effection'
-import { readonlyArray, task } from 'fp-ts'
+import { option, readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
@@ -49,8 +49,62 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public *deleteSubscriptions(subscriptions: readonly push.Subscription[]) {
-    yield subscriptions
+  public *deleteSubscriptions(receiver: number, subscriptions: readonly push.Subscription[]) {
+    if (0 === subscriptions.length) {
+      return []
+    }
+
+    const exists = yield * this.existsReceivers([receiver])
+
+    if (0 === exists.length) {
+      return []
+    }
+
+    const pushes = yield * pipe(
+      subscriptions,
+      readonlyArray.map(rawId => pipe(
+        () => this.prismaClient.push.findUnique({
+          select: { id: true },
+          where: { expiredAt: { gt: new Date() }, rawId },
+        }),
+        task.map(x => x ? [x.id, rawId] as const : null),
+        cOperation.FromTask.fromTask,
+      )),
+      cOperation.sequenceArray,
+      cOperation.map(
+        readonlyArray.filterMap(option.fromNullable),
+      ),
+    )()
+
+    const pushesRecord = Object.fromEntries(pushes)
+
+    return yield * this.prismaClient.$callTransaction(tx =>
+      function*(this: PushService) {
+        const _pushes = yield * tx
+          .$pushSubscription()
+          .pushesForDelete(receiver, pushes.map(([id]) => id))
+
+        yield * call(tx.pushSubscription.deleteMany({
+          where: { push: { in: _pushes.concat() }, receiver },
+        }))
+
+        {
+          const pushes = _pushes.map(x => pushesRecord[x]!)
+          const notification = this.entityPushService.getNotification()
+
+          yield * notification.publish(
+            notification.getChannel(receiver),
+            { data: pushes, type: 'unsubscribe' },
+          )
+
+          return pushes
+        }
+      }.bind(this),
+    )
+  }
+
+  public existsReceivers(receivers: readonly number[]) {
+    return this.prismaClient.$pushReceiver().forQuery(receivers)
   }
 
   public expireReceivers(
@@ -107,7 +161,8 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public patchPushes() {
+  public patchSubscriptions(subscriptions: readonly push.Subscription[]) {
+    void subscriptions
   }
 
   public postReceiver(claimer: number | null) {

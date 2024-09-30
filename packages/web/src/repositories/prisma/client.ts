@@ -11,6 +11,7 @@ import { effection } from './extension/client/transaction.js'
 import { env } from '../../env.js'
 import { globalScope } from '../../kits/effection/global-scope.js'
 import { pushReceiver } from './extension/client/push-receiver.js'
+import { pushSubscription } from './extension/client/push-subscription.js'
 import { user } from './extension/client/user.js'
 
 const useFactory = (resourceManagerService: ResourceManagerService) => globalScope.run(() =>
@@ -23,6 +24,7 @@ const useFactory = (resourceManagerService: ResourceManagerService) => globalSco
         .$extends(conversationXParticipant)
         .$extends(dialogue)
         .$extends(pushReceiver)
+        .$extends(pushSubscription)
 
       yield * call(client.$connect())
 
