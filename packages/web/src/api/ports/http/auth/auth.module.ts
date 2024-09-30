@@ -3,12 +3,13 @@ import { JwtModule } from '@nestjs/jwt'
 import { Module } from '@nestjs/common'
 import { Passport } from './auth.guard.js'
 import { UserModule } from '../../../../domains/user/user.module.js'
+import { env } from '../../../../env.js'
 
 @Module({
   exports: [AuthService, Passport.provider],
   imports: [
     JwtModule.register({
-      secret: 'fixme',
+      secret: env.auth.secret,
       signOptions: {
         audience: 'user',
         issuer: 'auth',

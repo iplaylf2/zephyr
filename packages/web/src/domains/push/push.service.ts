@@ -10,6 +10,8 @@ import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { push } from '../../models/push.js'
 import { where } from '../../repositories/prisma/common/where.js'
+import { z } from 'zod'
+import { zPlus } from '../../kits/z-plus.js'
 
 @Injectable()
 export class PushService extends ModuleRaii {
@@ -132,7 +134,7 @@ export class PushService extends ModuleRaii {
 
     if (receiver) {
       if (new Date() < receiver.expiredAt) {
-        return receiver // fixme: pick
+        return zPlus(exportReceiver).parse(receiver)
       }
 
       yield * call(this.prismaClient.pushReceiver.delete({
@@ -196,3 +198,8 @@ export class PushService extends ModuleRaii {
     }
   }
 }
+
+const exportReceiver = z.object({
+  id: z.custom<number>(),
+  token: z.custom<string>(),
+})
