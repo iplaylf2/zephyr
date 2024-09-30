@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { Prisma, PushReceiver } from '../../repositories/prisma/generated/index.js'
-import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { call, sleep } from 'effection'
 import { readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
+import { PrismaClient } from '../../repositories/prisma/client.js'
+import { PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
@@ -33,7 +33,7 @@ export class PushService extends ModuleRaii {
   public active(receivers: readonly number[]) {
     return this.prismaClient.$callTransaction(tx =>
       function*(this: PushService) {
-        const _receivers = yield * this.selectReceiversForUpdate(tx, receivers)
+        const _receivers = yield * tx.$pushReceiver().forUpdate(receivers)
 
         yield * call(tx.pushReceiver.updateMany({
           data: {
@@ -141,31 +141,6 @@ export class PushService extends ModuleRaii {
     }
 
     return yield * this.postReceiver(claimer)
-  }
-
-  public selectReceiversForUpdate(
-    tx: PrismaTransaction,
-    receivers: readonly number[],
-  ) {
-    if (0 === receivers.length) {
-      return cOperation.Pointed.of([])()
-    }
-
-    return pipe(
-      () => tx.$queryRaw<Pick<PushReceiver, 'id'>[]>`
-        select
-          id
-        from 
-          push-receivers
-        where 
-          ${Date.now()} < expiredAt and
-          id in ${Prisma.join(receivers)}
-        for no key update`,
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
   }
 
   private *deleteExpiredPushes() {

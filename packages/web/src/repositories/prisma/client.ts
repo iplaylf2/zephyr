@@ -6,9 +6,11 @@ import { ResourceManagerService } from '../../common/resource-manager/resource-m
 import { call } from 'effection'
 import { conversation } from './extension/client/conversation.js'
 import { conversationXParticipant } from './extension/client/conversation-x-participant.js'
+import { dialogue } from './extension/client/dialogue.js'
 import { effection } from './extension/client/transaction.js'
 import { env } from '../../env.js'
 import { globalScope } from '../../kits/effection/global-scope.js'
+import { pushReceiver } from './extension/client/push-receiver.js'
 import { user } from './extension/client/user.js'
 
 const useFactory = (resourceManagerService: ResourceManagerService) => globalScope.run(() =>
@@ -19,6 +21,8 @@ const useFactory = (resourceManagerService: ResourceManagerService) => globalSco
         .$extends(user)
         .$extends(conversation)
         .$extends(conversationXParticipant)
+        .$extends(dialogue)
+        .$extends(pushReceiver)
 
       yield * call(client.$connect())
 

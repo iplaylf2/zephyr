@@ -3,7 +3,6 @@ import { Operation, all, call, sleep, spawn } from 'effection'
 import { PrismaClient, PrismaTransaction } from '../../../repositories/prisma/client.js'
 import { option, readonlyArray } from 'fp-ts'
 import { ConversationService } from '../conversation.service.js'
-import { Dialogue } from '../../../repositories/prisma/generated/index.js'
 import {
   ConversationService as EntityConversationService,
 } from '../../../repositories/redis/entities/conversation.service.js'
@@ -53,7 +52,7 @@ export namespace conversation{
       participant: number,
       tx: PrismaTransaction = this.prismaClient,
     ) {
-      return this.selectDialoguesForQuery(tx, participant)
+      return tx.$dialogue().forQuery(participant)
     }
 
     public *expireDialogue(
@@ -67,7 +66,7 @@ export namespace conversation{
         )
       }
 
-      const dialogues = yield * this.selectDialoguesForUpdate(tx, participant)
+      const dialogues = yield * tx.$dialogue().forUpdate(participant)
 
       if (0 === dialogues.length) {
         return []
@@ -172,50 +171,6 @@ export namespace conversation{
           }))
         }.bind(this),
       )
-    }
-
-    public selectDialoguesForQuery(
-      tx: PrismaTransaction,
-      participant: number,
-    ) {
-      return pipe(
-        () => tx.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
-          select
-            conversation
-          from 
-            dialogues
-          where
-            ${new Date()} < "expiredAt" and
-            ( initiator = ${participant} or
-              participant = ${participant} )
-          for key share`,
-        cOperation.FromTask.fromTask,
-        cOperation.map(
-          readonlyArray.map(x => x.conversation),
-        ),
-      )()
-    }
-
-    public selectDialoguesForUpdate(
-      tx: PrismaTransaction,
-      participant: number,
-    ) {
-      return pipe(
-        () => tx.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
-          select
-            conversation
-          from 
-            dialogues
-          where
-            ${new Date()} < "expiredAt" and
-            ( initiator = ${participant} or
-              participant = ${participant} )
-          for no key update`,
-        cOperation.FromTask.fromTask,
-        cOperation.map(
-          readonlyArray.map(x => x.conversation),
-        ),
-      )()
     }
 
     private *deleteExpiredDialogues() {
