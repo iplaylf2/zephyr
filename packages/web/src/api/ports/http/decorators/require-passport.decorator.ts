@@ -11,5 +11,9 @@ export function RequirePassport(
 ) {
   const _options = defaults(options ?? {}, { decorators: [], guards: [] })
 
-  return applyDecorators(UseGuards(AuthGuard, ..._options.guards), ApiBearerAuth(), ..._options.decorators)
+  return applyDecorators(
+    UseGuards(AuthGuard, ..._options.guards),
+    ApiBearerAuth(),
+    ..._options.decorators,
+  )
 }

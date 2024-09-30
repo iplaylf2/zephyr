@@ -2,6 +2,12 @@
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
   "compilerOptions": {
+    "assets": [
+      {
+        "include": "./repositories/prisma/generated/**/*",
+        "watchAssets": true
+      }
+    ],
     "deleteOutDir": true
   },
   "plugins": [

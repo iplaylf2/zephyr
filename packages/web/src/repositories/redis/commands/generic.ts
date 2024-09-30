@@ -20,6 +20,10 @@ export class Generic extends Isolable<Generic> {
     return call(this.client.expire(key, seconds, mode))
   }
 
+  public expireAt(key: RedisCommandArgument, timestamp: Date | number, mode?: 'GT' | 'LT' | 'NX' | 'XX') {
+    return call(this.client.expireAt(key, timestamp, mode))
+  }
+
   public ttl(key: RedisCommandArgument) {
     return call(this.client.ttl(key))
   }

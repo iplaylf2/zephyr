@@ -1,11 +1,13 @@
 import { IncomingMessage, Server } from 'http'
 import { Inject, Injectable } from '@nestjs/common'
 import { Duplex } from 'stream'
+import { EMPTY } from 'rxjs'
 import { HttpAdapterHost } from '@nestjs/core'
 import { ModuleRaii } from '../../../common/module-raii.js'
-import { ReceiverService } from '../../../domains/receiver/receiver.service.js'
+import { PushService } from '../../../domains/push/push.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
+import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { globalScope } from '../../../kits/effection/global-scope.js'
 import { suspend } from 'effection'
 
@@ -15,16 +17,18 @@ export class WsService extends ModuleRaii {
   private readonly httpAdapterHost!: HttpAdapterHost
 
   @Inject()
-  private readonly receiverService!: ReceiverService
+  private readonly pushService!: PushService
 
   public constructor() {
     super()
 
-    this.initializeCallback.push(() => this.listen())
+    void this.pushService
+
+    this.initializeCallbacks.push(() => this.listen())
   }
 
   private *listen() {
-    const urlPattern = new URLPattern({ pathname: '/receiver/:id' })
+    const urlPattern = new URLPattern({ pathname: '/push/receivers/:id' })
     const websocketServer = new WebSocketServer({ noServer: true })
     const upgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
       const patternResult = urlPattern.exec(request.url, 'ws://x')
@@ -36,7 +40,9 @@ export class WsService extends ModuleRaii {
         return
       }
 
-      void globalScope.run(() => this.tryUpgrading(websocketServer, request, socket, head, id))
+      void globalScope.run(() =>
+        this.tryUpgrading(websocketServer, request, socket, head, id),
+      )
     }
 
     const httpServer: Server = this.httpAdapterHost.httpAdapter.getHttpServer()
@@ -58,8 +64,10 @@ export class WsService extends ModuleRaii {
     id: string,
   ) {
     try {
-      const channel = yield * this.receiverService.getChannel(id)
+      void id
+      const channel = yield * cOperation.Pointed.of(EMPTY)()
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (null === channel) {
         socket.destroy()
 

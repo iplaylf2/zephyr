@@ -1,14 +1,15 @@
 import { APP_PIPE } from '@nestjs/core'
-import { IdModule as ChatroomsModule } from './routes/chatrooms/id/id.module.js'
-import { IdModule as ConversationIdModule } from './routes/conversations/id/id.module.js'
-import { ConversationModule } from './routes/conversation/conversation.module.js'
-import { ConversationsModule } from './routes/conversations/conversations.module.js'
-import { MemberModule } from './routes/chatrooms/id/member/member.module.js'
+import { ClaimerModule } from './routes/push/receivers/token/claimer/claimer.module.js'
+import { IdModule as DialogueIdModule } from './routes/dialogues/id/id.module.js'
+import { DialogueModule } from './routes/dialogue/dialogue.module.js'
+import { DialoguesModule } from './routes/dialogues/dialogues.module.js'
+import { IdModule as GroupIdModule } from './routes/groups/id/id.module.js'
+import { GroupsModule } from './routes/group/member/groups/groups.module.js'
+import { MemberModule } from './routes/groups/id/member/member.module.js'
 import { Module } from '@nestjs/common'
-import { SubscriptionsModule as ReceiverSubscriptionsModule } from './routes/receivers/id/subscriptions/subscriptions.module.js'
-import { UserModule as ReceiverUserModule } from './routes/receivers/id/user/user.module.js'
-import { IdModule as ReceiversModule } from './routes/receivers/id/id.module.js'
-import { SubscriptionsModule } from './routes/receiver/user/user.module.js'
+import { PushModule } from './routes/push/push.module.js'
+import { ReceiverModule } from './routes/push/claimer/receiver/receiver.module.js'
+import { ReceiversModule } from './routes/push/receivers/receivers.module.js'
 import { UserModule } from './routes/user/user.module.js'
 import { UsersModule } from './routes/users/users.module.js'
 import { ZodValidationPipe } from '@anatine/zod-nestjs'
@@ -17,32 +18,37 @@ import { router } from './kits/router.js'
 
 @Module({
   imports: [
-    ConversationModule,
-    ConversationsModule,
     UserModule,
     UsersModule,
+    DialogueModule,
+    DialoguesModule,
+    PushModule,
     ...router.register([
       {
-        children: [
-          ChatroomsModule,
-          { children: [MemberModule], path: path.chatroom.pattern },
-        ],
-        path: 'chatrooms',
-      },
-      {
-        module: SubscriptionsModule,
-        path: 'receiver',
+        module: GroupsModule,
+        path: 'group/member',
       },
       {
         children: [
-          ReceiversModule,
-          { children: [ReceiverSubscriptionsModule, ReceiverUserModule], path: path.receiver.pattern },
+          GroupIdModule,
+          { children: [MemberModule], path: path.group.pattern },
         ],
-        path: 'receivers',
+        path: 'groups',
       },
       {
-        module: ConversationIdModule,
-        path: 'conversations',
+        module: DialogueIdModule,
+        path: 'dialogues',
+      },
+      {
+        children: [
+          { module: ReceiverModule, path: 'claimer' },
+          {
+            children: [{ module: ClaimerModule, path: path.token.pattern }],
+            module: ReceiversModule,
+            path: 'receivers',
+          },
+        ],
+        path: 'push',
       },
     ]),
   ],
@@ -53,5 +59,4 @@ import { router } from './kits/router.js'
     },
   ],
 })
-export class HttpModule {
-}
+export class HttpModule {}

@@ -1,6 +1,7 @@
 {
 	"recommendations": [
 		"dbaeumer.vscode-eslint",
+		"Prisma.prisma",
 		"redhat.vscode-yaml",
 		"streetsidesoftware.code-spell-checker",
 	]

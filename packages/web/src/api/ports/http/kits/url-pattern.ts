@@ -3,9 +3,9 @@ import { REQUEST } from '@nestjs/core'
 import { Request } from 'express'
 
 export namespace urlPattern{
-  export function path<const T extends string>(name: T): Abstract<{}> & {
-    name: T
-    pattern: `:${T}`
+  export function path<const K extends string>(name: K, transformer?: (x: string) => any): Abstract<{}> & {
+    name: K
+    pattern: `:${K}`
     provider: FactoryProvider
   } {
     abstract class InjectionToken {
@@ -24,7 +24,11 @@ export namespace urlPattern{
             throw new InternalServerErrorException()
           }
 
-          return value
+          if (!transformer) {
+            return value
+          }
+
+          return transformer(value)
         },
       }
     }

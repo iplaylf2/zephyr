@@ -1,7 +1,14 @@
 anatine
-chatrooms
+datasource
 effection
+maxlen
+mkstream
+monoid
 nestjs
+nomkstream
 openapi
+pipeable
 raii
+semigroup
+unfoldable
 urlpattern

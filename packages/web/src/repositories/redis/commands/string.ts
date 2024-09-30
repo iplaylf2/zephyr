@@ -1,21 +1,21 @@
 import { Operation, call } from 'effection'
-import { Option, fromNullable, map } from 'fp-ts/lib/Option.js'
 import { RedisClientType, SetOptions } from '@redis/client'
 import { Model } from './common.js'
 import { RedisCommandArgument } from './generic.js'
+import { option } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export abstract class String<T> implements Model<T> {
   public abstract readonly client: RedisClientType
   public abstract readonly key: RedisCommandArgument
 
-  public *get(): Operation<Option<T>> {
+  public *get(): Operation<option.Option<T>> {
     const value = yield * call(this.client.get(this.key))
 
     return pipe(
       value,
-      fromNullable,
-      map(x => this.decode(x)),
+      option.fromNullable,
+      option.map(x => this.decode(x)),
     )
   }
 

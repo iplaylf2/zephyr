@@ -1,1 +1,5 @@
-This is an attempt at structured concurrent programming. However, it seems that Effection 3.0.3 has some issues, causing the project to behave strangely during graceful shutdown. I’m considering whether to abandon it.
+```bash
+# corepack enable
+pnpm install
+pnpm --filter web run start
+```

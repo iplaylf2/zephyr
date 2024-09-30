@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Isolable, Model } from '../common.js'
-import { flow, pipe } from 'fp-ts/lib/function.js'
+import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyArray, readonlyRecord } from 'fp-ts'
 import { ReadonlyDeep } from 'type-fest'
-import { ReadonlyRecord } from 'fp-ts/lib/ReadonlyRecord.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '../generic.js'
 import { XAutoClaimOptions } from '@redis/client/dist/lib/commands/XAUTOCLAIM.js'
 import { XReadGroupOptions } from '@redis/client/dist/lib/commands/XREADGROUP.js'
 import { call } from 'effection'
-import { readonlyRecordPlus } from '../../../../kits/fp-ts/readonly-record.js'
+import { readonlyRecordPlus } from '../../../../kits/fp-ts/readonly-record-plus.js'
 
 export abstract class Stream<T extends StreamMessageBody> extends Isolable<Stream<T>> implements Model<T[string]> {
   public abstract override readonly client: RedisClientType
@@ -46,7 +45,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
             option.fromNullable,
             option.map(readonlyRecordPlus.modifyAt(
               'message',
-              message => this.decodeFully(message),
+              x => this.decodeFully(x),
             )),
           )),
         ),
@@ -54,7 +53,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     )
   }
 
-  public decodeFully(message: ReadonlyRecord<string, string>) {
+  public decodeFully(message: Readonly<Record<string, string>>) {
     return pipe(
       message,
       readonlyRecord.map(v => this.decode(v)),
@@ -89,13 +88,26 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     return call(this.client.xGroupDestroy(this.key, group))
   }
 
+  public *infoStream() {
+    try {
+      return yield * call(this.client.xInfoStream(this.key))
+    }
+    catch (e) {
+      if ('ERR no such key' !== (e as any)?.message) {
+        throw e
+      }
+
+      return null
+    }
+  }
+
   public *range(start: RedisCommandArgument, end: RedisCommandArgument, options?: XRangeOptions) {
     const messages = yield * call(this.client.xRange(this.key, start, end, options))
 
     return pipe(
       messages,
       readonlyArray.map(
-        readonlyRecordPlus.modifyAt('message', message => this.decodeFully(message)),
+        readonlyRecordPlus.modifyAt('message', x => this.decodeFully(x)),
       ),
     )
   }
@@ -107,12 +119,12 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
       messages ?? [],
       readonlyArray.head,
       option.map(flow(
-        readonlyRecordPlus.lookup('messages'),
+        x => x.messages,
         readonlyArray.map(
-          readonlyRecordPlus.modifyAt('message', message => this.decodeFully(message)),
+          readonlyRecordPlus.modifyAt('message', x => this.decodeFully(x)),
         ),
       )),
-      option.getOrElse<ReadonlyArray<StreamMessage<T>>>(() => []),
+      option.getOrElse(constant<ReadonlyArray<StreamMessage<T>>>([])),
     )
   }
 
@@ -124,7 +136,7 @@ export type StreamMessage<T extends StreamMessageBody> = Readonly< {
   id: string
   message: T
 }>
-export type StreamMessageBody = ReadonlyRecord<string, any>
+export type StreamMessageBody = Readonly<Record<string, any>>
 export type XAddOptions = ReadonlyDeep<{
   NOMKSTREAM?: true
   TRIM?: {

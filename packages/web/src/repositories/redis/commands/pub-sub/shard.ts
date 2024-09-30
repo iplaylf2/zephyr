@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Operation, call } from 'effection'
-import { apply, pipe } from 'fp-ts/lib/function.js'
-import { io, ioEither } from 'fp-ts'
+import { constant, flow, pipe } from 'fp-ts/lib/function.js'
+import { io, option } from 'fp-ts'
 import { Isolable } from '../common.js'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
 import { RedisClientType } from '@redis/client'
@@ -19,18 +19,22 @@ abstract class PubSub<
 
   protected cacheAndTransformListener(listener: pubSub.Listener<T, Channel>) {
     return pipe(
-      ioEither.of(listener),
-      ioEither.flatMapNullable(
-        x => this.rawListenerMap.get(x),
-        x => x,
-      ),
-      ioEither.getOrElse(listener =>
-        pipe(
-          io.of(((message, channel) => listener(this.decode(message), channel.toString() as Channel)) satisfies PubSubListener<BufferMode>),
-          io.tap(x => () => this.rawListenerMap.set(listener, x)),
-        )),
-      apply(void 0),
-    )
+      () => this.rawListenerMap.get(listener),
+      io.chain(flow(
+        option.fromNullable,
+        option.fold(
+          flow(
+            constant(io.of(
+              ((message, channel) =>
+                listener(this.decode(message), channel.toString() as Channel)
+              ) satisfies PubSubListener<BufferMode>,
+            )),
+            io.tap(x => () => this.rawListenerMap.set(listener, x)),
+          ),
+          io.of,
+        ),
+      )),
+    )()
   }
 
   protected getRawListener(listener: pubSub.Listener<T, Channel>) {
@@ -55,7 +59,11 @@ export namespace pubSub{
     }
 
     public override subscribe(channels: Channel, listener: Listener<T, Channel>) {
-      return call(this.client.sSubscribe(channels as any, this.cacheAndTransformListener(listener), this.bufferMode))
+      return call(this.client.sSubscribe(
+        channels as any,
+        this.cacheAndTransformListener(listener),
+        this.bufferMode,
+      ))
     }
 
     public override unsubscribe(channels?: Channel, listener?: Listener<T, Channel>) {

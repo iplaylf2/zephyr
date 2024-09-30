@@ -1,21 +1,34 @@
-import { Conversations, ConversationService as EntityConversationService } from '../../repositories/redis/entities/conversation.service.js'
-import { Operation, all, call } from 'effection'
-import { option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
+import { Conversation, ConversationXParticipant } from '../../repositories/prisma/generated/index.js'
+import {
+  Conversations, ConversationService as EntityConversationService,
+} from '../../repositories/redis/entities/conversation.service.js'
+import { Operation, all, call, sleep } from 'effection'
+import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
+import { flip, flow, pipe } from 'fp-ts/lib/function.js'
+import { identity, number, option, readonlyArray, task } from 'fp-ts'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
+import { GenericService } from '../../repositories/redis/entities/generic.service.js'
+import { JsonObject } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './participant.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
+import { UserService } from '../user/user.service.js'
+import { cOperation } from '../../common/fp-effection/c-operation.js'
+import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/groups/parallel.js'
-import { message } from '../../models/message.js'
-import { pipe } from 'fp-ts/lib/function.js'
+import { match } from 'ts-pattern'
 import { randomUUID } from 'crypto'
+import { readonlyNonEmptyArrayPlus } from '../../kits/fp-ts/readonly-non-empty-array-plus.js'
 import { user } from '../../models/user.js'
+import { where } from '../../repositories/prisma/common/where.js'
 
 export abstract class ConversationService extends ModuleRaii {
-  protected readonly participantsExpireCallback = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
-  protected readonly participantsRegisterCallback = new Array<(event: Extract<user.Event, { type: 'register' }>) => Operation<any>>()
-  protected readonly participantsUnregisterCallback = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
+  protected readonly participantsExpireCallbacks
+    = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
+
+  protected readonly participantsUnregisterCallbacks
+    = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
 
   public abstract readonly defaultConversationExpire: Temporal.Duration
   public abstract readonly defaultParticipantExpire: Temporal.Duration
@@ -23,60 +36,416 @@ export abstract class ConversationService extends ModuleRaii {
 
   protected abstract readonly entityConversationService: EntityConversationService
   protected abstract readonly entityUserService: EntityUserService
+  protected abstract readonly genericService: GenericService
+  protected abstract readonly prismaClient: PrismaClient
   protected abstract readonly redisService: RedisService
+  protected abstract readonly userService: UserService
 
   public constructor() {
     super()
 
-    this.initializeCallback.push(() => this.listenUserEvent())
-    this.participantsExpireCallback.push(event => this.expireParticipantsByEvent(event))
-    this.participantsUnregisterCallback.push(event => this.removeParticipantsByEvent(event))
+    this.initializeCallbacks.push(() => this.listenUserEvent())
+    this.initializeCallbacks.push(() => this.expireConversationsEfficiently())
+    this.initializeCallbacks.push(() => this.expireParticipantsEfficiently())
+    this.initializeCallbacks.push(() => this.deleteExpiredConversions())
+    this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
+    this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
   }
 
-  public *addParticipants(conversation: string, users: readonly string[]) {
-    const participants = this.entityConversationService.getParticipants(this.type, conversation)
-    const expire = this.defaultParticipantExpire.total('seconds')
-    const timestamp = Temporal.Now.zonedDateTimeISO()
-    const score = timestamp.add(this.defaultParticipantExpire).epochMilliseconds
+  public active(conversations: readonly number[]) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: ConversationService) {
+        const _conversations = yield * tx.$conversation().forUpdate(this.type, conversations)
 
-    const reply = yield * pipe(
-      this.redisService.multi(),
-      t => users.reduce(
-        (t, user) => t
-          .zAdd(participants.key, { score, value: user }, { NX: true }),
-        t,
-      ),
-      t => t.expire(participants.key, this.defaultConversationExpire.total('seconds'), 'GT'),
-      t => users
-        .map(user => this.entityConversationService.getParticipantConversations(this.type, user).key)
-        .reduce(
-          (t, key) => t
-            .sAdd(key, conversation)
-            .expire(key, expire, 'GT'),
-          t,
+        yield * call(tx.conversation.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { id: { in: where.writable(_conversations) } },
+        }))
+
+        return _conversations
+      }.bind(this),
+    )
+  }
+
+  public activeParticipants(conversation: number, participants: readonly number[]) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: ConversationService) {
+        const _participants = yield * tx
+          .$conversationXParticipant()
+          .forUpdate(this.type, conversation, participants)
+
+        yield * call(tx.conversationXParticipant.updateMany({
+          data: {
+            lastActiveAt: new Date(),
+          },
+          where: { conversation, participant: { in: where.writable(_participants) } },
+        }))
+
+        return _participants
+      }.bind(this),
+    )
+  }
+
+  public deleteData(participant: number, conversationXKey: Readonly<Record<number, number | string>>) {
+    return this.prismaClient.$callTransaction(tx => pipe(
+      Object.entries(conversationXKey),
+      x => Array.from(x),
+      readonlyArray.map(
+        ([conversation, key]) => pipe(
+          () => tx.$executeRaw`
+              update "conversation-x-participant" x
+              set
+                data = x.data - ${key}
+              from
+                conversations
+              where
+                conversations.id = x.conversation and
+                conversations.type = ${this.type} and
+                x.conversation = ${conversation} and
+                x.participant = ${participant}`,
+          task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
+          cOperation.FromTask.fromTask,
         ),
-      t => call(t.exec()),
+      ),
+      cOperation.sequenceArray,
+      cOperation.map(
+        readonlyArray.filterMap(identity.of),
+      ),
+    ),
     )
+  }
 
-    const newParticipants = pipe(
-      reply,
-      readonlyArray.takeLeft(users.length),
-      readonlyArray.zip(users),
+  public deleteParticipants(conversation: number, participants: readonly number[]) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: ConversationService) {
+        const _participants = yield * tx
+          .$conversationXParticipant()
+          .forDelete(this.type, conversation, participants)
+
+        if (0 === _participants.length) {
+          return []
+        }
+
+        const now = Date.now()
+
+        yield * call(tx.conversationXParticipant.deleteMany({
+          where: {
+            conversation,
+            participant: { in: where.writable(_participants) },
+            xConversation: { type: this.type },
+          },
+        }))
+
+        yield * this.post(
+          conversation,
+          system.say({
+            content: { participants: _participants, timestamp: now, type: 'leave' },
+            type: 'event',
+          }),
+        )
+
+        return _participants
+      }.bind(this),
+    )
+  }
+
+  public exists(
+    conversations: readonly number[],
+    tx: PrismaTransaction = this.prismaClient,
+  ) {
+    return tx.$conversation().forQuery(this.type, conversations)
+  }
+
+  public existsParticipants(
+    conversation: number,
+    participants: readonly number[],
+    tx: PrismaTransaction = this.prismaClient,
+  ) {
+    return tx.$conversationXParticipant().forQuery(this.type, conversation, participants)
+  }
+
+  public expire(
+    conversations: readonly number[],
+    seconds = this.defaultConversationExpire.total('seconds'),
+  ) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: ConversationService) {
+        const interval = `${seconds.toFixed(0)} seconds`
+        const now = new Date()
+
+        const _conversations = yield * pipe(
+          conversations,
+          readonlyArray.map(
+            conversation => () => tx.$queryRaw<Pick<Conversation, 'expiredAt' | 'id'>[]>`
+              update conversations
+              set
+                "expiredAt" = conversations."lastActiveAt" + ${interval}::interval
+              where
+                conversations.type = ${this.type} and
+                ${now} < conversations."expiredAt" and
+                conversations."expiredAt" < conversations."lastActiveAt" + ${interval}::interval and
+                conversations.id = ${conversation}
+              returning
+                conversations."expiredAt", conversations.id`,
+          ),
+          task.sequenceArray,
+          cOperation.FromTask.fromTask,
+          cOperation.map(
+            readonlyArray.filterMap(readonlyArray.head),
+          ),
+        )()
+
+        yield * this.expireRecords(_conversations)
+
+        return _conversations.map(x => x.id)
+      }.bind(this),
+    )
+  }
+
+  public expireParticipants(
+    conversation: number,
+    participants: readonly number[],
+    seconds = this.defaultConversationExpire.total('seconds'),
+  ) {
+    const interval = `${seconds.toFixed(0)} seconds`
+
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: ConversationService) {
+        return yield * pipe(
+          participants,
+          readonlyArray.map(
+            participant => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
+              update "conversation-x-participant" x
+              set
+                "expiredAt" = x."lastActiveAt" + ${interval}::interval
+              from
+                conversations
+              where
+                conversations.id = x.conversation and
+                conversations.type = ${this.type} and
+                x."expiredAt" < x."lastActiveAt" + ${interval}::interval and
+                x.conversation = ${conversation} and
+                x.participant = ${participant}
+              returning
+                x.participant`,
+          ),
+          task.sequenceArray,
+          cOperation.FromTask.fromTask,
+          cOperation.map(
+            readonlyArray.filterMap(flow(
+              readonlyArray.head,
+              option.map(x => x.participant),
+            )),
+          ),
+        )()
+      }.bind(this),
+    )
+  }
+
+  public *getConversationsRecord(participant: number) {
+    const conversations = yield * pipe(
+      () => this.prismaClient.conversationXParticipant.findMany({
+        select: { conversation: true },
+        where: {
+          participant,
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
+      }),
+      task.map(
+        readonlyArray.map(x => x.conversation),
+      ),
+      cOperation.FromTask.fromTask,
+    )()
+
+    if (0 === conversations.length) {
+      return []
+    }
+
+    const records = yield * pipe(
+      conversations,
+      readonlyArray.map(
+        x => () => this.entityConversationService.getRecords(this.type, x).infoStream(),
+      ),
+      cOperation.sequenceArray,
+    )()
+
+    return pipe(
+      records,
+      readonlyArray.zip(conversations),
       readonlyArray.filterMap(
-        ([reply, user]) => 1 === reply ? option.some(user) : option.none,
+        ([record, conversation]) => null === record
+          ? option.none
+          : option.some({
+            conversationId: conversation,
+            lastMessageId: record.lastEntry?.id ?? null,
+          }),
       ),
     )
+  }
+
+  public getData(participant: number) {
+    return pipe(
+      () => this.prismaClient.conversationXParticipant.findMany({
+        select: { conversation: true, data: true },
+        where: {
+          participant,
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
+      }),
+      task.map(flow(
+        readonlyArray.map(x => [x.conversation, x.data as JsonObject] as const),
+        x => Object.fromEntries(x),
+      )),
+      cOperation.FromTask.fromTask,
+    )()
+  }
+
+  public getParticipants(conversation: number) {
+    return pipe(
+      () => this.prismaClient.conversationXParticipant.findMany({
+        select: { participant: true },
+        where: {
+          conversation,
+          xConversation: { expiredAt: { gt: new Date() }, type: this.type },
+        },
+      }),
+      task.map(
+        readonlyArray.map(x => x.participant),
+      ),
+      cOperation.FromTask.fromTask,
+    )()
+  }
+
+  public patchData(participant: number, conversationXData: Readonly<Record<number, JsonObject>>) {
+    return this.prismaClient.$callTransaction(tx => pipe(
+      Object.entries(conversationXData),
+      x => Array.from(x),
+      flip((now: Date) => readonlyArray.map(
+        ([conversation, data]) => pipe(
+          () => tx.$executeRaw`
+            update "conversation-x-participant" x
+            set
+              data = x.data || ${data},
+              "lastActiveAt" = ${now}
+            from conversations
+            where
+              conversations.id = x.conversation and
+              conversations.type = ${this.type} and
+              x.conversation = ${conversation} and
+              x.participant = ${participant}`,
+          task.map(x => 0 < x ? option.some(Number(conversation)) : option.none),
+          cOperation.FromTask.fromTask,
+        ),
+      )),
+      identity.ap(new Date()),
+      cOperation.sequenceArray,
+      cOperation.map(
+        readonlyArray.filterMap(identity.of),
+      ),
+    ),
+    )
+  }
+
+  public postConversation(info: conversation.Info) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: ConversationService) {
+        const now = Temporal.Now.zonedDateTimeISO()
+        const createdAt = new Date(now.epochMilliseconds)
+        const expiredAt = new Date(now.add(this.defaultConversationExpire).epochMilliseconds)
+
+        const conversation = yield * pipe(
+          () => tx.conversation.create({
+            data: {
+              createdAt,
+              expiredAt,
+              lastActiveAt: createdAt,
+              name: info.name,
+              type: this.type,
+            },
+          }),
+          cOperation.FromTask.fromTask,
+        )()
+
+        const records = this.entityConversationService.getRecords(this.type, conversation.id)
+        const forCreation = 'for-creation'
+
+        yield * call(this.redisService.multi()
+          .xGroupCreate(records.key, forCreation, '$', { MKSTREAM: true })
+          .xGroupDestroy(records.key, forCreation)
+          .expireAt(records.key, expiredAt)
+          .exec(),
+        )
+
+        return conversation
+      }.bind(this),
+    )
+  }
+
+  public *putParticipants(
+    conversation: number,
+    users: readonly number[],
+    tx?: PrismaTransaction,
+  ): Operation<readonly number[]> {
+    if (!tx) {
+      return yield * this.prismaClient.$callTransaction(tx =>
+        () => this.putParticipants(conversation, users, tx),
+      )
+    }
+
+    const exists = yield * this.exists([conversation], tx)
+
+    if (0 === exists.length) {
+      return []
+    }
+
+    const _users = yield * this.userService.exists(users, tx)
+
+    if (0 === _users.length) {
+      return []
+    }
+
+    const newParticipants = yield * pipe(
+      () => tx.conversationXParticipant.findMany({
+        select: { participant: true },
+        where: {
+          conversation,
+          participant: { in: where.writable(_users) },
+        },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(flow(
+        readonlyArray.map(x => x.participant),
+        a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
+        identity.ap(_users),
+      )),
+    )()
 
     if (0 === newParticipants.length) {
       return []
     }
 
-    const system = new Participant('0', 'system')
+    const now = Temporal.Now.zonedDateTimeISO()
+    const createdAt = new Date(now.epochMilliseconds)
+    const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
+
+    yield * call(tx.conversationXParticipant.createMany({
+      data: newParticipants.map(participant => ({
+        conversation,
+        createdAt,
+        data: {},
+        expiredAt,
+        lastActiveAt: createdAt,
+        participant,
+      }),
+      ),
+    }))
 
     yield * this.post(
       conversation,
       system.say({
-        content: { participants: newParticipants, timestamp: timestamp.epochMilliseconds, type: 'join' },
+        content: { participants: newParticipants, timestamp: createdAt.valueOf(), type: 'join' },
         type: 'event',
       }),
     )
@@ -84,178 +453,20 @@ export abstract class ConversationService extends ModuleRaii {
     return newParticipants
   }
 
-  public *createConversation(id: string): Operation<boolean> {
-    const conversation = this.entityConversationService.get(this.type)
-
-    {
-      const score = yield * conversation.score(id)
-
-      if (Date.now() < (score ?? 0)) {
-        return false
-      }
-    }
-
-    const records = this.entityConversationService.getRecords(this.type, id)
-    const forCreation = 'for-creation'
-    const expire = this.defaultConversationExpire.total('seconds')
-    const score = Temporal.Now.zonedDateTimeISO().add(this.defaultConversationExpire).epochMilliseconds
-
-    const reply = yield * call(this.redisService.multi()
-      .xGroupCreate(records.key, forCreation, '$', { MKSTREAM: true })
-      .xGroupDestroy(records.key, forCreation)
-      .expire(records.key, expire)
-      .zAdd(
-        conversation.key,
-        {
-          score,
-          value: id,
-        },
-      )
-      .exec(),
-    )
-
-    const ok = pipe(
-      reply,
-      readonlyArray.last,
-      option.map(
-        x => 'ok' === x?.toString().toLowerCase(),
-      ),
-      option.getOrElse<boolean>(() => false),
-    )
-
-    if (!ok) {
-      return yield * this.createConversation(id)
-    }
-
-    return true
-  }
-
-  public *exists(conversations: readonly string[]) {
-    const _conversations = this.entityConversationService.get(this.type)
-
-    const reply = yield * _conversations.mScore(conversations)
-
+  public rangeMessages(conversation: number, start: string, end: string) {
     return pipe(
-      reply,
-      readonlyArray.zip(conversations),
-      readonlyArray.filterMap(
-        ([reply, conversation]) => Date.now() < (reply ?? 0) ? option.some(conversation) : option.none,
+      this.entityConversationService.getRecords(this.type, conversation),
+      x => () => x.range(start, end),
+      cOperation.map(
+        readonlyArray.map(x => ({ id: x.id, ...x.message })),
       ),
-    )
+    )()
   }
 
-  public *existsParticipants(conversation: string, participants: readonly string[]) {
-    const _participants = this.entityConversationService.getParticipants(this.type, conversation)
+  public *userPost(conversation: number, participant: number, body: conversation.MessageBody) {
+    const exists = yield * this.existsParticipants(conversation, [participant])
 
-    const reply = yield * _participants.mScore(participants)
-
-    return pipe(
-      reply,
-      readonlyArray.zip(participants),
-      readonlyArray.filterMap(
-        ([reply, participant]) => Date.now() < (reply ?? 0) ? option.some(participant) : option.none,
-      ),
-    )
-  }
-
-  public *expire(conversations: readonly string[], seconds: number = this.defaultConversationExpire.total('seconds')) {
-    const _conversations = this.entityConversationService.get(this.type)
-    const timestamp = Temporal.Now.zonedDateTimeISO()
-    const score = timestamp.add({ seconds }).epochMilliseconds
-
-    const reply = yield * pipe(
-      this.redisService.multi()
-        .zRemRangeByScore(_conversations.key, 0, timestamp.epochMilliseconds),
-      t => conversations.reduce(
-        (t, conversation) => t
-          .zAdd(_conversations.key, { score, value: conversation }, { CH: true, GT: true, XX: true }),
-        t,
-      ),
-      t => conversations.reduce(
-        (t, conversation) => t
-          .expire(this.entityConversationService.getParticipants(this.type, conversation).key, seconds, 'GT')
-          .expire(this.entityConversationService.getRecords(this.type, conversation).key, seconds, 'GT'),
-        t,
-      ),
-      t => call(t.exec()),
-    )
-
-    return pipe(
-      reply,
-      readonlyArray.dropLeft(1),
-      readonlyArray.takeLeft(conversations.length),
-      readonlyArray.zip(conversations),
-      readonlyArray.filterMap(
-        ([reply, conversation]) => 1 === reply ? option.some(conversation) : option.none,
-      ),
-    )
-  }
-
-  public fetchParticipants(conversation: string) {
-    const participants = this.entityConversationService.getParticipants(this.type, conversation)
-
-    return participants.range('-inf', '+inf', { BY: 'SCORE' })
-  }
-
-  public *rangeMessages(conversation: string, start: string, end: string) {
-    const records = this.entityConversationService.getRecords(this.type, conversation)
-
-    const messages = yield * records.range(start, end)
-
-    return messages.map(x => ({ id: x.id, ...x.message }))
-  }
-
-  public *removeParticipants(conversation: string, participants: readonly string[]) {
-    const _participants = this.entityConversationService.getParticipants(this.type, conversation)
-
-    const reply = yield * pipe(
-      this.redisService.multi(),
-      t => participants.reduce(
-        (t, participant) => t
-          .zRem(_participants.key, participant),
-        t,
-      ),
-      t => participants.reduce(
-        (t, participant) => t
-          .sRem(
-            this.entityConversationService.getParticipantConversations(this.type, participant).key,
-            conversation,
-          ),
-        t,
-      ),
-      t => call(t.exec()),
-    )
-
-    const removedParticipants = pipe(
-      reply,
-      readonlyArray.takeLeft(participants.length),
-      readonlyArray.zip(participants),
-      readonlyArray.filterMap(
-        ([reply, participant]) => 1 === reply ? option.some(participant) : option.none,
-      ),
-    )
-
-    if (0 === removedParticipants.length) {
-      return []
-    }
-
-    const system = new Participant('0', 'system')
-
-    yield * this.post(
-      conversation,
-      system.say({
-        content: { participants: removedParticipants, type: 'leave' },
-        type: 'event',
-      }),
-    )
-
-    return removedParticipants
-  }
-
-  public *userPost(conversation: string, participant: string, body: message.Body) {
-    const added = yield * this.addParticipants(conversation, [participant])
-
-    if (0 === added.length) {
+    if (0 === exists.length) {
       return null
     }
 
@@ -264,122 +475,196 @@ export abstract class ConversationService extends ModuleRaii {
     return yield * this.post(conversation, _participant.say(body))
   }
 
-  protected *fetchConversations(participants: readonly string[]) {
-    const allConversations = yield * all(
-      participants.map(participant =>
-        this.entityConversationService.getParticipantConversations(this.type, participant)
-          .members(),
-      ),
-    )
-
+  protected expireRecords(conversations: readonly Pick<Conversation, 'expiredAt' | 'id'>[]) {
     return pipe(
-      readonlyArray.zip(allConversations, participants),
-      readonlyArray.flatMap(
-        ([conversations, participant]) => conversations.map(conversation => ({ conversation, participant })),
-      ),
-      readonlyNonEmptyArray.groupBy(x => x.conversation),
-      readonlyRecord.map(x => x.map(x => x.participant)),
-    )
+      conversations,
+      readonlyArray.map(({ id, expiredAt }) => pipe(
+        this.entityConversationService
+          .getRecords(this.type, id)
+          .key,
+        key => () => this.genericService.expireAt(key, expiredAt, 'GT'),
+      )),
+      cOperation.sequenceArray,
+    )()
   }
 
-  protected *removeExpiredParticipants(conversation: string) {
-    const participants = this.entityConversationService.getParticipants(this.type, conversation)
+  private *deleteExpiredConversions() {
+    const interval = Temporal.Duration
+      .from({ minutes: 10 })
+      .total('milliseconds')
 
-    const _participants = yield * participants.range(0, Date.now(), { BY: 'SCORE' })
+    while (true) {
+      yield * call(this.prismaClient.conversation.deleteMany({
+        where: { expiredAt: { lte: new Date() }, type: this.type },
+      }))
 
-    return yield * this.removeParticipants(conversation, _participants)
+      yield * sleep(interval)
+    }
   }
 
-  private *expireParticipants(conversation: string, participants: readonly string[], seconds: number) {
-    const _participants = this.entityConversationService.getParticipants(this.type, conversation)
-    const score = Temporal.Now.zonedDateTimeISO().add({ seconds }).epochMilliseconds
+  private *deleteExpiredParticipants() {
+    const interval = Temporal.Duration
+      .from({ minutes: 10 })
+      .total('milliseconds')
 
-    const reply = yield * pipe(
-      this.redisService.multi(),
-      t => participants.reduce(
-        (t, participant) => t
-          .zAdd(_participants.key, { score, value: participant }, { CH: true, GT: true, XX: true }),
-        t,
-      ),
-      t => t.expire(_participants.key, this.defaultConversationExpire.total('seconds'), 'GT'),
-      t => participants
-        .reduce(
-          (t, participant) => t
-            .expire(
-              this.entityConversationService.getParticipantConversations(this.type, participant).key,
-              seconds,
-              'GT',
-            ),
-          t,
+    while (true) {
+      const group = yield * pipe(
+        () => this.prismaClient.conversationXParticipant.findMany({
+          select: { conversation: true, participant: true },
+          where: {
+            expiredAt: { lte: new Date() },
+            xConversation: { type: this.type },
+          },
+        }),
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyNonEmptyArrayPlus.groupBy(x => x.conversation),
         ),
-      t => call(t.exec()),
-    )
+      )()
 
-    return pipe(
-      reply,
-      readonlyArray.takeLeft(participants.length),
-      readonlyArray.zip(participants),
-      readonlyArray.filterMap(
-        ([reply, participant]) => 1 === reply ? option.some(participant) : option.none,
-      ),
-    )
+      yield * pipe(
+        Array.from(group),
+        readonlyArray.map(([conversation, x]) => () =>
+          this.deleteParticipants(conversation, x.map(x => x.participant)),
+        ),
+        cOperation.sequenceArray,
+      )()
+
+      yield * sleep(interval)
+    }
   }
 
-  private *expireParticipantsByEvent(event: Extract<user.Event, { type: 'expire' }>) {
-    const participants = yield * this.fetchConversations(event.users)
+  private *deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
+    const deletedUsers = yield * pipe(
+      () => this.prismaClient.$user().forKey(event.users),
+      cOperation.map(flow(
+        a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
+        identity.ap(event.users),
+      )),
+    )()
 
-    yield * all(pipe(
-      participants,
-      readonlyRecord.toReadonlyArray,
-      readonlyArray.map(
-        ([conversation, participants]) => this.expireParticipants(conversation, participants, event.data.expire),
+    if (0 === deletedUsers.length) {
+      return
+    }
+
+    const group = yield * pipe(
+      () => this.prismaClient.conversationXParticipant.findMany({
+        select: { conversation: true, participant: true },
+        where: {
+          participant: { in: where.writable(deletedUsers) },
+          xConversation: { type: this.type },
+        },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyNonEmptyArrayPlus.groupBy(x => x.conversation),
       ),
-    ))
+    )()
+
+    yield * pipe(
+      Array.from(group),
+      readonlyArray.map(([conversation, x]) => () =>
+        this.deleteParticipants(conversation, x.map(x => x.participant)),
+      ),
+      cOperation.sequenceArray,
+    )()
+  }
+
+  private *expireConversationsEfficiently() {
+    const interval = Temporal.Duration
+      .from({ minutes: 1 })
+      .total('milliseconds')
+
+    while (true) {
+      const conversations = yield * pipe(
+        () => this.prismaClient.conversation.findMany({
+          select: { id: true },
+          where: {
+            ...where.halfLife(this.defaultConversationExpire),
+            type: this.type,
+          },
+        }),
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyArray.map(x => x.id),
+        ),
+      )()
+
+      if (0 < conversations.length) {
+        yield * this.expire(conversations)
+      }
+
+      yield * sleep(interval)
+    }
+  }
+
+  private *expireParticipantsEfficiently() {
+    const interval = Temporal.Duration
+      .from({ minutes: 1 })
+      .total('milliseconds')
+
+    while (true) {
+      const group = yield * pipe(
+        () => this.prismaClient.conversationXParticipant.findMany({
+          select: { conversation: true, participant: true },
+          where: {
+            ...where.halfLife(this.defaultParticipantExpire),
+            xConversation: { type: this.type },
+          },
+        }),
+        cOperation.FromTask.fromTask,
+        cOperation.map(
+          readonlyNonEmptyArrayPlus.groupBy(x => x.conversation),
+        ),
+      )()
+
+      if (0 < group.size) {
+        yield * pipe(
+          Array.from(group),
+          readonlyArray.map(([conversation, x]) =>
+            () => this.expireParticipants(conversation, x.map(x => x.participant)),
+          ),
+          cOperation.sequenceArray,
+        )()
+      }
+
+      yield * sleep(interval)
+    }
   }
 
   private *listenUserEvent() {
     const event = this.entityUserService.getEvent()
     const parallelGroup = new group.Parallel(event, `${this.type}.conversation`)
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const _this = this
 
-    yield * parallelGroup.read(randomUUID(), function*({ message }) {
-      switch (message.type) {
-        case 'expire':{
-          yield * all(_this.participantsExpireCallback.map(cb => cb(message)))
-        }
-          break
-        case 'register':{
-          yield * all(_this.participantsRegisterCallback.map(cb => cb(message)))
-        }
-          break
-        case 'unregister':{
-          yield * all(_this.participantsUnregisterCallback.map(cb => cb(message)))
-        }
-          break
-      }
-    })
-  }
+    const messageHandlerAp = <A, B>(callbacks: Array<(a: A) => B>) => flow(
+      identity.ap<A>,
+      readonlyArray.map<(a: A) => B, B>,
+      identity.ap(callbacks),
+    )
 
-  private post(conversation: string, message: Conversations.Message) {
-    const records = this.entityConversationService.getRecords(this.type, conversation)
-
-    return records.add(
-      '*',
-      message,
-      { NOMKSTREAM: true, TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 } },
+    yield * parallelGroup.read(
+      randomUUID(),
+      flow(
+        ({ message }) => match(message)
+          .with({ type: 'expire' }, messageHandlerAp(this.participantsExpireCallbacks))
+          .with({ type: 'register' }, () => [])
+          .with({ type: 'unregister' }, messageHandlerAp(this.participantsUnregisterCallbacks))
+          .exhaustive(),
+        all,
+      ),
     )
   }
 
-  private *removeParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
-    const participants = yield * this.fetchConversations(event.users)
-
-    yield * all(pipe(
-      participants,
-      readonlyRecord.toReadonlyArray,
-      readonlyArray.map(
-        ([conversation, participants]) => this.removeParticipants(conversation, participants),
+  private post(conversation: number, message: Conversations.Message) {
+    return pipe(
+      this.entityConversationService.getRecords(this.type, conversation),
+      x => x.add(
+        '*',
+        message,
+        { NOMKSTREAM: true, TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 } },
       ),
-    ))
+    )
   }
 }
+
+const system = new Participant(-1, 'system')

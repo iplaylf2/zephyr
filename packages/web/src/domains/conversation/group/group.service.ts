@@ -1,10 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { all, sleep } from 'effection'
+import { readonlyArray, task } from 'fp-ts'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
+import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
+import { GenericService } from '../../../repositories/redis/entities/generic.service.js'
+import { PrismaClient } from '../../../repositories/prisma/client.js'
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { UserService } from '../../../repositories/redis/entities/user.service.js'
+import { UserService } from '../../user/user.service.js'
+import { cOperation } from '../../../common/fp-effection/c-operation.js'
+import { pipe } from 'fp-ts/lib/function.js'
+import { sleep } from 'effection'
 
 export namespace conversation{
   @Injectable()
@@ -13,33 +19,50 @@ export namespace conversation{
     protected override entityConversationService!: EntityConversationService
 
     @Inject()
-    protected override entityUserService!: UserService
+    protected override entityUserService!: EntityUserService
+
+    @Inject()
+    protected override genericService!: GenericService
+
+    @Inject()
+    protected override prismaClient!: PrismaClient
 
     @Inject()
     protected override redisService!: RedisService
 
+    @Inject()
+    protected override userService!: UserService
+
     public override readonly defaultConversationExpire = Temporal.Duration.from({ days: 1 })
     public override readonly defaultParticipantExpire = Temporal.Duration.from({ hours: 1 })
-    public override type = 'group'
+    public override readonly type = 'group'
 
     public constructor() {
       super()
 
-      this.initializeCallback.push(() => this.createConversation('default'))
-      this.initializeCallback.push(() => this.refreshGroup())
+      this.initializeCallbacks.push(() => this.activeGroup())
     }
 
-    private *refreshGroup() {
-      const conversation = this.entityConversationService.get(this.type)
-      const interval = Temporal.Duration.from({ minutes: 5 }).total('milliseconds')
+    private *activeGroup() {
+      const interval = Temporal.Duration
+        .from({ minutes: 10 })
+        .total('milliseconds')
 
       while (true) {
-        const validConversations = yield * conversation.range(Date.now(), '+inf', { BY: 'SCORE' })
+        const conversations = yield * pipe(
+          () => this.prismaClient.conversation.findMany({
+            select: { id: true },
+            where: { expiredAt: { gt: new Date() }, type: this.type },
+          }),
+          task.map(
+            readonlyArray.map(x => x.id),
+          ),
+          cOperation.FromTask.fromTask,
+        )()
 
-        yield * all([
-          this.expire(validConversations),
-          ...validConversations.map(conversation => this.removeExpiredParticipants(conversation)),
-        ])
+        if (0 < conversations.length) {
+          yield * this.active(conversations)
+        }
 
         yield * sleep(interval)
       }
