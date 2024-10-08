@@ -26,7 +26,6 @@ export class PushService extends ModuleRaii {
   public constructor() {
     super()
 
-    void this.entityPushService
     this.initializeCallbacks.push(() => this.expireReceiversEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredPushes())
     this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
