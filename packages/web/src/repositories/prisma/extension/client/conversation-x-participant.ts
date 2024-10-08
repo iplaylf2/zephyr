@@ -9,30 +9,6 @@ export const conversationXParticipant = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forDelete(type: string, conversation: number, participants: readonly number[]) {
-          if (0 === participants.length) {
-            return cOperation.Pointed.of([])()
-          }
-
-          return pipe(
-            () => client.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
-                select
-                  x.participant
-                from
-                  "conversation-x-participant" x
-                join conversations on
-                  conversations.id = x.conversation
-                where
-                  conversations.type = ${type} and
-                  x.conversation = ${conversation} and
-                  x.participant in ${Prisma.join(participants)}
-                for update`,
-            task.map(
-              readonlyArray.map(x => x.participant),
-            ),
-            cOperation.FromTask.fromTask,
-          )()
-        },
         forQuery(type: string, conversation: number, participants: readonly number[]) {
           if (0 === participants.length) {
             return cOperation.Pointed.of([])()
@@ -40,18 +16,42 @@ export const conversationXParticipant = Prisma.defineExtension({
 
           return pipe(
             () => client.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
-                select
-                  x.participant
-                from
-                  "conversation-x-participant" x
-                join conversations on
-                  conversations.id = x.conversation
-                where
-                  ${new Date()} < conversations."expiredAt" and
-                  conversations.type = ${type} and
-                  x.conversation = ${conversation} and
-                  x.participant in ${Prisma.join(participants)}
-                for key share`,
+              select
+                x.participant
+              from
+                "conversation-x-participant" x
+              join conversations on
+                conversations.id = x.conversation
+              where
+                ${new Date()} < conversations."expiredAt" and
+                conversations.type = ${type} and
+                x.conversation = ${conversation} and
+                x.participant in ${Prisma.join(participants)}
+              for key share`,
+            task.map(
+              readonlyArray.map(x => x.participant),
+            ),
+            cOperation.FromTask.fromTask,
+          )()
+        },
+        forScale(type: string, conversation: number, participants: readonly number[]) {
+          if (0 === participants.length) {
+            return cOperation.Pointed.of([])()
+          }
+
+          return pipe(
+            () => client.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
+              select
+                x.participant
+              from
+                "conversation-x-participant" x
+              join conversations on
+                conversations.id = x.conversation
+              where
+                conversations.type = ${type} and
+                x.conversation = ${conversation} and
+                x.participant in ${Prisma.join(participants)}
+              for update`,
             task.map(
               readonlyArray.map(x => x.participant),
             ),
@@ -65,18 +65,18 @@ export const conversationXParticipant = Prisma.defineExtension({
 
           return pipe(
             () => client.$queryRaw<Pick<ConversationXParticipant, 'participant'>[]>`
-                  select
-                    x.participant
-                  from
-                    "conversation-x-participant" x
-                  join conversations on
-                    conversations.id = x.conversation
-                  where
-                    ${new Date()} < conversations."expiredAt" and
-                    conversations.type = ${type} and
-                    x.conversation = ${conversation} and
-                    x.participant in ${Prisma.join(participants)}
-                  for no key update`,
+              select
+                x.participant
+              from
+                "conversation-x-participant" x
+              join conversations on
+                conversations.id = x.conversation
+              where
+                ${new Date()} < conversations."expiredAt" and
+                conversations.type = ${type} and
+                x.conversation = ${conversation} and
+                x.participant in ${Prisma.join(participants)}
+              for no key update`,
             task.map(
               readonlyArray.map(x => x.participant),
             ),

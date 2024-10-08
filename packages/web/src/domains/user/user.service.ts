@@ -175,7 +175,7 @@ export class UserService extends ModuleRaii {
   public unregister(users: readonly number[]) {
     return this.prismaClient.$callTransaction(tx =>
       function*(this: UserService) {
-        const ids = yield * tx.$user().forDelete(users)
+        const ids = yield * tx.$user().forScale(users)
 
         if (0 === ids.length) {
           return []

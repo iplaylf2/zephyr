@@ -16,15 +16,15 @@ export const conversation = Prisma.defineExtension({
 
           return pipe(
             () => client.$queryRaw<Pick<Conversation, 'id'>[]>`
-                select
-                  id
-                from 
-                  conversations
-                where
-                  type = ${type} and
-                  ${new Date()} < "expiredAt" and
-                  id in ${Prisma.join(conversations)}
-                for key share`,
+              select
+                id
+              from 
+                conversations
+              where
+                type = ${type} and
+                ${new Date()} < "expiredAt" and
+                id in ${Prisma.join(conversations)}
+              for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
               readonlyArray.map(x => x.id),
@@ -38,15 +38,15 @@ export const conversation = Prisma.defineExtension({
 
           return pipe(
             () => client.$queryRaw<Pick<Conversation, 'id'>[]>`
-                select
-                  id
-                from 
-                  conversations
-                where
-                  type = ${type} and
-                  ${new Date()} < "expiredAt" and
-                  id in ${Prisma.join(conversations)}
-                for no key update`,
+              select
+                id
+              from 
+                conversations
+              where
+                type = ${type} and
+                ${new Date()} < "expiredAt" and
+                id in ${Prisma.join(conversations)}
+              for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
               readonlyArray.map(x => x.id),

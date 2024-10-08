@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { call, sleep } from 'effection'
-import { option, readonlyArray, task } from 'fp-ts'
+import { flow, pipe } from 'fp-ts/lib/function.js'
+import { identity, number, option, readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
 import { PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
-import { pipe } from 'fp-ts/lib/function.js'
 import { push } from '../../models/push.js'
 import { where } from '../../repositories/prisma/common/where.js'
 import { z } from 'zod'
@@ -81,7 +81,7 @@ export class PushService extends ModuleRaii {
       function*(this: PushService) {
         const _pushes = yield * tx
           .$pushSubscription()
-          .pushesForDelete(receiver, pushes.map(([id]) => id))
+          .pushesForScale(receiver, pushes.map(([id]) => id))
 
         yield * call(tx.pushSubscription.deleteMany({
           where: { push: { in: _pushes.concat() }, receiver },
@@ -160,8 +160,70 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public patchSubscriptions(subscriptions: readonly push.Subscription[]) {
-    void subscriptions
+  public *patchSubscriptions(receiver: number, subscriptions: readonly push.Subscription[]) {
+    if (0 === subscriptions.length) {
+      return []
+    }
+
+    const exists = yield * this.existsReceivers([receiver])
+
+    if (0 === exists.length) {
+      return []
+    }
+
+    const now = Temporal.Now.zonedDateTimeISO()
+    const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
+
+    const pushes = yield * pipe(
+      subscriptions,
+      readonlyArray.map(rawId => pipe(
+        () => this.prismaClient.push.upsert({
+          create: { expiredAt, source: rawId.source, type: rawId.type },
+          update: { expiredAt },
+          where: { rawId },
+        }),
+        cOperation.FromTask.fromTask,
+      )),
+      cOperation.sequenceArray,
+    )()
+
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: PushService) {
+        const _pushes = pushes.map(x => x.id)
+
+        const newPushes = yield * pipe(
+          () => tx.$pushSubscription().pushesForScale(receiver, _pushes),
+          cOperation.map(flow(
+            a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
+            identity.ap(_pushes),
+          )),
+        )()
+
+        const now = new Date()
+
+        yield * call(tx.pushSubscription.createMany({
+          data: newPushes.map(push => ({
+            createdAt: now,
+            push,
+            receiver,
+          })),
+        }))
+
+        const pushesRecord = Object.fromEntries(pushes.map(x => [x.id, x]))
+
+        {
+          const _newPushes = newPushes.map(x => zPlus(pushSchema).parse(pushesRecord[x]!))
+          const notification = this.entityPushService.getNotification()
+
+          yield * notification.publish(
+            notification.getChannel(receiver),
+            { data: _newPushes, type: 'subscribe' },
+          )
+
+          return _newPushes
+        }
+      }.bind(this),
+    )
   }
 
   public postReceiver(claimer: number | null) {
@@ -188,7 +250,7 @@ export class PushService extends ModuleRaii {
 
     if (receiver) {
       if (new Date() < receiver.expiredAt) {
-        return zPlus(exportReceiver).parse(receiver)
+        return zPlus(receiverSchema).parse(receiver)
       }
 
       yield * call(this.prismaClient.pushReceiver.delete({
@@ -253,7 +315,12 @@ export class PushService extends ModuleRaii {
   }
 }
 
-const exportReceiver = z.object({
+const receiverSchema = z.object({
   id: z.custom<number>(),
   token: z.custom<string>(),
+})
+
+const pushSchema = z.object({
+  source: z.custom<number>(),
+  type: z.custom<string>(),
 })

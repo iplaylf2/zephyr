@@ -9,26 +9,6 @@ export const user = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forDelete(users: readonly number[]) {
-          if (0 === users.length) {
-            return cOperation.Pointed.of([])()
-          }
-
-          return pipe(
-            () => client.$queryRaw<Pick<User, 'id'>[]>`
-                select
-                  id
-                from 
-                  users
-                where 
-                  id in ${Prisma.join(users)}
-                for update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
-              readonlyArray.map(x => x.id),
-            ),
-          )()
-        },
         forKey(users: readonly number[]) {
           if (0 === users.length) {
             return cOperation.Pointed.of([])()
@@ -64,6 +44,26 @@ export const user = Prisma.defineExtension({
                 ${Date.now()} < expiredAt and
                 id in ${Prisma.join(users)}
               for key share`,
+            cOperation.FromTask.fromTask,
+            cOperation.map(
+              readonlyArray.map(x => x.id),
+            ),
+          )()
+        },
+        forScale(users: readonly number[]) {
+          if (0 === users.length) {
+            return cOperation.Pointed.of([])()
+          }
+
+          return pipe(
+            () => client.$queryRaw<Pick<User, 'id'>[]>`
+              select
+                id
+              from 
+                users
+              where 
+                id in ${Prisma.join(users)}
+              for update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
               readonlyArray.map(x => x.id),

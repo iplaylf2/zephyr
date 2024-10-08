@@ -122,7 +122,7 @@ export abstract class ConversationService extends ModuleRaii {
       function*(this: ConversationService) {
         const _participants = yield * tx
           .$conversationXParticipant()
-          .forDelete(this.type, conversation, participants)
+          .forScale(this.type, conversation, participants)
 
         if (0 === _participants.length) {
           return []
@@ -407,16 +407,8 @@ export abstract class ConversationService extends ModuleRaii {
     }
 
     const newParticipants = yield * pipe(
-      () => tx.conversationXParticipant.findMany({
-        select: { participant: true },
-        where: {
-          conversation,
-          participant: { in: where.writable(_users) },
-        },
-      }),
-      cOperation.FromTask.fromTask,
+      () => tx.$conversationXParticipant().forScale(this.type, conversation, _users),
       cOperation.map(flow(
-        readonlyArray.map(x => x.participant),
         a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
         identity.ap(_users),
       )),

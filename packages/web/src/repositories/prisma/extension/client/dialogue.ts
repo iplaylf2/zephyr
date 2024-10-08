@@ -12,15 +12,15 @@ export const dialogue = Prisma.defineExtension({
         forQuery(participant: number) {
           return pipe(
             () => client.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
-                select
-                  conversation
-                from 
-                  dialogues
-                where
-                  ${new Date()} < "expiredAt" and
-                  ( initiator = ${participant} or
-                    participant = ${participant} )
-                for key share`,
+              select
+                conversation
+              from 
+                dialogues
+              where
+                ${new Date()} < "expiredAt" and
+                ( initiator = ${participant} or
+                  participant = ${participant} )
+              for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
               readonlyArray.map(x => x.conversation),
@@ -30,15 +30,15 @@ export const dialogue = Prisma.defineExtension({
         forUpdate(participant: number) {
           return pipe(
             () => client.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
-                select
-                  conversation
-                from 
-                  dialogues
-                where
-                  ${new Date()} < "expiredAt" and
-                  ( initiator = ${participant} or
-                    participant = ${participant} )
-                for no key update`,
+              select
+                conversation
+              from 
+                dialogues
+              where
+                ${new Date()} < "expiredAt" and
+                ( initiator = ${participant} or
+                  participant = ${participant} )
+              for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
               readonlyArray.map(x => x.conversation),
