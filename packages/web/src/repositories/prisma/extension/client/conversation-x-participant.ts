@@ -1,7 +1,7 @@
 import { ConversationXParticipant, Prisma } from '../../generated/index.js'
-import { readonlyArray, task } from 'fp-ts'
 import { cOperation } from '../../../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { readonlyArray } from 'fp-ts'
 
 export const conversationXParticipant = Prisma.defineExtension({
   client: {
@@ -26,12 +26,12 @@ export const conversationXParticipant = Prisma.defineExtension({
                 ${new Date()} < conversations."expiredAt" and
                 conversations.type = ${type} and
                 x.conversation = ${conversation} and
-                x.participant in ${Prisma.join(participants)}
+                x.participant in (${Prisma.join(participants)})
               for key share`,
-            task.map(
+            cOperation.FromTask.fromTask,
+            cOperation.map(
               readonlyArray.map(x => x.participant),
             ),
-            cOperation.FromTask.fromTask,
           )()
         },
         forScale(type: string, conversation: number, participants: readonly number[]) {
@@ -50,12 +50,13 @@ export const conversationXParticipant = Prisma.defineExtension({
               where
                 conversations.type = ${type} and
                 x.conversation = ${conversation} and
-                x.participant in ${Prisma.join(participants)}
+                x.participant in (${Prisma.join(participants)})
               for update`,
-            task.map(
+            cOperation.FromTask.fromTask,
+            cOperation.map(
               readonlyArray.map(x => x.participant),
             ),
-            cOperation.FromTask.fromTask,
+
           )()
         },
         forUpdate(type: string, conversation: number, participants: readonly number[]) {
@@ -75,12 +76,12 @@ export const conversationXParticipant = Prisma.defineExtension({
                 ${new Date()} < conversations."expiredAt" and
                 conversations.type = ${type} and
                 x.conversation = ${conversation} and
-                x.participant in ${Prisma.join(participants)}
+                x.participant in (${Prisma.join(participants)})
               for no key update`,
-            task.map(
+            cOperation.FromTask.fromTask,
+            cOperation.map(
               readonlyArray.map(x => x.participant),
             ),
-            cOperation.FromTask.fromTask,
           )()
         },
       }

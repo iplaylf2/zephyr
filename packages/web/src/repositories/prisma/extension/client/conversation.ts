@@ -23,7 +23,7 @@ export const conversation = Prisma.defineExtension({
               where
                 type = ${type} and
                 ${new Date()} < "expiredAt" and
-                id in ${Prisma.join(conversations)}
+                id in (${Prisma.join(conversations)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -45,7 +45,7 @@ export const conversation = Prisma.defineExtension({
               where
                 type = ${type} and
                 ${new Date()} < "expiredAt" and
-                id in ${Prisma.join(conversations)}
+                id in (${Prisma.join(conversations)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

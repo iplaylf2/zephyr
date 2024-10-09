@@ -22,7 +22,7 @@ export const pushSubscription = Prisma.defineExtension({
                 push-subscriptions
               where
                 receiver = ${receiver} and
-                push in ${Prisma.join(pushes)}
+                push in (${Prisma.join(pushes)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -43,7 +43,7 @@ export const pushSubscription = Prisma.defineExtension({
                 push-subscriptions
               where
                 receiver = ${receiver} and
-                push in ${Prisma.join(pushes)}
+                push in (${Prisma.join(pushes)})
               for update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -64,7 +64,7 @@ export const pushSubscription = Prisma.defineExtension({
                 push-subscriptions
               where
                 receiver = ${receiver} and
-                push in ${Prisma.join(pushes)}
+                push in (${Prisma.join(pushes)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

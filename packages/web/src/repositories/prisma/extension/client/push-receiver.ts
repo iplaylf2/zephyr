@@ -22,7 +22,7 @@ export const pushReceiver = Prisma.defineExtension({
                 push-receivers
               where 
                 ${Date.now()} < expiredAt and
-                id in ${Prisma.join(receivers)}
+                id in (${Prisma.join(receivers)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -43,7 +43,7 @@ export const pushReceiver = Prisma.defineExtension({
                 push-receivers
               where 
                 ${Date.now()} < expiredAt and
-                id in ${Prisma.join(receivers)}
+                id in (${Prisma.join(receivers)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

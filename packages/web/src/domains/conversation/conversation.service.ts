@@ -105,8 +105,8 @@ export abstract class ConversationService extends ModuleRaii {
                 conversations.type = ${this.type} and
                 x.conversation = ${conversation} and
                 x.participant = ${participant}`,
-          task.map(x => 0 < x ? Number(conversation) : null),
           cOperation.FromTask.fromTask,
+          cOperation.map(x => 0 < x ? Number(conversation) : null),
         ),
       ),
       cOperation.sequenceArray,
@@ -253,10 +253,10 @@ export abstract class ConversationService extends ModuleRaii {
           xConversation: { expiredAt: { gt: new Date() }, type: this.type },
         },
       }),
-      task.map(
+      cOperation.FromTask.fromTask,
+      cOperation.map(
         readonlyArray.map(x => x.conversation),
       ),
-      cOperation.FromTask.fromTask,
     )()
 
     if (0 === conversations.length) {
@@ -294,11 +294,11 @@ export abstract class ConversationService extends ModuleRaii {
           xConversation: { expiredAt: { gt: new Date() }, type: this.type },
         },
       }),
-      task.map(flow(
+      cOperation.FromTask.fromTask,
+      cOperation.map(flow(
         readonlyArray.map(x => [x.conversation, x.data as JsonObject] as const),
         x => Object.fromEntries(x),
       )),
-      cOperation.FromTask.fromTask,
     )()
   }
 
@@ -311,10 +311,10 @@ export abstract class ConversationService extends ModuleRaii {
           xConversation: { expiredAt: { gt: new Date() }, type: this.type },
         },
       }),
-      task.map(
+      cOperation.FromTask.fromTask,
+      cOperation.map(
         readonlyArray.map(x => x.participant),
       ),
-      cOperation.FromTask.fromTask,
     )()
   }
 
@@ -335,8 +335,8 @@ export abstract class ConversationService extends ModuleRaii {
               conversations.type = ${this.type} and
               x.conversation = ${conversation} and
               x.participant = ${participant}`,
-          task.map(x => 0 < x ? Number(conversation) : null),
           cOperation.FromTask.fromTask,
+          cOperation.map(x => 0 < x ? Number(conversation) : null),
         ),
       )),
       identity.ap(new Date()),

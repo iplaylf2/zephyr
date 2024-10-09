@@ -21,7 +21,7 @@ export const user = Prisma.defineExtension({
               from 
                 users
               where
-                id in ${Prisma.join(users)}
+                id in (${Prisma.join(users)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -42,7 +42,7 @@ export const user = Prisma.defineExtension({
                 users
               where 
                 ${Date.now()} < expiredAt and
-                id in ${Prisma.join(users)}
+                id in (${Prisma.join(users)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -62,7 +62,7 @@ export const user = Prisma.defineExtension({
               from 
                 users
               where 
-                id in ${Prisma.join(users)}
+                id in (${Prisma.join(users)})
               for update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -83,7 +83,7 @@ export const user = Prisma.defineExtension({
                 users
               where 
                 ${Date.now()} < expiredAt and
-                id in ${Prisma.join(users)}
+                id in (${Prisma.join(users)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

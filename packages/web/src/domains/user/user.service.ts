@@ -157,8 +157,8 @@ export class UserService extends ModuleRaii {
             },
             select: { id: true },
           }),
-          task.map(x => x.id),
           cOperation.FromTask.fromTask,
+          cOperation.map(x => x.id),
         )()
 
         yield * this.postUserEvent({

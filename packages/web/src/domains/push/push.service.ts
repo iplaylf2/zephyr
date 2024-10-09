@@ -66,8 +66,8 @@ export class PushService extends ModuleRaii {
           select: { id: true },
           where: { expiredAt: { gt: new Date() }, rawId },
         }),
-        task.map(x => x ? [x.id, rawId] as const : null),
         cOperation.FromTask.fromTask,
+        cOperation.map(x => x ? [x.id, rawId] as const : null),
       )),
       cOperation.sequenceArray,
       cOperation.map(
@@ -170,6 +170,8 @@ export class PushService extends ModuleRaii {
     if (0 === exists.length) {
       return []
     }
+
+    // valid receiver for patch
 
     const now = Temporal.Now.zonedDateTimeISO()
     const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)

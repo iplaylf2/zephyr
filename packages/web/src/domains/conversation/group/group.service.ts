@@ -54,10 +54,10 @@ export namespace conversation{
             select: { id: true },
             where: { expiredAt: { gt: new Date() }, type: this.type },
           }),
-          task.map(
+          cOperation.FromTask.fromTask,
+          cOperation.map(
             readonlyArray.map(x => x.id),
           ),
-          cOperation.FromTask.fromTask,
         )()
 
         if (0 < conversations.length) {
