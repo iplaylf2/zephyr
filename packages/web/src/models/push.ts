@@ -1,4 +1,4 @@
-import { JsonValue } from 'type-fest'
+import { ReadonlyDeep } from 'type-fest'
 import { user } from './user.js'
 import { z } from 'zod'
 
@@ -11,16 +11,12 @@ export namespace push{
   export type Receiver = Readonly<z.infer<typeof receiver>>
 
   export const notification = z.object({
-    data: z.string().transform(x => JSON.parse(x) as JsonValue),
-    type: z.enum(['subscribe', 'unsubscribe', 'claim', 'unclaim']),
+    push: z.object({
+      sources: z.array(z.number()),
+      type: z.string(),
+    }),
+    type: z.enum(['subscribe', 'unsubscribe']),
   })
 
-  export type Notification = Readonly<z.infer<typeof notification>>
-
-  export const subscription = z.object({
-    source: z.number(),
-    type: z.string(),
-  })
-
-  export type Subscription = Readonly<z.infer<typeof subscription>>
+  export type Notification = ReadonlyDeep<z.infer<typeof notification>>
 }

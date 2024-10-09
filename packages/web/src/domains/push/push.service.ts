@@ -1,14 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { call, sleep } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { identity, number, option, readonlyArray, task } from 'fp-ts'
+import { identity, number, readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
 import { PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
-import { push } from '../../models/push.js'
+import { dialogueValidator } from './subscriptions/dialogue.js'
+import { groupValidator } from './subscriptions/group.js'
+import { match } from 'ts-pattern'
 import { where } from '../../repositories/prisma/common/where.js'
 import { z } from 'zod'
 import { zPlus } from '../../kits/z-plus.js'
@@ -48,8 +50,8 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public *deleteSubscriptions(receiver: number, subscriptions: readonly push.Subscription[]) {
-    if (0 === subscriptions.length) {
+  public *deleteSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
+    if (0 === pushes.length) {
       return []
     }
 
@@ -59,41 +61,37 @@ export class PushService extends ModuleRaii {
       return []
     }
 
-    const pushes = yield * pipe(
-      subscriptions,
-      readonlyArray.map(rawId => pipe(
-        () => this.prismaClient.push.findUnique({
-          select: { id: true },
-          where: { expiredAt: { gt: new Date() }, rawId },
-        }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(x => x ? [x.id, rawId] as const : null),
-      )),
-      cOperation.sequenceArray,
-      cOperation.map(
-        readonlyArray.filterMap(option.fromNullable),
-      ),
+    const _pushes = yield * pipe(
+      () => this.prismaClient.push.findMany({
+        select: { id: true, source: true },
+        where: {
+          expiredAt: { gt: new Date() },
+          source: { in: where.writable(pushes) },
+          type,
+        },
+      }),
+      cOperation.FromTask.fromTask,
     )()
-
-    const pushesRecord = Object.fromEntries(pushes)
 
     return yield * this.prismaClient.$callTransaction(tx =>
       function*(this: PushService) {
-        const _pushes = yield * tx
+        const toDelete = yield * tx
           .$pushSubscription()
-          .pushesForScale(receiver, pushes.map(([id]) => id))
+          .pushesForScale(receiver, _pushes.map(x => x.id))
 
         yield * call(tx.pushSubscription.deleteMany({
-          where: { push: { in: _pushes.concat() }, receiver },
+          where: { push: { in: where.writable(toDelete) }, receiver },
         }))
 
+        const pushRecord = Object.fromEntries(_pushes.map(x => [x.id, x.source] as const))
+
         {
-          const pushes = _pushes.map(x => pushesRecord[x]!)
+          const pushes = toDelete.map(x => pushRecord[x]!)
           const notification = this.entityPushService.getNotification()
 
           yield * notification.publish(
             notification.getChannel(receiver),
-            { data: pushes, type: 'unsubscribe' },
+            { push: { sources: pushes, type }, type: 'unsubscribe' },
           )
 
           return pushes
@@ -160,8 +158,8 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public *patchSubscriptions(receiver: number, subscriptions: readonly push.Subscription[]) {
-    if (0 === subscriptions.length) {
+  public *patchSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
+    if (0 === pushes.length) {
       return []
     }
 
@@ -171,18 +169,23 @@ export class PushService extends ModuleRaii {
       return []
     }
 
-    // valid receiver for patch
+    const invalid = yield * this.validateSubscriptions(receiver, type, pushes)
+
+    if (0 !== invalid.length) {
+      throw new Error()
+    }
 
     const now = Temporal.Now.zonedDateTimeISO()
     const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
-    const pushes = yield * pipe(
-      subscriptions,
-      readonlyArray.map(rawId => pipe(
+    const _pushes = yield * pipe(
+      pushes,
+      readonlyArray.map(source => pipe(
         () => this.prismaClient.push.upsert({
-          create: { expiredAt, source: rawId.source, type: rawId.type },
+          create: { expiredAt, source, type },
+          select: { id: true, source: true },
           update: { expiredAt },
-          where: { rawId },
+          where: { rawId: { source, type } },
         }),
         cOperation.FromTask.fromTask,
       )),
@@ -191,13 +194,13 @@ export class PushService extends ModuleRaii {
 
     return this.prismaClient.$callTransaction(tx =>
       function*(this: PushService) {
-        const _pushes = pushes.map(x => x.id)
+        const pushesId = _pushes.map(x => x.id)
 
         const newPushes = yield * pipe(
-          () => tx.$pushSubscription().pushesForScale(receiver, _pushes),
+          () => tx.$pushSubscription().pushesForScale(receiver, pushesId),
           cOperation.map(flow(
             a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
-            identity.ap(_pushes),
+            identity.ap(pushesId),
           )),
         )()
 
@@ -211,19 +214,17 @@ export class PushService extends ModuleRaii {
           })),
         }))
 
-        const pushesRecord = Object.fromEntries(pushes.map(x => [x.id, x]))
+        const pushRecord = Object.fromEntries(_pushes.map(x => [x.id, x.source] as const))
 
-        {
-          const _newPushes = newPushes.map(x => zPlus(pushSchema).parse(pushesRecord[x]!))
-          const notification = this.entityPushService.getNotification()
+        const pushesSource = newPushes.map(x => pushRecord[x]!)
+        const notification = this.entityPushService.getNotification()
 
-          yield * notification.publish(
-            notification.getChannel(receiver),
-            { data: _newPushes, type: 'subscribe' },
-          )
+        yield * notification.publish(
+          notification.getChannel(receiver),
+          { push: { sources: pushesSource, type }, type: 'unsubscribe' },
+        )
 
-          return _newPushes
-        }
+        return pushesSource
       }.bind(this),
     )
   }
@@ -315,14 +316,22 @@ export class PushService extends ModuleRaii {
       yield * sleep(interval)
     }
   }
+
+  private validateSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
+    return match(type)
+      .with(
+        dialogueValidator.type,
+        () => dialogueValidator.validate(this.prismaClient, receiver, pushes),
+      )
+      .with(
+        groupValidator.type,
+        () => groupValidator.validate(this.prismaClient, receiver, pushes),
+      )
+      .otherwise(cOperation.Pointed.of(pushes))
+  }
 }
 
 const receiverSchema = z.object({
   id: z.custom<number>(),
   token: z.custom<string>(),
-})
-
-const pushSchema = z.object({
-  source: z.custom<number>(),
-  type: z.custom<string>(),
 })
