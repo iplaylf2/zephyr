@@ -31,12 +31,13 @@ export class TypeController {
   @Delete()
   public [`@Delete()`](@Body() pushes: type.PushesDto): Promise<void> {
     return globalScope.run(function*(this: TypeController) {
-      const receiver = yield * this.pushService.getReceiver(this.passport.id)
+      const receiver = yield * this.pushService.getClaimerReceiver(this.passport.id)
 
       if (null === receiver) {
         throw new NotFoundException()
       }
 
+      yield * this.pushService.active([receiver])
       yield * this.pushService.deleteSubscriptions(receiver, this.type, pushes)
     }.bind(this))
   }
@@ -48,11 +49,13 @@ export class TypeController {
   @Get()
   public [`@Get()`](): Promise<readonly number[]> {
     return globalScope.run(function*(this: TypeController) {
-      const receiver = yield * this.pushService.getReceiver(this.passport.id)
+      const receiver = yield * this.pushService.getClaimerReceiver(this.passport.id)
 
       if (null === receiver) {
         throw new NotFoundException()
       }
+
+      yield * this.pushService.active([receiver])
 
       return yield * this.pushService.getSubscriptions(receiver, this.type)
     }.bind(this))
@@ -62,11 +65,13 @@ export class TypeController {
   @Patch()
   public [`@Patch()`](@Body() pushes: type.PushesDto): Promise<void> {
     return globalScope.run(function*(this: TypeController) {
-      const receiver = yield * this.pushService.getReceiver(this.passport.id)
+      const receiver = yield * this.pushService.getClaimerReceiver(this.passport.id)
 
       if (null === receiver) {
         throw new NotFoundException()
       }
+
+      yield * this.pushService.active([receiver])
 
       const reply = yield * this.pushService.patchSubscriptions(receiver, this.type, pushes)
 

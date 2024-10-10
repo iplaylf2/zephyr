@@ -169,11 +169,33 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public getReceiver(claimer: number) {
+  public getClaimerReceiver(claimer: number) {
     return pipe(
       () => this.prismaClient.pushReceiver.findUnique({
         select: { id: true },
-        where: { claimer },
+        where: { claimer, expiredAt: { gt: new Date() } },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(x => x?.id ?? null),
+    )()
+  }
+
+  public getClaimerReceiverToken(claimer: number) {
+    return pipe(
+      () => this.prismaClient.pushReceiver.findUnique({
+        select: { token: true },
+        where: { claimer, expiredAt: { gt: new Date() } },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(x => x?.token ?? null),
+    )()
+  }
+
+  public getReceiver(token: string) {
+    return pipe(
+      () => this.prismaClient.pushReceiver.findUnique({
+        select: { id: true },
+        where: { expiredAt: { gt: new Date() }, token },
       }),
       cOperation.FromTask.fromTask,
       cOperation.map(x => x?.id ?? null),
