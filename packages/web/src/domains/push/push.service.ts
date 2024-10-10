@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { call, sleep } from 'effection'
+import { either, identity, number, readonlyArray, task } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { identity, number, readonlyArray, task } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
@@ -61,11 +61,10 @@ export class PushService extends ModuleRaii {
       return []
     }
 
-    const _pushes = yield * pipe(
+    const existsPushes = yield * pipe(
       () => this.prismaClient.push.findMany({
         select: { id: true, source: true },
         where: {
-          expiredAt: { gt: new Date() },
           source: { in: where.writable(pushes) },
           type,
         },
@@ -77,25 +76,22 @@ export class PushService extends ModuleRaii {
       function*(this: PushService) {
         const toDelete = yield * tx
           .$pushSubscription()
-          .pushesForScale(receiver, _pushes.map(x => x.id))
+          .pushesForScale(receiver, existsPushes.map(x => x.id))
 
         yield * call(tx.pushSubscription.deleteMany({
           where: { push: { in: where.writable(toDelete) }, receiver },
         }))
 
-        const pushRecord = Object.fromEntries(_pushes.map(x => [x.id, x.source] as const))
+        const pushRecord = Object.fromEntries(existsPushes.map(x => [x.id, x.source] as const))
+        const deletedSources = toDelete.map(x => pushRecord[x]!)
+        const notification = this.entityPushService.getNotification()
 
-        {
-          const pushes = toDelete.map(x => pushRecord[x]!)
-          const notification = this.entityPushService.getNotification()
+        yield * notification.publish(
+          notification.getChannel(receiver),
+          { push: { sources: deletedSources, type }, type: 'unsubscribe' },
+        )
 
-          yield * notification.publish(
-            notification.getChannel(receiver),
-            { push: { sources: pushes, type }, type: 'unsubscribe' },
-          )
-
-          return pushes
-        }
+        return deletedSources
       }.bind(this),
     )
   }
@@ -160,25 +156,25 @@ export class PushService extends ModuleRaii {
 
   public *patchSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
     if (0 === pushes.length) {
-      return []
+      return either.right([])
     }
 
     const exists = yield * this.existsReceivers([receiver])
 
     if (0 === exists.length) {
-      return []
+      return either.right([])
     }
 
     const invalid = yield * this.validateSubscriptions(receiver, type, pushes)
 
     if (0 !== invalid.length) {
-      throw new Error()
+      return either.left(invalid)
     }
 
     const now = Temporal.Now.zonedDateTimeISO()
     const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
-    const _pushes = yield * pipe(
+    const existsPushes = yield * pipe(
       pushes,
       readonlyArray.map(source => pipe(
         () => this.prismaClient.push.upsert({
@@ -192,11 +188,11 @@ export class PushService extends ModuleRaii {
       cOperation.sequenceArray,
     )()
 
-    return this.prismaClient.$callTransaction(tx =>
+    return yield * this.prismaClient.$callTransaction(tx =>
       function*(this: PushService) {
-        const pushesId = _pushes.map(x => x.id)
+        const pushesId = existsPushes.map(x => x.id)
 
-        const newPushes = yield * pipe(
+        const newSubscriptions = yield * pipe(
           () => tx.$pushSubscription().pushesForScale(receiver, pushesId),
           cOperation.map(flow(
             a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
@@ -207,24 +203,23 @@ export class PushService extends ModuleRaii {
         const now = new Date()
 
         yield * call(tx.pushSubscription.createMany({
-          data: newPushes.map(push => ({
+          data: newSubscriptions.map(push => ({
             createdAt: now,
             push,
             receiver,
           })),
         }))
 
-        const pushRecord = Object.fromEntries(_pushes.map(x => [x.id, x.source] as const))
-
-        const pushesSource = newPushes.map(x => pushRecord[x]!)
+        const pushRecord = Object.fromEntries(existsPushes.map(x => [x.id, x.source] as const))
+        const newSources = newSubscriptions.map(x => pushRecord[x]!)
         const notification = this.entityPushService.getNotification()
 
         yield * notification.publish(
           notification.getChannel(receiver),
-          { push: { sources: pushesSource, type }, type: 'unsubscribe' },
+          { push: { sources: newSources, type }, type: 'unsubscribe' },
         )
 
-        return pushesSource
+        return either.right(newSources)
       }.bind(this),
     )
   }
