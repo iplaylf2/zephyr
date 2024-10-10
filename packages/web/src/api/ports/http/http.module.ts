@@ -20,12 +20,16 @@ import { router } from './kits/router.js'
 
 @Module({
   imports: [
-    UserModule,
-    UsersModule,
     DialogueModule,
     DialoguesModule,
     PushModule,
+    UserModule,
+    UsersModule,
     ...router.register([
+      {
+        module: DialoguesIdModule,
+        path: 'dialogues',
+      },
       {
         module: GroupsModule,
         path: 'group/member',
@@ -36,10 +40,6 @@ import { router } from './kits/router.js'
           { children: [MemberModule], path: path.group.pattern },
         ],
         path: 'groups',
-      },
-      {
-        module: DialoguesIdModule,
-        path: 'dialogues',
       },
       {
         children: [
