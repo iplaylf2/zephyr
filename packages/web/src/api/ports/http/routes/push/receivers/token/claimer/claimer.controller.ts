@@ -1,6 +1,7 @@
 import { ApiParam, ApiTags } from '@nestjs/swagger'
 import { Controller, Inject, Put } from '@nestjs/common'
 import { Passport } from '../../../../../auth/auth.guard.js'
+import { PushService } from '../../../../../../../../domains/push/push.service.js'
 import { RequirePassport } from '../../../../../decorators/require-passport.decorator.js'
 import { path } from '../../../../../pattern.js'
 
@@ -15,12 +16,16 @@ export class ClaimerController {
   @Inject()
   private readonly passport!: Passport
 
+  @Inject()
+  private readonly pushService!: PushService
+
   @Inject(path.token)
   private readonly token!: string
 
   @Put()
   public [`@Put()`]() {
     void this.passport
+    void this.pushService
     void this.token
   }
 }

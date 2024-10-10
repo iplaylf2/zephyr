@@ -10,13 +10,16 @@ export namespace push{
 
   export type Receiver = Readonly<z.infer<typeof receiver>>
 
-  export const notification = z.object({
-    push: z.object({
-      sources: z.array(z.number()),
-      type: z.string(),
+  export const notification = z.discriminatedUnion('type', [
+    z.object({
+      push: z.object({
+        sources: z.array(z.number()),
+        type: z.string(),
+      }),
+      type: z.enum(['subscribe', 'unsubscribe']),
     }),
-    type: z.enum(['subscribe', 'unsubscribe']),
-  })
+    z.object({ type: z.literal('delete') }),
+  ])
 
   export type Notification = ReadonlyDeep<z.infer<typeof notification>>
 }

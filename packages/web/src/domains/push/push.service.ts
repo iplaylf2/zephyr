@@ -50,6 +50,21 @@ export class PushService extends ModuleRaii {
     )
   }
 
+  public deleteReceiver(receiver: number) {
+    return this.prismaClient.$callTransaction(tx =>
+      function*(this: PushService) {
+        yield * call(tx.pushReceiver.delete({
+          select: {},
+          where: { id: receiver },
+        }))
+
+        const notification = this.entityPushService.getNotification()
+
+        yield * notification.publish(notification.getChannel(receiver), { type: 'delete' })
+      }.bind(this),
+    )
+  }
+
   public *deleteSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
     if (0 === pushes.length) {
       return []
@@ -154,6 +169,30 @@ export class PushService extends ModuleRaii {
     )
   }
 
+  public getReceiver(claimer: number) {
+    return pipe(
+      () => this.prismaClient.pushReceiver.findUnique({
+        select: { id: true },
+        where: { claimer },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(x => x?.id ?? null),
+    )()
+  }
+
+  public getSubscriptions(receiver: number, type: string) {
+    return pipe(
+      () => this.prismaClient.pushSubscription.findMany({
+        select: { xPush: { select: { source: true } } },
+        where: { receiver, xPush: { expiredAt: { gt: new Date() }, type } },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.xPush.source),
+      ),
+    )()
+  }
+
   public *patchSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
     if (0 === pushes.length) {
       return either.right([])
@@ -238,6 +277,35 @@ export class PushService extends ModuleRaii {
       },
       select: { id: true, token: true },
     }))
+  }
+
+  public *putClaimer(receiver: number, claimer: number) {
+    const _receiver = yield * call(this.prismaClient.pushReceiver.findUnique({
+      select: { claimer: true },
+      where: { expiredAt: { gt: new Date() }, id: receiver },
+    }))
+
+    if (null === _receiver) {
+      return false
+    }
+
+    if (null !== _receiver.claimer) {
+      if (claimer === _receiver.claimer) {
+        return true
+      }
+      else {
+        yield * this.deleteReceiver(receiver)
+
+        return false
+      }
+    }
+
+    yield * call(this.prismaClient.pushReceiver.update({
+      data: { claimer },
+      where: { OR: [{ claimer }, { claimer: null }], id: receiver },
+    }))
+
+    return true
   }
 
   public *putReceiver(claimer: number) {

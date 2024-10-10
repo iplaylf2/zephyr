@@ -1,5 +1,6 @@
 import { ApiParam, ApiTags } from '@nestjs/swagger'
 import { Controller, Inject, Sse } from '@nestjs/common'
+import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { urlPattern } from '../../../../kits/url-pattern.js'
 
 export const tokenPath = urlPattern.path('token')
@@ -11,11 +12,15 @@ export const tokenPath = urlPattern.path('token')
 @ApiTags(`push/receivers/${tokenPath.pattern}`)
 @Controller(tokenPath.pattern)
 export class TokenController {
+  @Inject()
+  private readonly pushService!: PushService
+
   @Inject(tokenPath)
   private readonly token!: string
 
   @Sse()
   public [`@Sse()`]() {
+    void this.pushService
     void this.token
   }
 }

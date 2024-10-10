@@ -1,11 +1,11 @@
 import { TypeController, typePath } from './type.controller.js'
-import { AuthModule } from '../../../../../../auth/auth.module.js'
 import { Module } from '@nestjs/common'
+import { PushModule } from '../../../../../../../../../domains/push/push.module.js'
 import { path } from '../../../../../../pattern.js'
 
 @Module({
   controllers: [TypeController],
-  imports: [AuthModule],
+  imports: [PushModule],
   providers: [path.token.provider, typePath.provider],
 })
 export class TypeModule {}

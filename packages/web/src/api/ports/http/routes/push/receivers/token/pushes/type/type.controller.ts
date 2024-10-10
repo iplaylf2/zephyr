@@ -1,7 +1,6 @@
 import { ApiParam, ApiTags } from '@nestjs/swagger'
 import { Controller, Delete, Get, Inject, Patch } from '@nestjs/common'
-import { Passport } from '../../../../../../auth/auth.guard.js'
-import { RequirePassport } from '../../../../../../decorators/require-passport.decorator.js'
+import { PushService } from '../../../../../../../../../domains/push/push.service.js'
 import { path } from '../../../../../../pattern.js'
 import { urlPattern } from '../../../../../../kits/url-pattern.js'
 
@@ -16,11 +15,10 @@ export const typePath = urlPattern.path('type')
   type: String,
 })
 @ApiTags(`push/receivers/${path.token.pattern}/pushes/${typePath.pattern}`)
-@RequirePassport()
 @Controller(typePath.pattern)
 export class TypeController {
   @Inject()
-  private readonly passport!: Passport
+  private readonly pushService!: PushService
 
   @Inject(path.token)
   private readonly token!: string
@@ -30,7 +28,7 @@ export class TypeController {
 
   @Delete()
   public [`@Delete()`]() {
-    void this.passport
+    void this.pushService
     void this.token
     void this.type
   }
