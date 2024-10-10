@@ -1,5 +1,5 @@
 import { ApiParam, ApiTags } from '@nestjs/swagger'
-import { Controller, Delete, Inject, Put } from '@nestjs/common'
+import { Controller, Inject, Put } from '@nestjs/common'
 import { Passport } from '../../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../../decorators/require-passport.decorator.js'
 import { path } from '../../../../../pattern.js'
@@ -18,12 +18,9 @@ export class ClaimerController {
   @Inject(path.token)
   private readonly token!: string
 
-  @Delete()
-  public [`@Delete()`]() {
+  @Put()
+  public [`@Put()`]() {
     void this.passport
     void this.token
   }
-
-  @Put()
-  public [`@Put()`]() {}
 }

@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { readonlyArray, task } from 'fp-ts'
 import { ConversationService } from '../conversation.service.js'
 import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
 import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
@@ -10,6 +9,7 @@ import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../user/user.service.js'
 import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { readonlyArray } from 'fp-ts'
 import { sleep } from 'effection'
 
 export namespace conversation{

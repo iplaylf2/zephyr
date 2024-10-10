@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Inject, Patch, Put } from '@nestjs/common'
+import { Controller, Delete, Get, Inject, Put } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
@@ -10,19 +10,13 @@ export class ReceiverController {
   @Inject()
   private readonly passport!: Passport
 
-  @Delete('pushes')
-  public [`@Delete('pushes')`]() {
+  @Delete()
+  public [`@Delete()`]() {
     void this.passport
   }
 
-  @Get('pushes')
-  public [`@Get('pushes')`]() {}
-
   @Get('token')
   public [`@Get('token')`]() {}
-
-  @Patch('pushes')
-  public [`@Patch('pushes')`]() {}
 
   @Put()
   public [`@Put()`]() {}
