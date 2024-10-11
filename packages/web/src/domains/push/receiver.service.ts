@@ -16,6 +16,8 @@ export class ReceiverService extends ModuleRaii {
   @Inject()
   private readonly prismaClient!: PrismaClient
 
+  private readonly receiverMap = new Map<number, Receiver>()
+
   public constructor() {
     super()
 
@@ -27,8 +29,30 @@ export class ReceiverService extends ModuleRaii {
     })
   }
 
-  public ensure(id: number): Receiver {
+  public delete(id: number) {
+    const receiver = this.receiverMap.get(id)
 
+    if (!receiver) {
+      return
+    }
+
+    receiver.close()
+    this.receiverMap.delete(id)
+  }
+
+  public get(id: number) {
+    return this.receiverMap.get(id) ?? null
+  }
+
+  public put(id: number): Receiver {
+    return pipe(
+      () => this.receiverMap.get(id),
+      io.map(option.fromNullable),
+      ioOption.getOrElse(flow(
+        () => io.of(new Receiver()),
+        io.tap(x => () => this.receiverMap.set(id, x)),
+      )),
+    )()
   }
 }
 
