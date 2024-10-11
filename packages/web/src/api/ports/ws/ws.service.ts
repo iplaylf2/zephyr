@@ -28,20 +28,20 @@ export class WsService extends ModuleRaii {
   }
 
   private *listen() {
-    const urlPattern = new URLPattern({ pathname: '/push/receivers/:id' })
+    const urlPattern = new URLPattern({ pathname: '/push/receivers/:token' })
     const websocketServer = new WebSocketServer({ noServer: true })
     const upgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
       const patternResult = urlPattern.exec(request.url, 'ws://x')
-      const id = patternResult?.pathname.groups['id'] ?? null
+      const token = patternResult?.pathname.groups['token'] ?? null
 
-      if (null === id) {
+      if (null === token) {
         socket.destroy()
 
         return
       }
 
       void globalScope.run(() =>
-        this.tryUpgrading(websocketServer, request, socket, head, id),
+        this.tryUpgrading(websocketServer, request, socket, head, token),
       )
     }
 
@@ -61,10 +61,10 @@ export class WsService extends ModuleRaii {
     request: IncomingMessage,
     socket: Duplex,
     head: Buffer,
-    id: string,
+    token: string,
   ) {
     try {
-      void id
+      void token
       const channel = yield * cOperation.Pointed.of(EMPTY)()
 
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition

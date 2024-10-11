@@ -2,7 +2,7 @@ import { Prisma } from '../../../repositories/prisma/generated/index.js'
 import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { readonlyArray } from 'fp-ts'
-import { subscription } from './push.js'
+import { subscription } from './subscription.js'
 
 export const groupValidator = {
   type: 'group' as const,

@@ -323,7 +323,7 @@ export class PushService extends ModuleRaii {
     }
 
     yield * call(this.prismaClient.pushReceiver.update({
-      data: { claimer },
+      data: { claimer, lastActiveAt: new Date() },
       where: { OR: [{ claimer }, { claimer: null }], id: receiver },
     }))
 

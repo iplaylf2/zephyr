@@ -1,5 +1,5 @@
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
-import { Controller, Delete, Get, HttpCode, HttpStatus, Inject, Put } from '@nestjs/common'
+import { Controller, Delete, Get, HttpCode, HttpStatus, Inject, Put, Sse } from '@nestjs/common'
 import { Passport } from '../../../../auth/auth.guard.js'
 import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
@@ -68,4 +68,7 @@ export class ReceiverController {
       cOperation.map(x => x.token),
     ))
   }
+
+  @Sse()
+  public [`@Sse()`]() {}
 }
