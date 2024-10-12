@@ -1,11 +1,13 @@
 import { BehaviorSubject, Observable, map, merge, of, share, switchMap } from 'rxjs'
 import { Inject, Injectable } from '@nestjs/common'
+import { createQueue, each } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { JsonValue } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
+
 import { push } from '../../models/push.js'
 
 @Injectable()
@@ -15,6 +17,8 @@ export class ReceiverService extends ModuleRaii {
 
   @Inject()
   private readonly prismaClient!: PrismaClient
+
+  private readonly receiverCreationQueue = createQueue<number, unknown>()
 
   private readonly receiverMap = new Map<number, Receiver>()
 
@@ -45,14 +49,25 @@ export class ReceiverService extends ModuleRaii {
   }
 
   public put(id: number): Receiver {
-    return pipe(
+    const receiver = pipe(
       () => this.receiverMap.get(id),
       io.map(option.fromNullable),
       ioOption.getOrElse(flow(
         () => io.of(new Receiver()),
-        io.tap(x => () => this.receiverMap.set(id, x)),
+        io.tap(x => () => {
+          this.receiverMap.set(id, x)
+          this.receiverCreationQueue.add(id)
+        }),
       )),
     )()
+
+    return receiver
+  }
+
+  private listenCreation() {
+    for (const x of yield * each(this.receiverCreationQueue)) {
+
+    }
   }
 }
 
