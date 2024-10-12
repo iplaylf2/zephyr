@@ -1,5 +1,5 @@
+import { BehaviorSubject, Observable, map, merge, of, share, switchMap } from 'rxjs'
 import { Inject, Injectable } from '@nestjs/common'
-import { Observable, Subject, Subscription } from 'rxjs'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
@@ -57,16 +57,22 @@ export class ReceiverService extends ModuleRaii {
 }
 
 class Receiver {
+  public readonly shared
+
   private _isClosed = false
-  private readonly subject = new Subject<push.Message>()
-  private readonly subscriptionMap = new Map<string, Map<number, Subscription>>()
+  private readonly combinedSubject = new BehaviorSubject<readonly Observable<push.Message>[]>([])
+  private readonly sourceMap = new Map<string, Map<number, Observable<push.Message>>>()
+  private readonly sourceSet = new Set<Observable<push.Message>>()
+
+  public constructor() {
+    this.shared = this.combinedSubject.pipe(
+      switchMap(x => merge(...x)),
+      share(),
+    )
+  }
 
   public get isClosed() {
     return this._isClosed
-  }
-
-  public asObservable() {
-    return this.subject.asObservable()
   }
 
   public close() {
@@ -74,15 +80,10 @@ class Receiver {
       return
     }
 
-    for (const [, xx] of this.subscriptionMap) {
-      for (const [, x] of xx) {
-        x.unsubscribe()
-      }
-    }
-
-    this.subscriptionMap.clear()
-    this.subject.next({ type: 'delete' })
-    this.subject.complete()
+    this.sourceSet.clear()
+    this.sourceMap.clear()
+    this.combinedSubject.next([of({ type: 'delete' })])
+    this.combinedSubject.complete()
     this._isClosed = true
   }
 
@@ -94,30 +95,31 @@ class Receiver {
       return
     }
 
-    const subscriptionMap = pipe(
-      () => this.subscriptionMap.get(type),
+    const sourceMap = pipe(
+      () => this.sourceMap.get(type),
       io.map(option.fromNullable),
       ioOption.getOrElse(flow(
         () => io.of(new Map()),
-        io.tap(x => () => this.subscriptionMap.set(type, x)),
+        io.tap(x => () => this.sourceMap.set(type, x)),
       )),
     )()
 
     const subscribedSources = pipe(
       sources,
-      readonlyArray.map(({ observable, source }) =>
-        () => {
-          if (subscriptionMap.get(source)) {
-            return option.none
-          }
+      readonlyArray.map(({ observable, source }) => pipe(
+        () => sourceMap.get(source) ? option.none : option.some(observable),
+        ioOption.chainIOK(flow(
+          x => x.pipe(
+            map(content => ({ content, type: 'message' } as const)),
+          ),
+          x => () => {
+            sourceMap.set(source, x)
+            this.sourceSet.add(x)
 
-          subscriptionMap.set(source, observable.subscribe((x) => {
-            this.subject.next({ content: x, type: 'message' })
-          }))
-
-          return option.some(source)
-        },
-      ),
+            return source
+          },
+        )),
+      )),
       io.sequenceArray,
       io.map(
         readonlyArray.filterMap(identity.of),
@@ -128,7 +130,10 @@ class Receiver {
       return
     }
 
-    this.subject.next({ push: { sources: subscribedSources, type }, type: 'subscribe' })
+    this.combinedSubject.next([
+      of({ push: { sources: subscribedSources, type }, type: 'subscribe' }),
+      ...this.sourceSet,
+    ])
   }
 
   public unsubscribe(type: string, sources: readonly number[]) {
@@ -136,28 +141,26 @@ class Receiver {
       return
     }
 
-    const subscriptionMap = this.subscriptionMap.get(type)
+    const sourceMap = this.sourceMap.get(type)
 
-    if (!subscriptionMap) {
+    if (!sourceMap) {
       return
     }
 
     const unsubscribedSources = pipe(
       sources,
-      readonlyArray.map(source =>
-        () => {
-          const subscription = subscriptionMap.get(source)
+      readonlyArray.map(source => pipe(
+        () => sourceMap.get(source),
+        io.map(option.fromNullable),
+        ioOption.chainIOK(x =>
+          () => {
+            sourceMap.delete(source)
+            this.sourceSet.delete(x)
 
-          if (!subscription) {
-            return option.none
-          }
-
-          subscription.unsubscribe()
-          subscriptionMap.delete(source)
-
-          return option.some(source)
-        },
-      ),
+            return source
+          },
+        ),
+      )),
       io.sequenceArray,
       io.map(
         readonlyArray.filterMap(identity.of),
@@ -168,6 +171,9 @@ class Receiver {
       return
     }
 
-    this.subject.next({ push: { sources: unsubscribedSources, type }, type: 'unsubscribe' })
+    this.combinedSubject.next([
+      of({ push: { sources: unsubscribedSources, type }, type: 'unsubscribe' }),
+      ...this.sourceSet,
+    ])
   }
 }

@@ -35,7 +35,7 @@ export class TokenController {
         option.fromNullable,
         option.fold(
           () => EMPTY,
-          x => this.receiverService.put(x).asObservable(),
+          x => this.receiverService.put(x).shared,
         ),
       )),
     ))).pipe(
