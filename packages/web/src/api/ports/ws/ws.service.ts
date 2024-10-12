@@ -72,7 +72,7 @@ export class WsService extends ModuleRaii {
         receiverId,
         option.fromNullable,
         option.map(
-          x => () => this.receiverService.put(x),
+          x => () => this.receiverService.put(x).shared,
         ),
         ioOption.fromOption,
         ioOption.chainIOK(identity.of),
@@ -86,7 +86,7 @@ export class WsService extends ModuleRaii {
       }
 
       websocketServer.handleUpgrade(request, socket, head, (ws) => {
-        const subscription = receiver.shared.subscribe({
+        const subscription = receiver.subscribe({
           complete() {
             ws.close()
           },
