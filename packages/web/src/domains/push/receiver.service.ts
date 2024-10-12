@@ -108,17 +108,15 @@ class Receiver {
       sources,
       readonlyArray.map(({ observable, source }) => pipe(
         () => sourceMap.get(source) ? option.none : option.some(observable),
-        ioOption.chainIOK(flow(
-          x => x.pipe(
-            map(content => ({ content, type: 'message' } as const)),
-          ),
-          x => () => {
-            sourceMap.set(source, x)
-            this.sourceSet.add(x)
-
-            return source
-          },
+        ioOption.map(x => x.pipe(
+          map(content => ({ content, type: 'message' } as const)),
         )),
+        ioOption.chainIOK(x => () => {
+          sourceMap.set(source, x)
+          this.sourceSet.add(x)
+
+          return source
+        }),
       )),
       io.sequenceArray,
       io.map(

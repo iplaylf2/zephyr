@@ -1,14 +1,15 @@
 import { IncomingMessage, Server } from 'http'
 import { Inject, Injectable } from '@nestjs/common'
+import { identity, ioOption, option } from 'fp-ts'
 import { Duplex } from 'stream'
-import { EMPTY } from 'rxjs'
 import { HttpAdapterHost } from '@nestjs/core'
 import { ModuleRaii } from '../../../common/module-raii.js'
 import { PushService } from '../../../domains/push/push.service.js'
+import { ReceiverService } from '../../../domains/push/receiver.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
-import { cOperation } from '../../../common/fp-effection/c-operation.js'
 import { globalScope } from '../../../kits/effection/global-scope.js'
+import { pipe } from 'fp-ts/lib/function.js'
 import { suspend } from 'effection'
 
 @Injectable()
@@ -19,10 +20,11 @@ export class WsService extends ModuleRaii {
   @Inject()
   private readonly pushService!: PushService
 
+  @Inject()
+  private readonly receiverService!: ReceiverService
+
   public constructor() {
     super()
-
-    void this.pushService
 
     this.initializeCallbacks.push(() => this.listen())
   }
@@ -64,18 +66,27 @@ export class WsService extends ModuleRaii {
     token: string,
   ) {
     try {
-      void token
-      const channel = yield * cOperation.Pointed.of(EMPTY)()
+      const receiverId = yield * this.pushService.getReceiver(token)
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (null === channel) {
+      const receiver = pipe(
+        receiverId,
+        option.fromNullable,
+        option.map(
+          x => () => this.receiverService.put(x),
+        ),
+        ioOption.fromOption,
+        ioOption.chainIOK(identity.of),
+        ioOption.toNullable,
+      )()
+
+      if (!receiver) {
         socket.destroy()
 
         return
       }
 
       websocketServer.handleUpgrade(request, socket, head, (ws) => {
-        const subscription = channel.subscribe({
+        const subscription = receiver.shared.subscribe({
           complete() {
             ws.close()
           },
@@ -83,7 +94,7 @@ export class WsService extends ModuleRaii {
             ws.close()
           },
           next(x) {
-            ws.send(x, () => {})
+            ws.send(JSON.stringify(x))
           },
         })
 
