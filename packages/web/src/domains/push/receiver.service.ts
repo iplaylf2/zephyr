@@ -1,6 +1,6 @@
 import { BehaviorSubject, Observable, map, merge, of, share, switchMap } from 'rxjs'
 import { Inject, Injectable } from '@nestjs/common'
-import { Operation, Task, createSignal, each, spawn } from 'effection'
+import { Operation, Task, createSignal, each, spawn, useScope } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
@@ -90,6 +90,41 @@ export class ReceiverService extends ModuleRaii {
     const notification = this.entityPushService.getNotification()
 
     const client = yield * notification.isolate()
+
+    const channel = notification.getChannel(receiver)
+
+    try {
+      const scope = yield * useScope()
+
+      yield * client.subscribe(channel, (message) => {
+        switch (message.type) {
+          case 'delete':
+            void scope.run(() => this.onReceiverDelete(receiver))
+            break
+          case 'subscribe':
+            void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
+            break
+          case 'unsubscribe':
+            void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
+            break
+        }
+      })
+    }
+    finally {
+      yield * client.unsubscribe(channel)
+    }
+  }
+
+  private *onReceiverDelete(receiver: number) {
+
+  }
+
+  private *onReceiverSubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
+
+  }
+
+  private *onReceiverUnsubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
+
   }
 }
 
