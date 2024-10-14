@@ -1,13 +1,12 @@
 import { BehaviorSubject, Observable, map, merge, of, share, switchMap } from 'rxjs'
 import { Inject, Injectable } from '@nestjs/common'
-import { createQueue, each } from 'effection'
+import { Operation, Task, createSignal, each, spawn } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { JsonValue } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
-
 import { push } from '../../models/push.js'
 
 @Injectable()
@@ -18,19 +17,14 @@ export class ReceiverService extends ModuleRaii {
   @Inject()
   private readonly prismaClient!: PrismaClient
 
-  private readonly receiverCreationQueue = createQueue<number, unknown>()
-
   private readonly receiverMap = new Map<number, Receiver>()
+
+  private readonly receiverSignal = createSignal<ReceiverEvent>()
 
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => {
-      void this.entityPushService
-      void this.prismaClient
-
-      throw new Error()
-    })
+    this.initializeCallbacks.push(() => this.listenEvent())
   }
 
   public delete(id: number) {
@@ -42,6 +36,7 @@ export class ReceiverService extends ModuleRaii {
 
     receiver.close()
     this.receiverMap.delete(id)
+    this.receiverSignal.send({ receiver: id, type: 'delete' })
   }
 
   public get(id: number) {
@@ -56,7 +51,7 @@ export class ReceiverService extends ModuleRaii {
         () => io.of(new Receiver()),
         io.tap(x => () => {
           this.receiverMap.set(id, x)
-          this.receiverCreationQueue.add(id)
+          this.receiverSignal.send({ receiver: id, type: 'put' })
         }),
       )),
     )()
@@ -64,10 +59,37 @@ export class ReceiverService extends ModuleRaii {
     return receiver
   }
 
-  private listenCreation() {
-    for (const x of yield * each(this.receiverCreationQueue)) {
+  private *listenEvent() {
+    const taskMap = new Map<number, Task<unknown>>()
 
+    for (const { receiver, type } of yield * each(this.receiverSignal)) {
+      switch (type) {
+        case 'delete':{
+          const task = taskMap.get(receiver)
+
+          if (!task) {
+            return
+          }
+
+          yield * task.halt()
+
+          taskMap.delete(receiver)
+        }
+          break
+        case 'put':{
+          taskMap.set(receiver, yield * spawn(() => this.listenNotification(receiver)))
+        }
+          break
+      }
+
+      yield * each.next()
     }
+  }
+
+  private *listenNotification(receiver: number): Operation<void> {
+    const notification = this.entityPushService.getNotification()
+
+    const client = yield * notification.isolate()
   }
 }
 
@@ -189,4 +211,9 @@ class Receiver {
       ...this.sourceSet,
     ])
   }
+}
+
+type ReceiverEvent = {
+  receiver: number
+  type: 'delete' | 'put'
 }
