@@ -15,7 +15,8 @@ export class PushService {
 }
 
 export namespace PushService{
-  export class Notification extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, push.Notification> {
+  export class Notification
+    extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, push.Notification> {
     public constructor(public override client: RedisClientType) {
       super()
     }

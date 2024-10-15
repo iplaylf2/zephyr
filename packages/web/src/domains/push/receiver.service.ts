@@ -1,12 +1,12 @@
 import { BehaviorSubject, Observable, map, merge, of, share, switchMap } from 'rxjs'
 import { Inject, Injectable } from '@nestjs/common'
-import { Operation, Task, createSignal, each, spawn, useScope } from 'effection'
+import { Operation, Task, createSignal, each, spawn, suspend, useScope } from 'effection'
+import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { JsonValue } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
-import { PrismaClient } from '../../repositories/prisma/client.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { push } from '../../models/push.js'
 import { where } from '../../repositories/prisma/common/where.js'
@@ -29,22 +29,6 @@ export class ReceiverService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.listenEvent())
   }
 
-  public delete(id: number) {
-    const receiver = this.receiverMap.get(id)
-
-    if (!receiver) {
-      return
-    }
-
-    receiver.close()
-    this.receiverMap.delete(id)
-    this.receiverSignal.send({ receiver: id, type: 'delete' })
-  }
-
-  public get(id: number) {
-    return this.receiverMap.get(id) ?? null
-  }
-
   public put(id: number): Receiver {
     const receiver = pipe(
       () => this.receiverMap.get(id),
@@ -59,6 +43,18 @@ export class ReceiverService extends ModuleRaii {
     )()
 
     return receiver
+  }
+
+  private delete(id: number) {
+    const receiver = this.receiverMap.get(id)
+
+    if (!receiver) {
+      return
+    }
+
+    receiver.close()
+    this.receiverMap.delete(id)
+    this.receiverSignal.send({ receiver: id, type: 'delete' })
   }
 
   private *listenEvent() {
@@ -79,37 +75,19 @@ export class ReceiverService extends ModuleRaii {
         }
           break
         case 'put':{
-          taskMap.set(receiver, yield * spawn(() => this.listenNotification(receiver)))
+          const task = taskMap.get(receiver)
+
+          if (task) {
+            return
+          }
+
+          taskMap.set(receiver, yield * spawn(() => this.raiiReceiver(receiver)))
         }
           break
       }
 
       yield * each.next()
     }
-  }
-
-  private *listenNotification(receiver: number): Operation<void> {
-    const notification = this.entityPushService.getNotification()
-
-    const client = yield * notification.isolate()
-
-    const channel = notification.getChannel(receiver)
-
-    const scope = yield * useScope()
-
-    yield * client.subscribe(channel, (message) => {
-      switch (message.type) {
-        case 'delete':
-          void scope.run(() => this.onReceiverDelete(receiver))
-          break
-        case 'subscribe':
-          void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
-          break
-        case 'unsubscribe':
-          void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
-          break
-      }
-    })
   }
 
   private *onReceiverDelete(receiver: number) {
@@ -134,29 +112,16 @@ export class ReceiverService extends ModuleRaii {
       ),
     )()
 
-    if (0 === pushes.length) {
-      return
-    }
+    yield * this.subscribe(receiver, pushes)
+  }
 
-    const exists = yield * this.prismaClient
-      .$pushSubscription()
-      .pushesForQuery(receiver, pushes)
-
-    if (0 === exists.length) {
-      return
-    }
-
+  private *onReceiverUnsubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
     const _receiver = this.receiverMap.get(receiver)
 
     if (!_receiver) {
       return
     }
 
-    // todo
-    // _receiver.subscribe
-  }
-
-  private *onReceiverUnsubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
     const pushes = yield * pipe(
       () => this.prismaClient.push.findMany({
         select: { id: true },
@@ -178,13 +143,64 @@ export class ReceiverService extends ModuleRaii {
       }
     }
 
+    _receiver.unsubscribe(push.type, push.sources)
+  }
+
+  private *raiiReceiver(receiver: number): Operation<void> {
+    const notification = this.entityPushService.getNotification()
+
+    const client = yield * notification.isolate()
+
+    const channel = notification.getChannel(receiver)
+
+    const scope = yield * useScope()
+
+    yield * client.subscribe(channel, (message) => {
+      switch (message.type) {
+        case 'delete':
+          void scope.run(() => this.onReceiverDelete(receiver))
+          break
+        case 'subscribe':
+          void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
+          break
+        case 'unsubscribe':
+          void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
+          break
+      }
+    })
+
+    yield * this.prismaClient.$callTransaction(tx => function*() {
+      // todo
+    })
+
+    // todo
+
+    yield * suspend()
+  }
+
+  private *subscribe(
+    receiver: number, pushes: readonly number[],
+    tx: PrismaTransaction = this.prismaClient,
+  ) {
+    if (0 === pushes.length) {
+      return
+    }
+
+    const exists = yield * tx
+      .$pushSubscription()
+      .pushesForQuery(receiver, pushes)
+
+    if (0 === exists.length) {
+      return
+    }
+
     const _receiver = this.receiverMap.get(receiver)
 
     if (!_receiver) {
       return
     }
 
-    _receiver.unsubscribe(push.type, push.sources)
+    // todo
   }
 }
 
