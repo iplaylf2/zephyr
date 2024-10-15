@@ -228,7 +228,7 @@ export class PushService extends ModuleRaii {
 
     const invalid = yield * this.validateSubscriptions(receiver, type, pushes)
 
-    if (0 !== invalid.length) {
+    if (0 < invalid.length) {
       return either.left(invalid)
     }
 

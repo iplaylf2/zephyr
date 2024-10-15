@@ -7,7 +7,9 @@ import { PushService as EntityPushService } from '../../repositories/redis/entit
 import { JsonValue } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PrismaClient } from '../../repositories/prisma/client.js'
+import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { push } from '../../models/push.js'
+import { where } from '../../repositories/prisma/common/where.js'
 
 @Injectable()
 export class ReceiverService extends ModuleRaii {
@@ -93,38 +95,96 @@ export class ReceiverService extends ModuleRaii {
 
     const channel = notification.getChannel(receiver)
 
-    try {
-      const scope = yield * useScope()
+    const scope = yield * useScope()
 
-      yield * client.subscribe(channel, (message) => {
-        switch (message.type) {
-          case 'delete':
-            void scope.run(() => this.onReceiverDelete(receiver))
-            break
-          case 'subscribe':
-            void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
-            break
-          case 'unsubscribe':
-            void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
-            break
-        }
-      })
-    }
-    finally {
-      yield * client.unsubscribe(channel)
-    }
+    yield * client.subscribe(channel, (message) => {
+      switch (message.type) {
+        case 'delete':
+          void scope.run(() => this.onReceiverDelete(receiver))
+          break
+        case 'subscribe':
+          void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
+          break
+        case 'unsubscribe':
+          void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
+          break
+      }
+    })
   }
 
   private *onReceiverDelete(receiver: number) {
+    const exists = yield * this.prismaClient.$pushReceiver().forQuery([receiver])
 
+    if (0 < exists.length) {
+      return
+    }
+
+    this.delete(receiver)
   }
 
   private *onReceiverSubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
+    const pushes = yield * pipe(
+      () => this.prismaClient.push.findMany({
+        select: { id: true },
+        where: { source: { in: where.writable(push.sources) }, type: push.type },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
 
+    if (0 === pushes.length) {
+      return
+    }
+
+    const exists = yield * this.prismaClient
+      .$pushSubscription()
+      .pushesForQuery(receiver, pushes)
+
+    if (0 === exists.length) {
+      return
+    }
+
+    const _receiver = this.receiverMap.get(receiver)
+
+    if (!_receiver) {
+      return
+    }
+
+    // todo
+    // _receiver.subscribe
   }
 
   private *onReceiverUnsubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
+    const pushes = yield * pipe(
+      () => this.prismaClient.push.findMany({
+        select: { id: true },
+        where: { source: { in: where.writable(push.sources) }, type: push.type },
+      }),
+      cOperation.FromTask.fromTask,
+      cOperation.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
 
+    if (0 < pushes.length) {
+      const exists = yield * this.prismaClient
+        .$pushSubscription()
+        .pushesForQuery(receiver, pushes)
+
+      if (0 < exists.length) {
+        return
+      }
+    }
+
+    const _receiver = this.receiverMap.get(receiver)
+
+    if (!_receiver) {
+      return
+    }
+
+    _receiver.unsubscribe(push.type, push.sources)
   }
 }
 
