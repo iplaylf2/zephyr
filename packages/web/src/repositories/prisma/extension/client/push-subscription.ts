@@ -30,6 +30,22 @@ export const pushSubscription = Prisma.defineExtension({
             ),
           )()
         },
+        pushesForQueryByReceiver(receiver: number) {
+          return pipe(
+            () => client.$queryRaw<Pick<PushSubscription, 'push'>[]>`
+              select
+                push
+              from
+                push-subscriptions
+              where
+                receiver = ${receiver}
+              for key share`,
+            cOperation.FromTask.fromTask,
+            cOperation.map(
+              readonlyArray.map(x => x.push),
+            ),
+          )()
+        },
         pushesForScale(receiver: number, pushes: readonly number[]) {
           if (0 === pushes.length) {
             return cOperation.Pointed.of([])()

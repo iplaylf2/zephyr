@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { Operation, Task, createSignal, each, spawn, suspend, useScope } from 'effection'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
+import { identity, io, ioOption, option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { JsonValue } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
@@ -100,19 +100,8 @@ export class ReceiverService extends ModuleRaii {
     this.delete(receiver)
   }
 
-  private *onReceiverSubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
-    const pushes = yield * pipe(
-      () => this.prismaClient.push.findMany({
-        select: { id: true },
-        where: { source: { in: where.writable(push.sources) }, type: push.type },
-      }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
-
-    yield * this.subscribe(receiver, pushes)
+  private onReceiverSubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
+    return this.subscribe(receiver, push.type, push.sources)
   }
 
   private *onReceiverUnsubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
@@ -169,28 +158,40 @@ export class ReceiverService extends ModuleRaii {
       }
     })
 
-    yield * this.prismaClient.$callTransaction(tx => function*() {
-      // todo
-    })
+    yield * this.prismaClient.$callTransaction(tx => function* (this: ReceiverService) {
+      const pushes = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiver)
 
-    // todo
+      const pushRecord = yield * pipe(
+        () => tx.push.findMany({
+          select: { source: true, type: true },
+          where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushes) } },
+        }),
+        cOperation.FromTask.fromTask,
+        cOperation.map(flow(
+          readonlyNonEmptyArray.groupBy(x => x.type),
+          readonlyRecord.map(
+            readonlyArray.map(x => x.source),
+          ),
+        )),
+      )()
+
+      yield * pipe(
+        Object.entries(pushRecord),
+        readonlyArray.map(([type, sources]) =>
+          () => this.subscribe(receiver, type, sources),
+        ),
+        cOperation.sequenceArray,
+      )()
+    }.bind(this))
 
     yield * suspend()
   }
 
   private *subscribe(
-    receiver: number, pushes: readonly number[],
+    receiver: number, type: string, sources: readonly number[],
     tx: PrismaTransaction = this.prismaClient,
-  ) {
-    if (0 === pushes.length) {
-      return
-    }
-
-    const exists = yield * tx
-      .$pushSubscription()
-      .pushesForQuery(receiver, pushes)
-
-    if (0 === exists.length) {
+  ): Operation<void> {
+    if (0 === sources.length) {
       return
     }
 
@@ -200,7 +201,11 @@ export class ReceiverService extends ModuleRaii {
       return
     }
 
-    // todo
+    void type
+    void tx
+
+    yield * suspend()
+    throw new Error('todo')
   }
 }
 
