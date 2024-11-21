@@ -1,35 +1,21 @@
-import { constant, flow, pipe } from 'fp-ts/lib/function.js'
-import { io, option, readonlyArray, readonlyNonEmptyArray } from 'fp-ts'
-import { unsafeCoerce } from '../../utils/identity.js'
+import { eq, readonlyArray, readonlyMap, readonlyNonEmptyArray } from 'fp-ts'
+import { flow } from 'fp-ts/lib/function.js'
 
 export namespace readonlyNonEmptyArrayPlus{
   export function groupBy<A, K>(f: (a: A) => K):
   (as: ReadonlyArray<A>) =>
   ReadonlyMap<K, readonlyNonEmptyArray.ReadonlyNonEmptyArray<A>> {
+    const readonlyMapFold = readonlyMap.fromFoldable(
+      eq.eqStrict as eq.Eq<K>,
+      readonlyNonEmptyArray.getSemigroup<A>(),
+      readonlyArray.Foldable,
+    )
+
     return flow(
-      readonlyArray.reduce(
-        new Map<K, A[]>(),
-        (map, a) => pipe(
-          f(a),
-          key => pipe(
-            () => map.get(key),
-            io.chain(flow(
-              option.fromNullable,
-              option.fold(
-                flow(
-                  constant([]),
-                  io.of,
-                  io.tap(x => () => map.set(key, x)),
-                ),
-                io.of,
-              ),
-            )),
-          ),
-          io.tap(x => () => x.push(a)),
-          io.map(constant(map)),
-        )(),
+      readonlyArray.map(
+        a => [f(a), readonlyNonEmptyArray.of(a)] as const,
       ),
-      unsafeCoerce<ReadonlyMap<any, any>>(),
+      readonlyMapFold,
     )
   }
 }

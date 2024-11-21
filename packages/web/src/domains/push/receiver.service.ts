@@ -69,9 +69,12 @@ export class ReceiverService extends ModuleRaii {
             return
           }
 
-          yield * task.halt()
-
-          taskMap.delete(receiver)
+          try {
+            yield * task.halt()
+          }
+          finally {
+            taskMap.delete(receiver)
+          }
         }
           break
         case 'put':{
@@ -178,7 +181,7 @@ export class ReceiverService extends ModuleRaii {
       yield * pipe(
         Object.entries(pushRecord),
         readonlyArray.map(([type, sources]) =>
-          () => this.subscribe(receiver, type, sources),
+          () => this.subscribe(receiver, type, sources, tx),
         ),
         cOperation.sequenceArray,
       )()
