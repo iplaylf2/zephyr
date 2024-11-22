@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Isolable, Model } from '../common.js'
+import { Isolable, Model, RedisCommandArgument } from '../common.js'
 import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyArray, readonlyRecord } from 'fp-ts'
 import { ReadonlyDeep } from 'type-fest'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from '../generic.js'
 import { XAutoClaimOptions } from '@redis/client/dist/lib/commands/XAUTOCLAIM.js'
 import { XReadGroupOptions } from '@redis/client/dist/lib/commands/XREADGROUP.js'
 import { call } from 'effection'

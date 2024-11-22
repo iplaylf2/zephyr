@@ -1,6 +1,5 @@
-import { Isolable } from './common.js'
+import { Isolable, RedisCommandArgument } from './common.js'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from '@redis/client/dist/lib/commands'
 import { call } from 'effection'
 
 export class Generic extends Isolable<Generic> {
@@ -36,5 +35,3 @@ export class Generic extends Isolable<Generic> {
     return new Generic(this.client.duplicate())
   }
 }
-
-export { RedisCommandArgument }

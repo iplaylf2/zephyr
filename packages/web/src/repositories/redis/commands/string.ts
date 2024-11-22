@@ -1,7 +1,6 @@
+import { Model, RedisCommandArgument } from './common.js'
 import { Operation, call } from 'effection'
 import { RedisClientType, SetOptions } from '@redis/client'
-import { Model } from './common.js'
-import { RedisCommandArgument } from './generic.js'
 import { option } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 

@@ -1,7 +1,6 @@
-import { Model } from './common.js'
+import { Model, RedisCommandArgument } from './common.js'
 import { ReadonlyDeep } from 'type-fest'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from './generic.js'
 import { ZMember } from '@redis/client/dist/lib/commands/generic-transformers.js'
 import { call } from 'effection'
 

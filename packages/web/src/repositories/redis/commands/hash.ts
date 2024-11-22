@@ -1,9 +1,8 @@
+import { Model, RedisCommandArgument } from './common.js'
 import { Operation, call } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyRecord } from 'fp-ts'
-import { Model } from './common.js'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from './generic.js'
 
 export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract readonly client: RedisClientType

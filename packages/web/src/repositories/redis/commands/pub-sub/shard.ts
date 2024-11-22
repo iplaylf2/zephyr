@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { Isolable, RedisCommandArgument } from '../common.js'
 import { Operation, call } from 'effection'
 import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { io, option } from 'fp-ts'
-import { Isolable } from '../common.js'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from '../generic.js'
 
 abstract class PubSub<
   const BufferMode extends boolean,

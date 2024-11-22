@@ -1,6 +1,6 @@
 import { Operation, call, resource } from 'effection'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from './generic.js'
+import { RedisCommandArgument } from '@redis/client/dist/lib/commands/index.js'
 
 export interface Model<T> {
   readonly client: RedisClientType
@@ -31,3 +31,5 @@ export abstract class Isolable<T extends Isolable<T>> {
 
   protected abstract duplicate(): T
 }
+
+export { RedisCommandArgument }

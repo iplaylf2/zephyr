@@ -1,6 +1,5 @@
-import { Model } from './common.js'
+import { Model, RedisCommandArgument } from './common.js'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from './generic.js'
 import { call } from 'effection'
 
 export abstract class Set implements Model<RedisCommandArgument> {
