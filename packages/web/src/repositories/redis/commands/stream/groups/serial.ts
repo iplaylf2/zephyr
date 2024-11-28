@@ -48,10 +48,10 @@ export namespace group{
         }
       }.bind(this)))
 
-      const pendingMessages = stream.exhaust(() =>
+      const pendingMessages = stream.generate(() =>
         this.stream.readGroup(this.group, consumer, '0', { COUNT: batchLimit }),
       )
-      const newMessages = stream.exhaust(() =>
+      const newMessages = stream.generate(() =>
         blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: batchLimit }),
       )
 

@@ -221,7 +221,7 @@ export namespace cStream{
       let sBelongY = false
 
       return {
-        next: function*next(): Operation<IteratorResult<any>> {
+        next: function*next(): Operation<IteratorResult<A>> {
           const result = yield * s.next()
 
           if (true !== result.done) {
@@ -237,6 +237,17 @@ export namespace cStream{
           sBelongY = true
 
           return yield * next()
+        },
+      }
+    },
+    empty: Zero.zero<E, A>(),
+  })
+
+  export const getMonoidPar = <E = never, A = never>(): monoid.Monoid<CStream<A, E>> => ({
+    concat: (x, y) => function*() {
+      return {
+        next: function*(): Operation<IteratorResult<A>> {
+
         },
       }
     },

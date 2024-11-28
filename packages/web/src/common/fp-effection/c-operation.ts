@@ -1,7 +1,7 @@
 import { LazyArg, flow } from 'fp-ts/lib/function.js'
 import { Operation, all, call } from 'effection'
 import {
-  applicative, apply, chain, fromIO, fromTask, functor,
+  applicative, apply, chain, chainRec, either, fromIO, fromTask, functor,
   io, monad, monadIO, monadTask, pipeable, pointed,
 } from 'fp-ts'
 
@@ -102,6 +102,28 @@ export namespace cOperation{
     fromTask: FromTask.fromTask,
     map: Monad.map,
     of: Monad.of,
+  }
+
+  export const ChainRec: chainRec.ChainRec1<URI> = {
+    URI,
+    ap: Chain.ap,
+    chain: Chain.chain,
+    chainRec: (a, f) => function*() {
+      let x = a
+
+      while (true) {
+        const result = yield * f(x)()
+
+        if (either.isLeft(result)) {
+          x = result.left
+
+          continue
+        }
+
+        return result.right
+      }
+    },
+    map: Chain.map,
   }
 
   export function sequenceArray<A>(arr: ReadonlyArray<COperation<A>>): COperation<ReadonlyArray<A>> {
