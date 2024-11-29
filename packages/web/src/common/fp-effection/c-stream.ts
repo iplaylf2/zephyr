@@ -1,11 +1,12 @@
 import { LazyArg, constant, flow, pipe } from 'fp-ts/lib/function.js'
-import { Operation, Stream, all } from 'effection'
+import { Operation, Stream, Subscription, all } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
   io, monad, monadIO, monadTask, monoid, option, pipeable,
   pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
 import { cOperation } from './c-operation.js'
+import { merge } from '../../kits/effection/merge.js'
 
 export namespace cStream{
   export type CStream<T, R> = LazyArg<Stream<T, R>>
@@ -245,9 +246,52 @@ export namespace cStream{
 
   export const getMonoidPar = <E = never, A = never>(): monoid.Monoid<CStream<A, E>> => ({
     concat: (x, y) => function*() {
+      const [subscriptionA, streamB] = yield * merge(x(), y())
+
+      function createNextStep(subscription: Subscription<A, E>) {
+        return function*() {
+          const value = yield * subscription.next()
+
+          return [createNextStep(subscription), value, subscription] as const
+        }
+      }
+
+      let faster = createNextStep(subscriptionA)
+      let slower = function*() {
+        const subscription = yield * streamB
+
+        const nextStep = createNextStep(subscription)
+
+        return yield * nextStep()
+      }
+
+      let singleSubscription: Subscription<A, E> | null = null
+
       return {
         next: function*(): Operation<IteratorResult<A>> {
+          if (singleSubscription) {
+            return yield * singleSubscription.next()
+          }
 
+          const [a, b] = yield * merge(faster(), slower())
+
+          faster = a[0]
+          slower = () => b
+
+          const value = a[1]
+
+          if (true === value.done) {
+            faster = null as any
+            slower = null as any
+
+            const [,value, subscription] = yield * b
+
+            singleSubscription = subscription
+
+            return value
+          }
+
+          return value
         },
       }
     },
