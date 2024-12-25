@@ -14,16 +14,20 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   public abstract readonly key: RedisCommandArgument
 
   public ack(group: RedisCommandArgument, id: readonly RedisCommandArgument[]) {
-    return call(this.client.xAck(this.key, group, id as RedisCommandArgument[]))
+    return call(
+      () => this.client.xAck(this.key, group, id as RedisCommandArgument[]),
+    )
   }
 
   public add(id: RedisCommandArgument, message: T, options?: XAddOptions) {
-    return call(this.client.xAdd(
-      this.key,
-      id,
-      this.encodeFully(message),
-      options,
-    ))
+    return call(
+      () => this.client.xAdd(
+        this.key,
+        id,
+        this.encodeFully(message),
+        options,
+      ),
+    )
   }
 
   public *autoClaim(
@@ -33,7 +37,9 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     start: string,
     options?: XAutoClaimOptions,
   ) {
-    const messages = yield * call(this.client.xAutoClaim(this.key, group, consumer, minIdleTime, start, options))
+    const messages = yield * call(
+      () => this.client.xAutoClaim(this.key, group, consumer, minIdleTime, start, options),
+    )
 
     return pipe(
       messages,
@@ -60,7 +66,9 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public del(id: readonly RedisCommandArgument[]) {
-    return call(this.client.xDel(this.key, id as RedisCommandArgument[]))
+    return call(
+      () => this.client.xDel(this.key, id as RedisCommandArgument[]),
+    )
   }
 
   public encodeFully(message: T) {
@@ -72,7 +80,9 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
 
   public *groupCreate(group: RedisCommandArgument, id: RedisCommandArgument, options?: XGroupCreateOptions) {
     try {
-      return yield * call(this.client.xGroupCreate(this.key, group, id, options))
+      return yield * call(
+        () => this.client.xGroupCreate(this.key, group, id, options),
+      )
     }
     catch (e) {
       if ('BUSYGROUP Consumer Group name already exists' !== (e as any)?.message) {
@@ -84,12 +94,16 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public groupDestroy(group: RedisCommandArgument) {
-    return call(this.client.xGroupDestroy(this.key, group))
+    return call(
+      () => this.client.xGroupDestroy(this.key, group),
+    )
   }
 
   public *infoStream() {
     try {
-      return yield * call(this.client.xInfoStream(this.key))
+      return yield * call(
+        () => this.client.xInfoStream(this.key),
+      )
     }
     catch (e) {
       if ('ERR no such key' !== (e as any)?.message) {
@@ -101,7 +115,9 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public *range(start: RedisCommandArgument, end: RedisCommandArgument, options?: XRangeOptions) {
-    const messages = yield * call(this.client.xRange(this.key, start, end, options))
+    const messages = yield * call(
+      () => this.client.xRange(this.key, start, end, options),
+    )
 
     return pipe(
       messages,
@@ -112,7 +128,9 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public *readGroup(group: RedisCommandArgument, consumer: RedisCommandArgument, id: RedisCommandArgument, options?: XReadGroupOptions) {
-    const messages = yield * call(this.client.xReadGroup(group, consumer, { id, key: this.key }, options))
+    const messages = yield * call(
+      () => this.client.xReadGroup(group, consumer, { id, key: this.key }, options),
+    )
 
     return pipe(
       messages ?? [],

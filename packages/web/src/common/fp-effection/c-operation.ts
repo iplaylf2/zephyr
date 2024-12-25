@@ -1,4 +1,4 @@
-import { LazyArg, flow } from 'fp-ts/lib/function.js'
+import { LazyArg, pipe } from 'fp-ts/lib/function.js'
 import { Operation, all, call } from 'effection'
 import {
   applicative, apply, chain, chainRec, either, fromIO, fromTask, functor,
@@ -76,7 +76,10 @@ export namespace cOperation{
 
   export const FromIO: fromIO.FromIO1<URI> = {
     URI,
-    fromIO: fa => Pointed.of(fa()),
+    // eslint-disable-next-line require-yield
+    fromIO: fa => function*() {
+      return fa()
+    },
   }
 
   export const MonadIO: monadIO.MonadIO1<URI> = {
@@ -91,7 +94,7 @@ export namespace cOperation{
   export const FromTask: fromTask.FromTask1<URI> = {
     URI,
     fromIO: FromIO.fromIO,
-    fromTask: flow(call, io.of) as any,
+    fromTask: fa => pipe(call(fa), io.of),
   }
 
   export const MonadTask: monadTask.MonadTask1<URI> = {

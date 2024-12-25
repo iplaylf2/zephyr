@@ -9,7 +9,9 @@ export abstract class String<T> implements Model<T> {
   public abstract readonly key: RedisCommandArgument
 
   public *get(): Operation<option.Option<T>> {
-    const value = yield * call(this.client.get(this.key))
+    const value = yield * call(
+      () => this.client.get(this.key),
+    )
 
     return pipe(
       value,
@@ -19,7 +21,9 @@ export abstract class String<T> implements Model<T> {
   }
 
   public set(value: T, options?: SetOptions) {
-    return call(this.client.set(this.key, this.encode(value), options))
+    return call(
+      () => this.client.set(this.key, this.encode(value), options),
+    )
   }
 
   public abstract decode(x: RedisCommandArgument): T

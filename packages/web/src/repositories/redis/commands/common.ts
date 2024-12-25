@@ -20,11 +20,15 @@ export abstract class Isolable<T extends Isolable<T>> {
       const client = duplication.client
 
       try {
-        yield * call(client.connect())
+        yield * call(
+          () => client.connect(),
+        )
         yield * provide(duplication)
       }
       finally {
-        yield * call(client.disconnect())
+        yield * call(
+          () => client.disconnect(),
+        )
       }
     })
   }

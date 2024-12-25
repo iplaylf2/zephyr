@@ -7,7 +7,9 @@ export abstract class Set implements Model<RedisCommandArgument> {
   public abstract readonly key: RedisCommandArgument
 
   public add(members: readonly RedisCommandArgument[]) {
-    return call(this.client.sAdd(this.key, members as RedisCommandArgument[]))
+    return call(
+      () => this.client.sAdd(this.key, members as RedisCommandArgument[]),
+    )
   }
 
   public decode(x: RedisCommandArgument): RedisCommandArgument {
@@ -15,7 +17,9 @@ export abstract class Set implements Model<RedisCommandArgument> {
   }
 
   public del(members: readonly RedisCommandArgument[]) {
-    return call(this.client.sRem(this.key, members as RedisCommandArgument[]))
+    return call(
+      () => this.client.sRem(this.key, members as RedisCommandArgument[]),
+    )
   }
 
   public encode(x: RedisCommandArgument): RedisCommandArgument {
@@ -23,6 +27,8 @@ export abstract class Set implements Model<RedisCommandArgument> {
   }
 
   public members() {
-    return call(this.client.sMembers(this.key))
+    return call(
+      () => this.client.sMembers(this.key),
+    )
   }
 }

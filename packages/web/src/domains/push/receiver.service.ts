@@ -161,31 +161,32 @@ export class ReceiverService extends ModuleRaii {
       }
     })
 
-    yield * this.prismaClient.$callTransaction(tx => function* (this: ReceiverService) {
-      const pushes = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiver)
+    yield * this.prismaClient.$callTransaction(
+      function* (this: ReceiverService, tx: PrismaTransaction) {
+        const pushes = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiver)
 
-      const pushRecord = yield * pipe(
-        () => tx.push.findMany({
-          select: { source: true, type: true },
-          where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushes) } },
-        }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(flow(
-          readonlyNonEmptyArray.groupBy(x => x.type),
-          readonlyRecord.map(
-            readonlyArray.map(x => x.source),
+        const pushRecord = yield * pipe(
+          () => tx.push.findMany({
+            select: { source: true, type: true },
+            where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushes) } },
+          }),
+          cOperation.FromTask.fromTask,
+          cOperation.map(flow(
+            readonlyNonEmptyArray.groupBy(x => x.type),
+            readonlyRecord.map(
+              readonlyArray.map(x => x.source),
+            ),
+          )),
+        )()
+
+        yield * pipe(
+          Object.entries(pushRecord),
+          readonlyArray.map(([type, sources]) =>
+            () => this.subscribe(receiver, type, sources, tx),
           ),
-        )),
-      )()
-
-      yield * pipe(
-        Object.entries(pushRecord),
-        readonlyArray.map(([type, sources]) =>
-          () => this.subscribe(receiver, type, sources, tx),
-        ),
-        cOperation.sequenceArray,
-      )()
-    }.bind(this))
+          cOperation.sequenceArray,
+        )()
+      }.bind(this))
 
     yield * suspend()
   }

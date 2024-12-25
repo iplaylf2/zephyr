@@ -31,16 +31,18 @@ export class UserService extends ModuleRaii {
   }
 
   public active(users: readonly number[]) {
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: UserService) {
+    return this.prismaClient.$callTransaction(
+      function*(this: UserService, tx: PrismaTransaction) {
         const _users = yield * tx.$user().forUpdate(users)
 
-        yield * call(tx.user.updateMany({
-          data: {
-            lastActiveAt: new Date(),
-          },
-          where: { id: { in: where.writable(_users) } },
-        }))
+        yield * call(
+          () => tx.user.updateMany({
+            data: {
+              lastActiveAt: new Date(),
+            },
+            where: { id: { in: where.writable(_users) } },
+          }),
+        )
 
         return _users
       }.bind(this),
@@ -60,8 +62,8 @@ export class UserService extends ModuleRaii {
   ) {
     const interval = `${seconds.toFixed(0)} seconds`
 
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: UserService) {
+    return this.prismaClient.$callTransaction(
+      function*(this: UserService, tx: PrismaTransaction) {
         const now = new Date()
 
         const _users = yield * pipe(
@@ -120,15 +122,17 @@ export class UserService extends ModuleRaii {
   public *patch(id: number, user: Partial<user.Info>) {
     if ('name' in user) {
       try {
-        yield * call(this.prismaClient.user.update({
-          data: {
-            id,
-            lastActiveAt: new Date(),
-            name: user.name,
-          },
-          select: {},
-          where: { id },
-        }))
+        yield * call(
+          () => this.prismaClient.user.update({
+            data: {
+              id,
+              lastActiveAt: new Date(),
+              name: user.name!,
+            },
+            select: {},
+            where: { id },
+          }),
+        )
 
         return true
       }
@@ -141,8 +145,8 @@ export class UserService extends ModuleRaii {
   }
 
   public register(info: user.Info) {
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: UserService) {
+    return this.prismaClient.$callTransaction(
+      function*(this: UserService, tx: PrismaTransaction) {
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
@@ -173,17 +177,19 @@ export class UserService extends ModuleRaii {
   }
 
   public unregister(users: readonly number[]) {
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: UserService) {
+    return this.prismaClient.$callTransaction(
+      function*(this: UserService, tx: PrismaTransaction) {
         const ids = yield * tx.$user().forScale(users)
 
         if (0 === ids.length) {
           return []
         }
 
-        yield * call(tx.user.deleteMany({
-          where: { id: { in: where.writable(ids) } },
-        }))
+        yield * call(
+          () => tx.user.deleteMany({
+            where: { id: { in: where.writable(ids) } },
+          }),
+        )
 
         yield * this.postUserEvent({
           timestamp: Date.now(),

@@ -26,12 +26,16 @@ const useFactory = (resourceManagerService: ResourceManagerService) => globalSco
         .$extends(pushReceiver)
         .$extends(pushSubscription)
 
-      yield * call(client.$connect())
+      yield * call(
+        () => client.$connect(),
+      )
 
       return client
     },
     function*(client) {
-      yield * call(client.$disconnect())
+      yield * call(
+        () => client.$disconnect(),
+      )
     },
   ),
 )

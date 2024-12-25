@@ -61,8 +61,8 @@ export namespace conversation{
       tx?: PrismaTransaction,
     ): Operation<readonly number[]> {
       if (!tx) {
-        return yield * this.prismaClient.$callTransaction(tx =>
-          () => this.expireDialogue(participant, expireAt, tx),
+        return yield * this.prismaClient.$callTransaction(
+          tx => this.expireDialogue(participant, expireAt, tx),
         )
       }
 
@@ -75,31 +75,32 @@ export namespace conversation{
       const _expireAt = new Date(expireAt)
       const conversations = where.writable(dialogues)
 
-      yield * pipe([
-        () => tx.dialogue.updateMany({
-          data: { expiredAt: _expireAt },
-          where: { conversation: { in: conversations }, expiredAt: { lt: _expireAt } },
-        }),
-        () => tx.conversation.updateMany({
-          data: { expiredAt: _expireAt },
-          where: { expiredAt: { lt: _expireAt }, id: { in: conversations } },
-        }),
-        () => tx.conversationXParticipant.updateMany({
-          data: { expiredAt: _expireAt },
-          where: {
-            conversation: { in: conversations },
-            expiredAt: { lt: _expireAt },
-            participant,
-          },
-        }),
-      ],
-      readonlyArray.map(
-        cOperation.FromTask.fromTask,
-      ),
-      readonlyArray.append<cOperation.COperation<any>>(
-        () => this.expireRecords(conversations.map(id => ({ expiredAt: _expireAt, id }))),
-      ),
-      cOperation.sequenceArray,
+      yield * pipe(
+        [
+          () => tx.dialogue.updateMany({
+            data: { expiredAt: _expireAt },
+            where: { conversation: { in: conversations }, expiredAt: { lt: _expireAt } },
+          }),
+          () => tx.conversation.updateMany({
+            data: { expiredAt: _expireAt },
+            where: { expiredAt: { lt: _expireAt }, id: { in: conversations } },
+          }),
+          () => tx.conversationXParticipant.updateMany({
+            data: { expiredAt: _expireAt },
+            where: {
+              conversation: { in: conversations },
+              expiredAt: { lt: _expireAt },
+              participant,
+            },
+          }),
+        ],
+        readonlyArray.map(
+          cOperation.FromTask.fromTask,
+        ),
+        readonlyArray.append<cOperation.COperation<any>>(
+          () => this.expireRecords(conversations.map(id => ({ expiredAt: _expireAt, id }))),
+        ),
+        cOperation.sequenceArray,
       )()
 
       return conversations
@@ -108,28 +109,34 @@ export namespace conversation{
     public override *getConversationsRecord(participant: number) {
       const [conversations, dialogues] = yield * all([
         super.getConversationsRecord(participant),
-        call(this.prismaClient.dialogue.findMany({
-          select: { conversation: true, initiator: true, participant: true },
-          where: {
-            OR: [{ initiator: participant }, { participant }],
-            expiredAt: { gt: new Date() },
-          },
-        })),
+        call(
+          () => this.prismaClient.dialogue.findMany({
+            select: { conversation: true, initiator: true, participant: true },
+            where: {
+              OR: [{ initiator: participant }, { participant }],
+              expiredAt: { gt: new Date() },
+            },
+          }),
+        ),
       ])
 
       const dialogueMap = Object.fromEntries(dialogues.map(x => [x.conversation, x]))
 
       return pipe(
         conversations,
-        readonlyArray.filterMap(conversation => pipe(
-          dialogueMap[conversation.conversationId],
-          option.fromNullable,
-          option.map(x => ({
-            ...conversation,
-            initiatorId: x.initiator,
-            participantId: x.participant,
-          })),
-        )),
+        readonlyArray.filterMap(
+          conversation => pipe(
+            dialogueMap[conversation.conversationId],
+            option.fromNullable,
+            option.map(x =>
+              ({
+                ...conversation,
+                initiatorId: x.initiator,
+                participantId: x.participant,
+              }),
+            ),
+          ),
+        ),
       )
     }
 
@@ -157,18 +164,20 @@ export namespace conversation{
 
       const conversation = yield * this.postConversation({ name: '' })
 
-      return yield * this.prismaClient.$callTransaction(tx =>
-        function*(this: DialogueService) {
+      return yield * this.prismaClient.$callTransaction(
+        function*(this: DialogueService, tx: PrismaTransaction) {
           void (yield * spawn(() => this.putParticipants(conversation.id, [initiator, participant], tx)))
 
-          return yield * call(tx.dialogue.create({
-            data: {
-              conversation: conversation.id,
-              expiredAt: conversation.expiredAt,
-              initiator,
-              participant,
-            },
-          }))
+          return yield * call(
+            () => tx.dialogue.create({
+              data: {
+                conversation: conversation.id,
+                expiredAt: conversation.expiredAt,
+                initiator,
+                participant,
+              },
+            }),
+          )
         }.bind(this),
       )
     }
@@ -179,22 +188,26 @@ export namespace conversation{
         .total('milliseconds')
 
       while (true) {
-        yield * call(this.prismaClient.dialogue.deleteMany({
-          where: { expiredAt: { lte: new Date() } },
-        }))
+        yield * call(
+          () => this.prismaClient.dialogue.deleteMany({
+            where: { expiredAt: { lte: new Date() } },
+          }),
+        )
 
         yield * sleep(interval)
       }
     }
 
     private *expireDialogueByEvent(event: Extract<user.Event, { type: 'expire' }>) {
-      yield * this.prismaClient.$callTransaction(tx => pipe(
-        event.users,
-        readonlyArray.map(user =>
-          () => this.expireDialogue(user.id, user.expiredAt, tx),
-        ),
-        cOperation.sequenceArray,
-      ))
+      yield * this.prismaClient.$callTransaction(tx =>
+        pipe(
+          event.users,
+          readonlyArray.map(user =>
+            () => this.expireDialogue(user.id, user.expiredAt, tx),
+          ),
+          cOperation.sequenceArray,
+        )(),
+      )
     }
   }
 }

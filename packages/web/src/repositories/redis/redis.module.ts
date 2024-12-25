@@ -20,12 +20,16 @@ const redisServiceProvider = {
         function*() {
           const client = createClient({ url: env.redis.url })
 
-          yield * call(client.connect())
+          yield * call(
+            () => client.connect(),
+          )
 
           return client
         },
         function*(client) {
-          yield * call(client.quit())
+          yield * call(
+            () => client.quit(),
+          )
         },
       ),
     )

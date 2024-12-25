@@ -19,10 +19,11 @@ export class UserService implements OnModuleInit {
       const event = this.getEvent()
       const forCreation = 'for-creation'
 
-      yield * call(this.redisService.multi()
-        .xGroupCreate(event.key, forCreation, '$', { MKSTREAM: true })
-        .xGroupDestroy(event.key, forCreation)
-        .exec(),
+      yield * call(
+        () => this.redisService.multi()
+          .xGroupCreate(event.key, forCreation, '$', { MKSTREAM: true })
+          .xGroupDestroy(event.key, forCreation)
+          .exec(),
       )
     }.bind(this))
   }

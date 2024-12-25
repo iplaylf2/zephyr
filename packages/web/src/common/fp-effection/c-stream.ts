@@ -151,7 +151,17 @@ export namespace cStream{
 
   export const FromIO: fromIO.FromIO2<URI> = {
     URI,
-    fromIO: fa => Pointed.of(fa()),
+    // eslint-disable-next-line require-yield
+    fromIO: <A, E>(fa: io.IO<A>): CStream<A, E> => function*() {
+      const iterator = [fa()][Symbol.iterator]() as Iterator<A, E>
+
+      return {
+        // eslint-disable-next-line require-yield
+        *next() {
+          return iterator.next()
+        },
+      }
+    },
   }
 
   export const MonadIO: monadIO.MonadIO2<URI> = {

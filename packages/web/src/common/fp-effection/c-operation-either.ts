@@ -64,7 +64,10 @@ export namespace cOperationEither{
 
   export const FromIO: fromIO.FromIO2<URI> = {
     URI,
-    fromIO: fa => Pointed.of(fa()),
+    // eslint-disable-next-line require-yield
+    fromIO: fa => function*() {
+      return either.right(fa())
+    },
   }
 
   export const MonadIO: monadIO.MonadIO2<URI> = {

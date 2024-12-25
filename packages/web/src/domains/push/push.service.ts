@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common'
+import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { call, sleep } from 'effection'
 import { either, identity, number, readonlyArray, task } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
-import { PrismaClient } from '../../repositories/prisma/client.js'
 import { PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { Temporal } from 'temporal-polyfill'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
@@ -34,16 +34,18 @@ export class PushService extends ModuleRaii {
   }
 
   public active(receivers: readonly number[]) {
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: PushService) {
+    return this.prismaClient.$callTransaction(
+      function*(this: PushService, tx: PrismaTransaction) {
         const _receivers = yield * tx.$pushReceiver().forUpdate(receivers)
 
-        yield * call(tx.pushReceiver.updateMany({
-          data: {
-            lastActiveAt: new Date(),
-          },
-          where: { id: { in: where.writable(_receivers) } },
-        }))
+        yield * call(
+          () => tx.pushReceiver.updateMany({
+            data: {
+              lastActiveAt: new Date(),
+            },
+            where: { id: { in: where.writable(_receivers) } },
+          }),
+        )
 
         return _receivers
       }.bind(this),
@@ -51,12 +53,14 @@ export class PushService extends ModuleRaii {
   }
 
   public deleteReceiver(receiver: number) {
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: PushService) {
-        yield * call(tx.pushReceiver.delete({
-          select: {},
-          where: { id: receiver },
-        }))
+    return this.prismaClient.$callTransaction(
+      function*(this: PushService, tx: PrismaTransaction) {
+        yield * call(
+          () => tx.pushReceiver.delete({
+            select: {},
+            where: { id: receiver },
+          }),
+        )
 
         const notification = this.entityPushService.getNotification()
 
@@ -87,15 +91,17 @@ export class PushService extends ModuleRaii {
       cOperation.FromTask.fromTask,
     )()
 
-    return yield * this.prismaClient.$callTransaction(tx =>
-      function*(this: PushService) {
+    return yield * this.prismaClient.$callTransaction(
+      function*(this: PushService, tx: PrismaTransaction) {
         const toDelete = yield * tx
           .$pushSubscription()
           .pushesForScale(receiver, existsPushes.map(x => x.id))
 
-        yield * call(tx.pushSubscription.deleteMany({
-          where: { push: { in: where.writable(toDelete) }, receiver },
-        }))
+        yield * call(
+          () => tx.pushSubscription.deleteMany({
+            where: { push: { in: where.writable(toDelete) }, receiver },
+          }),
+        )
 
         const pushRecord = Object.fromEntries(existsPushes.map(x => [x.id, x.source] as const))
         const deletedSources = toDelete.map(x => pushRecord[x]!)
@@ -119,24 +125,25 @@ export class PushService extends ModuleRaii {
     receivers: readonly number[],
     seconds = this.defaultExpire.total('seconds'),
   ) {
-    return this.prismaClient.$callTransaction(tx =>
-      function*(this: PushService) {
+    return this.prismaClient.$callTransaction(
+      function*(this: PushService, tx: PrismaTransaction) {
         const interval = `${seconds.toFixed(0)} seconds`
         const now = new Date()
 
         const _receivers = yield * pipe(
           receivers,
           readonlyArray.map(
-            receiver => () => tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
-              update "push-receivers" r
-              set
-                "expiredAt" = r."lastActiveAt" + ${interval}::interval
-              where
-                ${now} < r."expiredAt" and
-                r."expiredAt" < r."lastActiveAt" + ${interval}::interval and
-                r.id = ${receiver}
-              returning
-                r."expiredAt", r.id`,
+            receiver => () =>
+              tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
+                update "push-receivers" r
+                set
+                  "expiredAt" = r."lastActiveAt" + ${interval}::interval
+                where
+                  ${now} < r."expiredAt" and
+                  r."expiredAt" < r."lastActiveAt" + ${interval}::interval and
+                  r.id = ${receiver}
+                returning
+                  r."expiredAt", r.id`,
           ),
           task.sequenceArray,
           cOperation.FromTask.fromTask,
@@ -249,8 +256,8 @@ export class PushService extends ModuleRaii {
       cOperation.sequenceArray,
     )()
 
-    return yield * this.prismaClient.$callTransaction(tx =>
-      function*(this: PushService) {
+    return yield * this.prismaClient.$callTransaction(
+      function*(this: PushService, tx: PrismaTransaction) {
         const pushesId = existsPushes.map(x => x.id)
 
         const newSubscriptions = yield * pipe(
@@ -263,13 +270,15 @@ export class PushService extends ModuleRaii {
 
         const now = new Date()
 
-        yield * call(tx.pushSubscription.createMany({
-          data: newSubscriptions.map(push => ({
-            createdAt: now,
-            push,
-            receiver,
-          })),
-        }))
+        yield * call(
+          () => tx.pushSubscription.createMany({
+            data: newSubscriptions.map(push => ({
+              createdAt: now,
+              push,
+              receiver,
+            })),
+          }),
+        )
 
         const pushRecord = Object.fromEntries(existsPushes.map(x => [x.id, x.source] as const))
         const newSources = newSubscriptions.map(x => pushRecord[x]!)
@@ -290,22 +299,26 @@ export class PushService extends ModuleRaii {
     const createdAt = new Date(now.epochMilliseconds)
     const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
-    return call(this.prismaClient.pushReceiver.create({
-      data: {
-        claimer,
-        createdAt,
-        expiredAt,
-        lastActiveAt: createdAt,
-      },
-      select: { id: true, token: true },
-    }))
+    return call(
+      () => this.prismaClient.pushReceiver.create({
+        data: {
+          claimer,
+          createdAt,
+          expiredAt,
+          lastActiveAt: createdAt,
+        },
+        select: { id: true, token: true },
+      }),
+    )
   }
 
   public *putClaimer(receiver: number, claimer: number) {
-    const _receiver = yield * call(this.prismaClient.pushReceiver.findUnique({
-      select: { claimer: true },
-      where: { expiredAt: { gt: new Date() }, id: receiver },
-    }))
+    const _receiver = yield * call(
+      () => this.prismaClient.pushReceiver.findUnique({
+        select: { claimer: true },
+        where: { expiredAt: { gt: new Date() }, id: receiver },
+      }),
+    )
 
     if (null === _receiver) {
       return false
@@ -322,28 +335,34 @@ export class PushService extends ModuleRaii {
       }
     }
 
-    yield * call(this.prismaClient.pushReceiver.update({
-      data: { claimer, lastActiveAt: new Date() },
-      where: { OR: [{ claimer }, { claimer: null }], id: receiver },
-    }))
+    yield * call(
+      () => this.prismaClient.pushReceiver.update({
+        data: { claimer, lastActiveAt: new Date() },
+        where: { OR: [{ claimer }, { claimer: null }], id: receiver },
+      }),
+    )
 
     return true
   }
 
   public *putReceiver(claimer: number) {
-    const receiver = yield * call(this.prismaClient.pushReceiver.findUnique({
-      select: { expiredAt: true, id: true, token: true },
-      where: { claimer },
-    }))
+    const receiver = yield * call(
+      () => this.prismaClient.pushReceiver.findUnique({
+        select: { expiredAt: true, id: true, token: true },
+        where: { claimer },
+      }),
+    )
 
     if (receiver) {
       if (new Date() < receiver.expiredAt) {
         return zPlus(receiverSchema).parse(receiver)
       }
 
-      yield * call(this.prismaClient.pushReceiver.delete({
-        where: { token: receiver.token },
-      }))
+      yield * call(
+        () => this.prismaClient.pushReceiver.delete({
+          where: { token: receiver.token },
+        }),
+      )
     }
 
     return yield * this.postReceiver(claimer)
@@ -355,9 +374,11 @@ export class PushService extends ModuleRaii {
       .total('milliseconds')
 
     while (true) {
-      yield * call(this.prismaClient.push.deleteMany({
-        where: { expiredAt: { lte: new Date() } },
-      }))
+      yield * call(
+        () => this.prismaClient.push.deleteMany({
+          where: { expiredAt: { lte: new Date() } },
+        }),
+      )
 
       yield * sleep(interval)
     }
@@ -369,9 +390,11 @@ export class PushService extends ModuleRaii {
       .total('milliseconds')
 
     while (true) {
-      yield * call(this.prismaClient.pushReceiver.deleteMany({
-        where: { expiredAt: { lte: new Date() } },
-      }))
+      yield * call(
+        () => this.prismaClient.pushReceiver.deleteMany({
+          where: { expiredAt: { lte: new Date() } },
+        }),
+      )
 
       yield * sleep(interval)
     }

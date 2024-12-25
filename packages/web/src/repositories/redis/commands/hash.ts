@@ -16,7 +16,9 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   }
 
   public del(fields: RedisCommandArgument[]) {
-    return call(this.client.hDel(this.key, fields))
+    return call(
+      () => this.client.hDel(this.key, fields),
+    )
   }
 
   public encodeFully(hash: Readonly<Partial<T>>) {
@@ -30,7 +32,9 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   }
 
   public *get<K extends string & keyof T>(field: K): Operation<option.Option<T[K]>> {
-    const value = yield * call(this.client.hGet(this.key, field))
+    const value = yield * call(
+      () => this.client.hGet(this.key, field),
+    )
 
     return pipe(
       value,
@@ -40,20 +44,26 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   }
 
   public *getAll(): Operation<Readonly<Partial<T>> | null> {
-    const value = yield * call(this.client.hGetAll(this.key))
+    const value = yield * call(
+      () => this.client.hGetAll(this.key),
+    )
 
     return readonlyRecord.isEmpty(value) ? null : this.decodeFully(value)
   }
 
   public set(hash: Readonly<Partial<T>>) {
-    return call(this.client.hSet(
-      this.key,
-      this.encodeFully(hash),
-    ))
+    return call(
+      () => this.client.hSet(
+        this.key,
+        this.encodeFully(hash),
+      ),
+    )
   }
 
   public setNx<K extends string & keyof T>(key: K, value: T[K]) {
-    return call(this.client.hSetNX(this.key, key, this.encode(value)))
+    return call(
+      () => this.client.hSetNX(this.key, key, this.encode(value)),
+    )
   }
 
   public abstract decode(x: RedisCommandArgument): T[string]
