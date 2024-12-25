@@ -60,8 +60,8 @@ export class UserController {
   @RequirePassport()
   @Patch('info')
   public async [`@Patch('info')`](@Passport.param passport: Passport, @Body() info: user.InfoDto) {
-    await globalScope.run(() =>
-      this.userService.patch(passport.id, info),
+    await globalScope.run(
+      () => this.userService.patch(passport.id, info),
     )
   }
 

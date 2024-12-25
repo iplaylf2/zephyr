@@ -39,8 +39,8 @@ export class TokenController {
         ),
         ioOption.fromOption,
         ioOption.chainIOK(identity.of),
-        ioOption.getOrElse<Observable<push.Message>>(() =>
-          () => EMPTY,
+        ioOption.getOrElse<Observable<push.Message>>(
+          () => () => EMPTY,
         ),
         cOperation.FromIO.fromIO,
       )),

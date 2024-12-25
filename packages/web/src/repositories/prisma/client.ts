@@ -14,8 +14,8 @@ import { pushReceiver } from './extension/client/push-receiver.js'
 import { pushSubscription } from './extension/client/push-subscription.js'
 import { user } from './extension/client/user.js'
 
-const useFactory = (resourceManagerService: ResourceManagerService) => globalScope.run(() =>
-  resourceManagerService.initialize(
+const useFactory = (resourceManagerService: ResourceManagerService) => globalScope.run(
+  () => resourceManagerService.initialize(
     function*() {
       const client = new RawClient({ datasourceUrl: env.prisma.datasourceUrl })
         .$extends(effection)

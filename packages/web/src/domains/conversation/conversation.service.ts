@@ -287,7 +287,8 @@ export abstract class ConversationService extends ModuleRaii {
           : option.some({
               conversationId: conversation,
               lastMessageId: record.lastEntry?.id ?? null,
-            }),
+            },
+            ),
       ),
     )
   }
@@ -498,10 +499,9 @@ export abstract class ConversationService extends ModuleRaii {
 
     while (true) {
       yield * call(
-        () =>
-          this.prismaClient.conversation.deleteMany({
-            where: { expiredAt: { lte: new Date() }, type: this.type },
-          }),
+        () => this.prismaClient.conversation.deleteMany({
+          where: { expiredAt: { lte: new Date() }, type: this.type },
+        }),
       )
 
       yield * sleep(interval)
@@ -530,8 +530,8 @@ export abstract class ConversationService extends ModuleRaii {
 
       yield * pipe(
         Array.from(group),
-        readonlyArray.map(([conversation, x]) => () =>
-          this.deleteParticipants(conversation, x.map(x => x.participant)),
+        readonlyArray.map(([conversation, x]) =>
+          () => this.deleteParticipants(conversation, x.map(x => x.participant)),
         ),
         cOperation.sequenceArray,
       )()
@@ -569,8 +569,8 @@ export abstract class ConversationService extends ModuleRaii {
 
     yield * pipe(
       Array.from(group),
-      readonlyArray.map(([conversation, x]) => () =>
-        this.deleteParticipants(conversation, x.map(x => x.participant)),
+      readonlyArray.map(
+        ([conversation, x]) => () => this.deleteParticipants(conversation, x.map(x => x.participant)),
       ),
       cOperation.sequenceArray,
     )()

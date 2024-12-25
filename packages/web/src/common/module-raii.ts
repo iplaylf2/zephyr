@@ -12,8 +12,8 @@ export class ModuleRaii implements OnModuleInit, OnModuleDestroy {
   }
 
   public onModuleInit() {
-    this.moduleLife = globalScope.run(() =>
-      all(this.initializeCallbacks.map(cb => cb())),
+    this.moduleLife = globalScope.run(
+      () => all(this.initializeCallbacks.map(cb => cb())),
     )
   }
 }

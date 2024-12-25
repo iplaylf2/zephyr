@@ -19,15 +19,15 @@ export class DialoguesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('data')
   public async [`@Delete('data')`](@Body() body: dialogues.DeleteDataRecordDto) {
-    await globalScope.run(() =>
-      this.conversationService.deleteData(this.passport.id, body),
+    await globalScope.run(
+      () => this.conversationService.deleteData(this.passport.id, body),
     )
   }
 
   @Get('data')
   public [`@Get('data')`](): Promise<dialogues.DataRecordDto> {
-    return globalScope.run(() =>
-      this.conversationService.getData(this.passport.id),
+    return globalScope.run(
+      () => this.conversationService.getData(this.passport.id),
     )
   }
 
@@ -37,16 +37,16 @@ export class DialoguesController {
   })
   @Get('info')
   public [`@Get('info')`](): Promise<readonly dialogues.DialogueInfoDto[]> {
-    return globalScope.run(() =>
-      this.conversationService.getConversationsRecord(this.passport.id),
+    return globalScope.run(
+      () => this.conversationService.getConversationsRecord(this.passport.id),
     )
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Patch('data')
   public async [`@Patch('data')`](@Body() dataRecord: dialogues.DataRecordDto) {
-    await globalScope.run(() =>
-      this.conversationService.patchData(this.passport.id, dataRecord),
+    await globalScope.run(
+      () => this.conversationService.patchData(this.passport.id, dataRecord),
     )
   }
 }

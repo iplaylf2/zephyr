@@ -38,8 +38,8 @@ export class IdController {
   ): Promise<readonly id.MessageDto[]> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() =>
-        () => this.conversationService.rangeMessages(this.id, query.start ?? '-', query.end ?? '+'),
+      cOperation.chain(
+        () => () => this.conversationService.rangeMessages(this.id, query.start ?? '-', query.end ?? '+'),
       ),
     ))
   }
@@ -57,8 +57,8 @@ export class IdController {
   ): Promise<string | null> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() =>
-        () => this.conversationService.userPost(this.id, this.passport.id, body),
+      cOperation.chain(
+        () => () => this.conversationService.userPost(this.id, this.passport.id, body),
       ),
     ))
   }

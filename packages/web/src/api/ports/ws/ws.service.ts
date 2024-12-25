@@ -42,8 +42,8 @@ export class WsService extends ModuleRaii {
         return
       }
 
-      void globalScope.run(() =>
-        this.tryUpgrading(websocketServer, request, socket, head, token),
+      void globalScope.run(
+        () => this.tryUpgrading(websocketServer, request, socket, head, token),
       )
     }
 

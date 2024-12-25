@@ -33,8 +33,8 @@ export class MemberController {
   public [`@Delete()`](): Promise<boolean> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() =>
-        () => this.conversationService.deleteParticipants(this.group, [this.passport.id]),
+      cOperation.chain(
+        () => () => this.conversationService.deleteParticipants(this.group, [this.passport.id]),
       ),
       cOperation.map(x => 0 < x.length),
     ))
@@ -48,8 +48,8 @@ export class MemberController {
   public [`@Put()`](): Promise<boolean> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() =>
-        () => this.conversationService.putParticipants(this.group, [this.passport.id]),
+      cOperation.chain(
+        () => () => this.conversationService.putParticipants(this.group, [this.passport.id]),
       ),
       cOperation.map(x => 0 < x.length),
     ))

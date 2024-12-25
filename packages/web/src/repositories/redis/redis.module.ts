@@ -15,8 +15,8 @@ const redisServiceProvider = {
   inject: [ResourceManagerService],
   provide: RedisService,
   useFactory(resourceManagerService: ResourceManagerService) {
-    return globalScope.run(() =>
-      resourceManagerService.initialize(
+    return globalScope.run(
+      () => resourceManagerService.initialize(
         function*() {
           const client = createClient({ url: env.redis.url })
 

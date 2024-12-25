@@ -33,7 +33,9 @@ export class IdController {
   public [`@Get('members')`](): Promise<readonly number[]> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() => () => this.conversationService.getParticipants(this.id)),
+      cOperation.chain(
+        () => () => this.conversationService.getParticipants(this.id),
+      ),
     ))
   }
 
@@ -45,8 +47,13 @@ export class IdController {
   public [`@Get('messages')`](@Query() query: id.MessageQueryDto): Promise<readonly id.MessageDto[]> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() =>
-        () => this.conversationService.rangeMessages(this.id, query.start ?? '-', query.end ?? '+')),
+      cOperation.chain(
+        () => () => this.conversationService.rangeMessages(
+          this.id,
+          query.start ?? '-',
+          query.end ?? '+',
+        ),
+      ),
     ))
   }
 
@@ -65,8 +72,9 @@ export class IdController {
   ): Promise<string | null> {
     return globalScope.run(pipe(
       () => this.check(),
-      cOperation.chain(() =>
-        () => this.conversationService.userPost(this.id, passport.id, body)),
+      cOperation.chain(
+        () => () => this.conversationService.userPost(this.id, passport.id, body),
+      ),
     ))
   }
 

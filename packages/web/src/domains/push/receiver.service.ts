@@ -35,10 +35,12 @@ export class ReceiverService extends ModuleRaii {
       io.map(option.fromNullable),
       ioOption.getOrElse(flow(
         () => io.of(new Receiver()),
-        io.tap(x => () => {
-          this.receiverMap.set(id, x)
-          this.receiverSignal.send({ receiver: id, type: 'put' })
-        }),
+        io.tap(
+          x => () => {
+            this.receiverMap.set(id, x)
+            this.receiverSignal.send({ receiver: id, type: 'put' })
+          },
+        ),
       )),
     )()
 
@@ -268,12 +270,14 @@ class Receiver {
         ioOption.map(x => x.pipe(
           map(content => ({ content, type: 'message' } as const)),
         )),
-        ioOption.chainIOK(x => () => {
-          sourceMap.set(source, x)
-          this.sourceSet.add(x)
+        ioOption.chainIOK(
+          x => () => {
+            sourceMap.set(source, x)
+            this.sourceSet.add(x)
 
-          return source
-        }),
+            return source
+          },
+        ),
       )),
       io.sequenceArray,
       io.map(
@@ -307,8 +311,8 @@ class Receiver {
       readonlyArray.map(source => pipe(
         () => sourceMap.get(source),
         io.map(option.fromNullable),
-        ioOption.chainIOK(x =>
-          () => {
+        ioOption.chainIOK(
+          x => () => {
             sourceMap.delete(source)
             this.sourceSet.delete(x)
 

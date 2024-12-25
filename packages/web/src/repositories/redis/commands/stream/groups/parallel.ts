@@ -54,14 +54,20 @@ export namespace group{
         }
       }.bind(this)))
 
-      const newMessages = stream.generate(() =>
-        blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: 1 }),
+      const newMessages = stream.generate(
+        () => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: 1 }),
       )
       const idleMessages = stream.generate(pipe(
         () => sleep(minIdleTime / 2),
-        cOperation.chain(() =>
-          cOperation.ChainRec.chainRec(null, () => pipe(
-            () => this.stream.autoClaim(this.group, consumer, minIdleTime, '0', { COUNT: claimIdleLimit }),
+        cOperation.chain(
+          () => cOperation.ChainRec.chainRec(null, () => pipe(
+            () => this.stream.autoClaim(
+              this.group,
+              consumer,
+              minIdleTime,
+              '0',
+              { COUNT: claimIdleLimit },
+            ),
             cOperation.map((x) => {
               if (0 < x.messages.length) {
                 return either.right(x.messages)

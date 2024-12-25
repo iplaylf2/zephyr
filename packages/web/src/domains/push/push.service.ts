@@ -133,17 +133,16 @@ export class PushService extends ModuleRaii {
         const _receivers = yield * pipe(
           receivers,
           readonlyArray.map(
-            receiver => () =>
-              tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
-                update "push-receivers" r
-                set
-                  "expiredAt" = r."lastActiveAt" + ${interval}::interval
-                where
-                  ${now} < r."expiredAt" and
-                  r."expiredAt" < r."lastActiveAt" + ${interval}::interval and
-                  r.id = ${receiver}
-                returning
-                  r."expiredAt", r.id`,
+            receiver => () => tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
+              update "push-receivers" r
+              set
+                "expiredAt" = r."lastActiveAt" + ${interval}::interval
+              where
+                ${now} < r."expiredAt" and
+                r."expiredAt" < r."lastActiveAt" + ${interval}::interval and
+                r.id = ${receiver}
+              returning
+                r."expiredAt", r.id`,
           ),
           task.sequenceArray,
           cOperation.FromTask.fromTask,
