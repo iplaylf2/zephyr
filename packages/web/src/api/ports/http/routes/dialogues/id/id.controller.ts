@@ -4,9 +4,9 @@ import { Passport } from '../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../decorators/require-passport.decorator.js'
 import { cOperation } from '../../../../../../common/fp-effection/c-operation.js'
 import { conversation } from '../../../../../../domains/conversation/dialogue/dialogue.service.js'
-import { globalScope } from '../../../../../../kits/effection/global-scope.js'
 import { id } from './id.dto.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { unsafeGlobalScopeRun } from '../../../../../../kits/effection/global-scope.js'
 import { urlPattern } from '../../../kits/url-pattern.js'
 
 export const idPath = urlPattern.path('id', Number)
@@ -36,7 +36,7 @@ export class IdController {
   public [`@Get('messages')`](
     @Query() query: id.MessageQueryDto,
   ): Promise<readonly id.MessageDto[]> {
-    return globalScope.run(pipe(
+    return unsafeGlobalScopeRun(pipe(
       () => this.check(),
       cOperation.chain(
         () => () => this.conversationService.rangeMessages(this.id, query.start ?? '-', query.end ?? '+'),
@@ -55,7 +55,7 @@ export class IdController {
   public [`@Post('message')`](
     @Body() body: id.MessageBodyDto,
   ): Promise<string | null> {
-    return globalScope.run(pipe(
+    return unsafeGlobalScopeRun(pipe(
       () => this.check(),
       cOperation.chain(
         () => () => this.conversationService.userPost(this.id, this.passport.id, body),

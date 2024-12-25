@@ -4,9 +4,9 @@ import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
 import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
 import { conversation } from '../../../../../../../domains/conversation/group/group.service.js'
-import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 import { path } from '../../../../pattern.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
 
 @ApiParam({
   name: path.group.name,
@@ -31,7 +31,7 @@ export class MemberController {
   })
   @Delete()
   public [`@Delete()`](): Promise<boolean> {
-    return globalScope.run(pipe(
+    return unsafeGlobalScopeRun(pipe(
       () => this.check(),
       cOperation.chain(
         () => () => this.conversationService.deleteParticipants(this.group, [this.passport.id]),
@@ -46,7 +46,7 @@ export class MemberController {
   })
   @Put()
   public [`@Put()`](): Promise<boolean> {
-    return globalScope.run(pipe(
+    return unsafeGlobalScopeRun(pipe(
       () => this.check(),
       cOperation.chain(
         () => () => this.conversationService.putParticipants(this.group, [this.passport.id]),

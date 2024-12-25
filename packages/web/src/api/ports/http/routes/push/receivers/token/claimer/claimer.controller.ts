@@ -3,8 +3,8 @@ import { Controller, Inject, NotFoundException, Put } from '@nestjs/common'
 import { Passport } from '../../../../../auth/auth.guard.js'
 import { PushService } from '../../../../../../../../domains/push/push.service.js'
 import { RequirePassport } from '../../../../../decorators/require-passport.decorator.js'
-import { globalScope } from '../../../../../../../../kits/effection/global-scope.js'
 import { path } from '../../../../../pattern.js'
+import { unsafeGlobalScopeRun } from '../../../../../../../../kits/effection/global-scope.js'
 
 @ApiParam({
   name: path.token.name,
@@ -25,15 +25,17 @@ export class ClaimerController {
 
   @Put()
   public [`@Put()`]() {
-    return globalScope.run(function*(this: ClaimerController) {
-      const receiver = yield * this.pushService.getReceiver(this.token)
+    return unsafeGlobalScopeRun(
+      function*(this: ClaimerController) {
+        const receiver = yield * this.pushService.getReceiver(this.token)
 
-      if (null === receiver) {
-        throw new NotFoundException()
-      }
+        if (null === receiver) {
+          throw new NotFoundException()
+        }
 
-      yield * this.pushService.active([receiver])
-      yield * this.pushService.putClaimer(receiver, this.passport.id)
-    }.bind(this))
+        yield * this.pushService.active([receiver])
+        yield * this.pushService.putClaimer(receiver, this.passport.id)
+      }.bind(this),
+    )
   }
 }

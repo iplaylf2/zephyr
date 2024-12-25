@@ -5,8 +5,8 @@ import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
 import { conversation } from '../../../../../domains/conversation/dialogue/dialogue.service.js'
 import { dialogue } from './dialogue.dto.js'
-import { globalScope } from '../../../../../kits/effection/global-scope.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { unsafeGlobalScopeRun } from '../../../../../kits/effection/global-scope.js'
 
 @ApiTags('dialogue')
 @RequirePassport()
@@ -24,7 +24,7 @@ export class DialogueController {
   })
   @Put()
   public [`@Put()`](@Body() creation: dialogue.CreationDto): Promise<number> {
-    return globalScope.run(pipe(
+    return unsafeGlobalScopeRun(pipe(
       () => this.conversationService.putDialogue(this.passport.id, creation.participant),
       cOperation.map(x => x.conversation),
     ))

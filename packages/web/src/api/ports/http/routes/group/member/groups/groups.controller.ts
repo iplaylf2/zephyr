@@ -3,8 +3,8 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Patch } fr
 import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
 import { conversation } from '../../../../../../../domains/conversation/group/group.service.js'
-import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 import { groups } from './groups.dto.js'
+import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
 
 @ApiTags('group/member/groups')
 @RequirePassport()
@@ -19,7 +19,7 @@ export class GroupsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('data')
   public async [`@Delete('data')`](@Body() body: groups.DeleteDataRecordDto) {
-    await globalScope.run(
+    await unsafeGlobalScopeRun(
       () => this.conversationService.deleteData(this.passport.id, body),
     )
   }
@@ -29,7 +29,7 @@ export class GroupsController {
   })
   @Get('data')
   public [`@Get('data')`](): Promise<groups.DataRecordDto> {
-    return globalScope.run(
+    return unsafeGlobalScopeRun(
       () => this.conversationService.getData(this.passport.id),
     )
   }
@@ -40,7 +40,7 @@ export class GroupsController {
   })
   @Get('info')
   public [`@Get('info')`](): Promise<readonly groups.GroupInfoDto[]> {
-    return globalScope.run(
+    return unsafeGlobalScopeRun(
       () => this.conversationService.getConversationsRecord(this.passport.id),
     )
   }
@@ -48,7 +48,7 @@ export class GroupsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Patch('data')
   public async [`@Patch('data')`](@Body() dataRecord: groups.DataRecordDto) {
-    await globalScope.run(
+    await unsafeGlobalScopeRun(
       () => this.conversationService.patchData(this.passport.id, dataRecord),
     )
   }

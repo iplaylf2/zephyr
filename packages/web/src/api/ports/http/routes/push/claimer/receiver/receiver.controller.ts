@@ -4,8 +4,8 @@ import { Passport } from '../../../../auth/auth.guard.js'
 import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
 import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
-import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
 
 @ApiTags('push/claimer/receiver')
 @RequirePassport()
@@ -20,7 +20,7 @@ export class ReceiverController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete()
   public [`@Delete()`](): Promise<void> {
-    return globalScope.run(function*(this: ReceiverController) {
+    return unsafeGlobalScopeRun(function*(this: ReceiverController) {
       const receiver = yield * this.pushService.getClaimerReceiver(this.passport.id)
 
       if (null === receiver) {
@@ -39,7 +39,7 @@ export class ReceiverController {
   })
   @Get('token')
   public [`@Get('token')`](): Promise<string | null> {
-    return globalScope.run(function*(this: ReceiverController) {
+    return unsafeGlobalScopeRun(function*(this: ReceiverController) {
       const token = yield * this.pushService.getClaimerReceiverToken(this.passport.id)
 
       if (null === token) {
@@ -63,7 +63,7 @@ export class ReceiverController {
   })
   @Put()
   public [`@Put()`](): Promise<string> {
-    return globalScope.run(pipe(
+    return unsafeGlobalScopeRun(pipe(
       () => this.pushService.putReceiver(this.passport.id),
       cOperation.map(x => x.token),
     ))

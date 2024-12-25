@@ -3,7 +3,7 @@ import { CanActivate, ExecutionContext, FactoryProvider, Inject, Injectable, Int
 import { AuthService } from './auth.service.js'
 import { REQUEST } from '@nestjs/core'
 import { Request } from 'express'
-import { globalScope } from '../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '../../../../kits/effection/global-scope.js'
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -11,7 +11,7 @@ export class AuthGuard implements CanActivate {
   private readonly authService!: AuthService
 
   public canActivate(context: ExecutionContext) {
-    return globalScope.run(function*(this: AuthGuard) {
+    return unsafeGlobalScopeRun(function*(this: AuthGuard) {
       const request = context.switchToHttp().getRequest<Request>()
       const token = this.extractToken(request)
 

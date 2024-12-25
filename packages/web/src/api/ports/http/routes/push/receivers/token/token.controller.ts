@@ -6,8 +6,8 @@ import { identity, ioOption, option } from 'fp-ts'
 import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { ReceiverService } from '../../../../../../../domains/push/receiver.service.js'
 import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
-import { globalScope } from '../../../../../../../kits/effection/global-scope.js'
 import { push } from '../../../../../../../models/push.js'
+import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
 import { urlPattern } from '../../../../kits/url-pattern.js'
 
 export const tokenPath = urlPattern.path('token')
@@ -30,21 +30,22 @@ export class TokenController {
 
   @Sse()
   public [`@Sse()`](): Observable<string> {
-    return from(globalScope.run(pipe(
-      () => this.pushService.getReceiver(this.token),
-      cOperation.chain(flow(
-        option.fromNullable,
-        option.map(
-          x => () => this.receiverService.put(x).shared,
-        ),
-        ioOption.fromOption,
-        ioOption.chainIOK(identity.of),
-        ioOption.getOrElse<Observable<push.Message>>(
-          () => () => EMPTY,
-        ),
-        cOperation.FromIO.fromIO,
-      )),
-    ))).pipe(
+    return from(
+      unsafeGlobalScopeRun(pipe(
+        () => this.pushService.getReceiver(this.token),
+        cOperation.chain(flow(
+          option.fromNullable,
+          option.map(
+            x => () => this.receiverService.put(x).shared,
+          ),
+          ioOption.fromOption,
+          ioOption.chainIOK(identity.of),
+          ioOption.getOrElse<Observable<push.Message>>(
+            () => () => EMPTY,
+          ),
+          cOperation.FromIO.fromIO,
+        )),
+      ))).pipe(
       concatMap(x => isObservable(x) ? x : EMPTY),
       map(x => JSON.stringify(x)),
     )

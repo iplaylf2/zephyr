@@ -285,9 +285,9 @@ export abstract class ConversationService extends ModuleRaii {
         ([record, conversation]) => null === record
           ? option.none
           : option.some({
-            conversationId: conversation,
-            lastMessageId: record.lastEntry?.id ?? null,
-          }),
+              conversationId: conversation,
+              lastMessageId: record.lastEntry?.id ?? null,
+            }),
       ),
     )
   }
