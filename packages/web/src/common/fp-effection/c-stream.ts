@@ -15,22 +15,21 @@ export namespace cStream{
 
   export const Functor: functor.Functor2<URI> = {
     URI,
-    map: (fa, f) =>
-      function*() {
-        const subscription = yield * fa()
+    map: (fa, f) => function*() {
+      const subscription = yield * fa()
 
-        return {
-          *next() {
-            const aResult = yield * subscription.next()
+      return {
+        *next() {
+          const aResult = yield * subscription.next()
 
-            if (true === aResult.done) {
-              return aResult
-            }
+          if (true === aResult.done) {
+            return aResult
+          }
 
-            return { value: f(aResult.value) }
-          },
-        }
-      },
+          return { value: f(aResult.value) }
+        },
+      }
+    },
   }
 
   export const Pointed: pointed.Pointed2<URI> = {
