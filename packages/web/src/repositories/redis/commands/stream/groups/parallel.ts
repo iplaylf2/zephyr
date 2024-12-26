@@ -1,4 +1,4 @@
-import { Operation, each, ensure, sleep, spawn } from 'effection'
+import { Operation, call, each, ensure, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../common.js'
@@ -28,75 +28,79 @@ export namespace group{
       return this.stream.key
     }
 
-    public *read(consumer: RedisCommandArgument, f: (x: StreamMessage<T>) => Operation<any>) {
-      let processed: string[] = []
+    public read(consumer: RedisCommandArgument, f: (x: StreamMessage<T>) => Operation<any>) {
+      return call(
+        function*(this: Parallel<T>) {
+          let processed: string[] = []
 
-      yield * this.stream.groupCreate(this.group, '0', { MKSTREAM: true })
-      yield * ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
+          yield * this.stream.groupCreate(this.group, '0', { MKSTREAM: true })
+          yield * ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
 
-      const blockStream = yield * this.stream.isolate()
+          const blockStream = yield * this.stream.isolate()
 
-      const { ackInternal, claimIdleLimit, minIdleTime } = this.config.message
+          const { ackInternal, claimIdleLimit, minIdleTime } = this.config.message
 
-      void (yield * spawn(function*(this: Parallel<T>) {
-        while (true) {
-          yield * sleep(ackInternal)
+          void (yield * spawn(function*(this: Parallel<T>) {
+            while (true) {
+              yield * sleep(ackInternal)
 
-          if (0 === processed.length) {
-            continue
-          }
+              if (0 === processed.length) {
+                continue
+              }
 
-          const _processed = processed.slice()
+              const _processed = processed.slice()
 
-          processed = []
+              processed = []
 
-          yield * this.ack(_processed)
-        }
-      }.bind(this)))
+              yield * this.ack(_processed)
+            }
+          }.bind(this)))
 
-      const newMessages = stream.generate(
-        () => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: 1 }),
-      )
-      const idleMessages = stream.generate(pipe(
-        () => sleep(minIdleTime / 2),
-        cOperation.chain(
-          () => cOperation.ChainRec.chainRec(null, () => pipe(
-            () => this.stream.autoClaim(
-              this.group,
-              consumer,
-              minIdleTime,
-              '0',
-              { COUNT: claimIdleLimit },
+          const newMessages = stream.generate(
+            () => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: 1 }),
+          )
+          const idleMessages = stream.generate(pipe(
+            () => sleep(minIdleTime / 2),
+            cOperation.chain(
+              () => cOperation.ChainRec.chainRec(null, () => pipe(
+                () => this.stream.autoClaim(
+                  this.group,
+                  consumer,
+                  minIdleTime,
+                  '0',
+                  { COUNT: claimIdleLimit },
+                ),
+                cOperation.map((x) => {
+                  if (0 < x.messages.length) {
+                    return either.right(x.messages)
+                  }
+
+                  if ('0-0' === x.nextId) {
+                    return either.right([])
+                  }
+
+                  return either.left(null)
+                }),
+              )),
             ),
-            cOperation.map((x) => {
-              if (0 < x.messages.length) {
-                return either.right(x.messages)
-              }
+          ))
 
-              if ('0-0' === x.nextId) {
-                return either.right([])
-              }
+          const messages = cStream
+          // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+            .getMonoidPar<void, StreamMessage<T>>()
+            .concat(newMessages, idleMessages)
 
-              return either.left(null)
-            }),
-          )),
-        ),
-      ))
+          for (const message of yield * each(messages())) {
+            void (yield * spawn(function*() {
+              yield * f(message)
 
-      const messages = cStream
-        // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-        .getMonoidPar<void, StreamMessage<T>>()
-        .concat(newMessages, idleMessages)
+              processed.push(message.id)
+            }))
 
-      for (const message of yield * each(messages())) {
-        void (yield * spawn(function*() {
-          yield * f(message)
-
-          processed.push(message.id)
-        }))
-
-        yield * each.next()
-      }
+            yield * each.next()
+          }
+        }.bind(this),
+      )
     }
 
     private ack(id: readonly RedisCommandArgument[]) {

@@ -139,58 +139,60 @@ export class ReceiverService extends ModuleRaii {
   }
 
   private raiiReceiver(receiver: number): Operation<void> {
-    return call(function*(this: ReceiverService) {
-      const notification = this.entityPushService.getNotification()
+    return call(
+      function*(this: ReceiverService) {
+        const notification = this.entityPushService.getNotification()
 
-      const client = yield * notification.isolate()
+        const client = yield * notification.isolate()
 
-      const channel = notification.getChannel(receiver)
+        const channel = notification.getChannel(receiver)
 
-      const scope = yield * useScope()
+        const scope = yield * useScope()
 
-      yield * client.subscribe(channel, (message) => {
-        switch (message.type) {
-          case 'delete':
-            void scope.run(() => this.onReceiverDelete(receiver))
-            break
-          case 'subscribe':
-            void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
-            break
-          case 'unsubscribe':
-            void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
-            break
-        }
-      })
+        yield * client.subscribe(channel, (message) => {
+          switch (message.type) {
+            case 'delete':
+              void scope.run(() => this.onReceiverDelete(receiver))
+              break
+            case 'subscribe':
+              void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
+              break
+            case 'unsubscribe':
+              void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
+              break
+          }
+        })
 
-      yield * this.prismaClient.$callTransaction(
-        function* (this: ReceiverService, tx: PrismaTransaction) {
-          const pushes = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiver)
+        yield * this.prismaClient.$callTransaction(
+          function* (this: ReceiverService, tx: PrismaTransaction) {
+            const pushes = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiver)
 
-          const pushRecord = yield * pipe(
-            () => tx.push.findMany({
-              select: { source: true, type: true },
-              where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushes) } },
-            }),
-            cOperation.FromTask.fromTask,
-            cOperation.map(flow(
-              readonlyNonEmptyArray.groupBy(x => x.type),
-              readonlyRecord.map(
-                readonlyArray.map(x => x.source),
+            const pushRecord = yield * pipe(
+              () => tx.push.findMany({
+                select: { source: true, type: true },
+                where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushes) } },
+              }),
+              cOperation.FromTask.fromTask,
+              cOperation.map(flow(
+                readonlyNonEmptyArray.groupBy(x => x.type),
+                readonlyRecord.map(
+                  readonlyArray.map(x => x.source),
+                ),
+              )),
+            )()
+
+            yield * pipe(
+              Object.entries(pushRecord),
+              readonlyArray.map(([type, sources]) =>
+                () => this.subscribe(receiver, type, sources, tx),
               ),
-            )),
-          )()
+              cOperation.sequenceArray,
+            )()
+          }.bind(this))
 
-          yield * pipe(
-            Object.entries(pushRecord),
-            readonlyArray.map(([type, sources]) =>
-              () => this.subscribe(receiver, type, sources, tx),
-            ),
-            cOperation.sequenceArray,
-          )()
-        }.bind(this))
-
-      yield * suspend()
-    }.bind(this))
+        yield * suspend()
+      }.bind(this),
+    )
   }
 
   private *subscribe(
