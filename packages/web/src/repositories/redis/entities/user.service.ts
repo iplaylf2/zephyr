@@ -1,31 +1,35 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { JsonStream } from './common/json-stream.js'
+import { ModuleRaii } from '../../../common/module-raii.js'
 import { RedisClientType } from '@redis/client'
 import { RedisService } from '../redis.service.js'
 import { call } from 'effection'
-import { globalScope } from '../../../kits/effection/global-scope.js'
 import { user } from '../../../models/user.js'
 
 @Injectable()
-export class UserService implements OnModuleInit {
+export class UserService extends ModuleRaii {
   @Inject() private readonly redisService!: RedisService
+
+  public constructor() {
+    super()
+
+    this.initializeCallbacks.push(
+      function*(this: UserService) {
+        const event = this.getEvent()
+        const forCreation = 'for-creation'
+
+        yield * call(
+          () => this.redisService.multi()
+            .xGroupCreate(event.key, forCreation, '$', { MKSTREAM: true })
+            .xGroupDestroy(event.key, forCreation)
+            .exec(),
+        )
+      }.bind(this),
+    )
+  }
 
   public getEvent() {
     return new User.Event(this.redisService)
-  }
-
-  public onModuleInit() {
-    void globalScope.run(function*(this: UserService) {
-      const event = this.getEvent()
-      const forCreation = 'for-creation'
-
-      yield * call(
-        () => this.redisService.multi()
-          .xGroupCreate(event.key, forCreation, '$', { MKSTREAM: true })
-          .xGroupDestroy(event.key, forCreation)
-          .exec(),
-      )
-    }.bind(this))
   }
 }
 

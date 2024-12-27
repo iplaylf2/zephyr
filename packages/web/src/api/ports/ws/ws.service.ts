@@ -1,6 +1,7 @@
 import { IncomingMessage, Server } from 'http'
 import { Inject, Injectable } from '@nestjs/common'
 import { identity, ioOption, option } from 'fp-ts'
+import { suspend, useScope } from 'effection'
 import { Duplex } from 'stream'
 import { HttpAdapterHost } from '@nestjs/core'
 import { ModuleRaii } from '../../../common/module-raii.js'
@@ -8,9 +9,7 @@ import { PushService } from '../../../domains/push/push.service.js'
 import { ReceiverService } from '../../../domains/push/receiver.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
-import { globalScope } from '../../../kits/effection/global-scope.js'
 import { pipe } from 'fp-ts/lib/function.js'
-import { suspend } from 'effection'
 
 @Injectable()
 export class WsService extends ModuleRaii {
@@ -30,6 +29,8 @@ export class WsService extends ModuleRaii {
   }
 
   private *listen() {
+    const scope = yield * useScope()
+
     const urlPattern = new URLPattern({ pathname: '/push/receivers/:token' })
     const websocketServer = new WebSocketServer({ noServer: true })
     const upgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
@@ -42,12 +43,13 @@ export class WsService extends ModuleRaii {
         return
       }
 
-      void globalScope.run(
+      void scope.run(
         () => this.tryUpgrading(websocketServer, request, socket, head, token),
       )
     }
 
     const httpServer: Server = this.httpAdapterHost.httpAdapter.getHttpServer()
+
     httpServer.addListener('upgrade', upgradeListener)
 
     try {
