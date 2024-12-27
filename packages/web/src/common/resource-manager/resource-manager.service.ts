@@ -1,31 +1,32 @@
-import { Operation, all, suspend } from 'effection'
+import { Operation, Scope, suspend, useScope } from 'effection'
 import { Injectable } from '@nestjs/common'
 import { ModuleRaii } from '../module-raii.js'
 
 @Injectable()
 export class ResourceManagerService extends ModuleRaii {
-  private readonly disposes = new Array<() => Operation<void>>()
+  private scope!: Scope
 
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.prepareDestroy())
+    this.initializeCallbacks.push(() => this.keep())
   }
 
-  public * initialize<T>(init: () => Operation<T>, dispose: (resource: T) => Operation<void>): Operation<T> {
-    const resource = yield * init()
+  public provide<T>(provider: () => Operation<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.scope.run(function*() {
+        const resource = yield * provider()
 
-    this.disposes.push(() => dispose(resource))
+        resolve(resource)
 
-    return resource
+        yield * suspend()
+      }).catch(reject)
+    })
   }
 
-  private *prepareDestroy() {
-    try {
-      yield * suspend()
-    }
-    finally {
-      yield * all(this.disposes.map(dispose => dispose()))
-    }
+  private *keep() {
+    this.scope = yield * useScope()
+
+    yield * suspend()
   }
 }
