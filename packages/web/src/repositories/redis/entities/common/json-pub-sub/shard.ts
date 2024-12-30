@@ -1,5 +1,5 @@
 import { JsonValue } from 'type-fest'
-import { pubSub } from '../../../commands/pub-sub/shard.js'
+import { pubSub } from '../../../commands/pub-sub/pub-sub.js'
 
 export namespace jsonPubSub{
   export abstract class Shard<

@@ -13,5 +13,4 @@ export namespace env{
   export namespace redis{
     export const url = z.string().parse(process.env['REDIS_URL'])
   }
-
 }
