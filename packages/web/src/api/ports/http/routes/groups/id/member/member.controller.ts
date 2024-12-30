@@ -3,7 +3,7 @@ import { Controller, Delete, Inject, NotFoundException, Put } from '@nestjs/comm
 import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
 import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
-import { conversation } from '../../../../../../../domains/conversation/group/group.service.js'
+import { conversation } from '../../../../../../../domains/conversation/conversation.js'
 import { path } from '../../../../pattern.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'

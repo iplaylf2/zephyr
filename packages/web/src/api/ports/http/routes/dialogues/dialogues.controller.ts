@@ -2,7 +2,7 @@ import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Patch } from '@nestjs/common'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
-import { conversation } from '../../../../../domains/conversation/dialogue/dialogue.service.js'
+import { conversation } from '../../../../../domains/conversation/conversation.js'
 import { dialogues } from './dialogues.dto.js'
 import { unsafeGlobalScopeRun } from '../../../../../kits/effection/global-scope.js'
 
