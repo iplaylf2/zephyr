@@ -1,8 +1,8 @@
 model Dialogue {
-    conversation Int      @id
-    expiredAt    DateTime
-    initiator    Int
-    participant  Int
+    conversationId Int      @id
+    expiredAt      DateTime
+    initiator      Int
+    participant    Int
 
     @@unique([initiator, participant])
     @@unique([participant, initiator])

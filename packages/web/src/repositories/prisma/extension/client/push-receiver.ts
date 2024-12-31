@@ -9,8 +9,8 @@ export const pushReceiver = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forQuery(receivers: readonly number[]) {
-          if (0 === receivers.length) {
+        forQuery(idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -19,10 +19,10 @@ export const pushReceiver = Prisma.defineExtension({
               select
                 id
               from 
-                push-receivers
+                "push-receivers"
               where 
-                ${Date.now()} < expiredAt and
-                id in (${Prisma.join(receivers)})
+                ${Date.now()} < "expiredAt" and
+                id in (${Prisma.join(idArray)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -30,8 +30,8 @@ export const pushReceiver = Prisma.defineExtension({
             ),
           )()
         },
-        forUpdate(receivers: readonly number[]) {
-          if (0 === receivers.length) {
+        forUpdate(idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -40,10 +40,10 @@ export const pushReceiver = Prisma.defineExtension({
               select
                 id
               from 
-                push-receivers
+                "push-receivers"
               where 
-                ${Date.now()} < expiredAt and
-                id in (${Prisma.join(receivers)})
+                ${Date.now()} < "expiredAt" and
+                id in (${Prisma.join(idArray)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

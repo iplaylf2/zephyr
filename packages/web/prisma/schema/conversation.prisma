@@ -14,17 +14,17 @@ model Conversation {
 }
 
 model ConversationXParticipant {
-    conversation Int
-    createdAt    DateTime
-    data         Json
-    expiredAt    DateTime
-    lastActiveAt DateTime
-    participant  Int
+    conversationId Int
+    createdAt      DateTime
+    data           Json
+    expiredAt      DateTime
+    lastActiveAt   DateTime
+    participant    Int
 
-    xConversation Conversation @relation(fields: [conversation], references: [id], onDelete: Cascade)
+    conversation Conversation @relation(fields: [conversationId], references: [id])
 
-    @@id([conversation, participant])
-    @@unique([participant, conversation])
+    @@id([conversationId, participant])
+    @@unique([participant, conversationId])
     @@index([expiredAt])
     @@map("conversation-x-participant")
 }

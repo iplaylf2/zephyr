@@ -26,7 +26,7 @@ export class DialogueController {
   public [`@Put()`](@Body() creation: dialogue.CreationDto): Promise<number> {
     return unsafeGlobalScopeRun(pipe(
       () => this.conversationService.putDialogue(this.passport.id, creation.participant),
-      cOperation.map(x => x.conversation),
+      cOperation.map(x => x.conversationId),
     ))
   }
 }

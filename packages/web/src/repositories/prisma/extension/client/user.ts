@@ -9,8 +9,8 @@ export const user = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forKey(users: readonly number[]) {
-          if (0 === users.length) {
+        forKey(idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -21,7 +21,7 @@ export const user = Prisma.defineExtension({
               from 
                 users
               where
-                id in (${Prisma.join(users)})
+                id in (${Prisma.join(idArray)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -29,8 +29,8 @@ export const user = Prisma.defineExtension({
             ),
           )()
         },
-        forQuery(users: readonly number[]) {
-          if (0 === users.length) {
+        forQuery(idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -42,7 +42,7 @@ export const user = Prisma.defineExtension({
                 users
               where 
                 ${Date.now()} < expiredAt and
-                id in (${Prisma.join(users)})
+                id in (${Prisma.join(idArray)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -50,8 +50,8 @@ export const user = Prisma.defineExtension({
             ),
           )()
         },
-        forScale(users: readonly number[]) {
-          if (0 === users.length) {
+        forScale(idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -62,7 +62,7 @@ export const user = Prisma.defineExtension({
               from 
                 users
               where 
-                id in (${Prisma.join(users)})
+                id in (${Prisma.join(idArray)})
               for update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -70,8 +70,8 @@ export const user = Prisma.defineExtension({
             ),
           )()
         },
-        forUpdate(users: readonly number[]) {
-          if (0 === users.length) {
+        forUpdate(idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -83,7 +83,7 @@ export const user = Prisma.defineExtension({
                 users
               where 
                 ${Date.now()} < expiredAt and
-                id in (${Prisma.join(users)})
+                id in (${Prisma.join(idArray)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

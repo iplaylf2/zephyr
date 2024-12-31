@@ -9,82 +9,82 @@ export const pushSubscription = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        pushesForQuery(receiver: number, pushes: readonly number[]) {
-          if (0 === pushes.length) {
+        pushesForQuery(receiver: number, pushIdArray: readonly number[]) {
+          if (0 === pushIdArray.length) {
             return cOperation.Pointed.of([])()
           }
 
           return pipe(
-            () => client.$queryRaw<Pick<PushSubscription, 'push'>[]>`
+            () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                push
+                pushId
               from
-                push-subscriptions
+                "push-subscriptions"
               where
                 receiver = ${receiver} and
-                push in (${Prisma.join(pushes)})
+                pushId in (${Prisma.join(pushIdArray)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
-              readonlyArray.map(x => x.push),
+              readonlyArray.map(x => x.pushId),
             ),
           )()
         },
         pushesForQueryByReceiver(receiver: number) {
           return pipe(
-            () => client.$queryRaw<Pick<PushSubscription, 'push'>[]>`
+            () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                push
+                pushId
               from
-                push-subscriptions
+                "push-subscriptions"
               where
                 receiver = ${receiver}
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
-              readonlyArray.map(x => x.push),
+              readonlyArray.map(x => x.pushId),
             ),
           )()
         },
-        pushesForScale(receiver: number, pushes: readonly number[]) {
-          if (0 === pushes.length) {
+        pushesForScale(receiver: number, pushIdArray: readonly number[]) {
+          if (0 === pushIdArray.length) {
             return cOperation.Pointed.of([])()
           }
 
           return pipe(
-            () => client.$queryRaw<Pick<PushSubscription, 'push'>[]>`
+            () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                push
+                pushId
               from
-                push-subscriptions
+                "push-subscriptions"
               where
                 receiver = ${receiver} and
-                push in (${Prisma.join(pushes)})
+                pushId in (${Prisma.join(pushIdArray)})
               for update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
-              readonlyArray.map(x => x.push),
+              readonlyArray.map(x => x.pushId),
             ),
           )()
         },
-        pushesForUpdate(receiver: number, pushes: readonly number[]) {
-          if (0 === pushes.length) {
+        pushesForUpdate(receiver: number, pushIdArray: readonly number[]) {
+          if (0 === pushIdArray.length) {
             return cOperation.Pointed.of([])()
           }
 
           return pipe(
-            () => client.$queryRaw<Pick<PushSubscription, 'push'>[]>`
+            () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                push
+                pushId
               from
-                push-subscriptions
+                "push-subscriptions"
               where
                 receiver = ${receiver} and
-                push in (${Prisma.join(pushes)})
+                pushId in (${Prisma.join(pushIdArray)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
-              readonlyArray.map(x => x.push),
+              readonlyArray.map(x => x.pushId),
             ),
           )()
         },

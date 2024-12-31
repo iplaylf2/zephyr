@@ -11,9 +11,9 @@ export const dialogue = Prisma.defineExtension({
       return {
         forQuery(participant: number) {
           return pipe(
-            () => client.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
+            () => client.$queryRaw<Pick<Dialogue, 'conversationId'>[]>`
               select
-                conversation
+                conversationId
               from 
                 dialogues
               where
@@ -23,15 +23,15 @@ export const dialogue = Prisma.defineExtension({
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
-              readonlyArray.map(x => x.conversation),
+              readonlyArray.map(x => x.conversationId),
             ),
           )()
         },
         forUpdate(participant: number) {
           return pipe(
-            () => client.$queryRaw<Pick<Dialogue, 'conversation'>[]>`
+            () => client.$queryRaw<Pick<Dialogue, 'conversationId'>[]>`
               select
-                conversation
+                conversationId
               from 
                 dialogues
               where
@@ -41,7 +41,7 @@ export const dialogue = Prisma.defineExtension({
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
-              readonlyArray.map(x => x.conversation),
+              readonlyArray.map(x => x.conversationId),
             ),
           )()
         },

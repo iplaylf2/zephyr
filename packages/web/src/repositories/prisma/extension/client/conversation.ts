@@ -9,8 +9,8 @@ export const conversation = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forQuery(type: string, conversations: readonly number[]) {
-          if (0 === conversations.length) {
+        forQuery(type: string, idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -23,7 +23,7 @@ export const conversation = Prisma.defineExtension({
               where
                 type = ${type} and
                 ${new Date()} < "expiredAt" and
-                id in (${Prisma.join(conversations)})
+                id in (${Prisma.join(idArray)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -31,8 +31,8 @@ export const conversation = Prisma.defineExtension({
             ),
           )()
         },
-        forUpdate(type: string, conversations: readonly number[]) {
-          if (0 === conversations.length) {
+        forUpdate(type: string, idArray: readonly number[]) {
+          if (0 === idArray.length) {
             return cOperation.Pointed.of([])()
           }
 
@@ -45,7 +45,7 @@ export const conversation = Prisma.defineExtension({
               where
                 type = ${type} and
                 ${new Date()} < "expiredAt" and
-                id in (${Prisma.join(conversations)})
+                id in (${Prisma.join(idArray)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

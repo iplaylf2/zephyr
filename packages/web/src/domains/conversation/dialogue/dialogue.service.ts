@@ -110,7 +110,7 @@ export class DialogueService extends ConversationService {
       super.getConversationsRecord(participant),
       call(
         () => this.prismaClient.dialogue.findMany({
-          select: { conversation: true, initiator: true, participant: true },
+          select: { conversationId: true, initiator: true, participant: true },
           where: {
             OR: [{ initiator: participant }, { participant }],
             expiredAt: { gt: new Date() },

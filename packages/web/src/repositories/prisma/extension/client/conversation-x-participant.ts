@@ -9,7 +9,7 @@ export const conversationXParticipant = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forQuery(type: string, conversation: number, participants: readonly number[]) {
+        forQuery(type: string, conversationId: number, participants: readonly number[]) {
           if (0 === participants.length) {
             return cOperation.Pointed.of([])()
           }
@@ -21,11 +21,11 @@ export const conversationXParticipant = Prisma.defineExtension({
               from
                 "conversation-x-participant" x
               join conversations on
-                conversations.id = x.conversation
+                conversations.id = x.conversationId
               where
                 ${new Date()} < conversations."expiredAt" and
                 conversations.type = ${type} and
-                x.conversation = ${conversation} and
+                x.conversationId = ${conversationId} and
                 x.participant in (${Prisma.join(participants)})
               for key share`,
             cOperation.FromTask.fromTask,
@@ -34,7 +34,7 @@ export const conversationXParticipant = Prisma.defineExtension({
             ),
           )()
         },
-        forScale(type: string, conversation: number, participants: readonly number[]) {
+        forScale(type: string, conversationId: number, participants: readonly number[]) {
           if (0 === participants.length) {
             return cOperation.Pointed.of([])()
           }
@@ -46,10 +46,10 @@ export const conversationXParticipant = Prisma.defineExtension({
               from
                 "conversation-x-participant" x
               join conversations on
-                conversations.id = x.conversation
+                conversations.id = x.conversationId
               where
                 conversations.type = ${type} and
-                x.conversation = ${conversation} and
+                x.conversationId = ${conversationId} and
                 x.participant in (${Prisma.join(participants)})
               for update`,
             cOperation.FromTask.fromTask,
@@ -59,7 +59,7 @@ export const conversationXParticipant = Prisma.defineExtension({
 
           )()
         },
-        forUpdate(type: string, conversation: number, participants: readonly number[]) {
+        forUpdate(type: string, conversationId: number, participants: readonly number[]) {
           if (0 === participants.length) {
             return cOperation.Pointed.of([])()
           }
@@ -71,11 +71,11 @@ export const conversationXParticipant = Prisma.defineExtension({
               from
                 "conversation-x-participant" x
               join conversations on
-                conversations.id = x.conversation
+                conversations.id = x.conversationId
               where
                 ${new Date()} < conversations."expiredAt" and
                 conversations.type = ${type} and
-                x.conversation = ${conversation} and
+                x.conversationId = ${conversationId} and
                 x.participant in (${Prisma.join(participants)})
               for no key update`,
             cOperation.FromTask.fromTask,

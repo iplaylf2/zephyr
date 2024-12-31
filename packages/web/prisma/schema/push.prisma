@@ -27,14 +27,14 @@ model PushReceiver {
 }
 
 model PushSubscription {
-    createdAt DateTime
-    push      Int
-    receiver  Int
+    createdAt  DateTime
+    pushId     Int
+    receiverId Int
 
-    xPush     Push         @relation(fields: [push], references: [id], onDelete: Cascade)
-    xReceiver PushReceiver @relation(fields: [receiver], references: [id], onDelete: Cascade)
+    push     Push         @relation(fields: [pushId], references: [id], onDelete: Cascade)
+    receiver PushReceiver @relation(fields: [receiverId], references: [id], onDelete: Cascade)
 
-    @@id([push, receiver])
-    @@unique([receiver, push])
+    @@id([pushId, receiverId])
+    @@unique([receiverId, pushId])
     @@map("push-subscriptions")
 }
