@@ -38,7 +38,7 @@ export class ReceiverService extends ModuleRaii {
         io.tap(
           x => () => {
             this.receiverMap.set(id, x)
-            this.receiverSignal.send({ receiver: id, type: 'put' })
+            this.receiverSignal.send({ receiverId: id, type: 'put' })
           },
         ),
       )),
@@ -54,16 +54,16 @@ export class ReceiverService extends ModuleRaii {
 
     receiver.close()
     this.receiverMap.delete(id)
-    this.receiverSignal.send({ receiver: id, type: 'delete' })
+    this.receiverSignal.send({ receiverId: id, type: 'delete' })
   }
 
   private *listenEvent() {
     const taskMap = new Map<number, Task<unknown>>()
 
-    for (const { receiver, type } of yield * each(this.receiverSignal)) {
+    for (const { receiverId, type } of yield * each(this.receiverSignal)) {
       switch (type) {
         case 'delete':{
-          const task = taskMap.get(receiver)
+          const task = taskMap.get(receiverId)
 
           if (!task) {
             return
@@ -73,18 +73,18 @@ export class ReceiverService extends ModuleRaii {
             yield * task.halt()
           }
           finally {
-            taskMap.delete(receiver)
+            taskMap.delete(receiverId)
           }
         }
           break
         case 'put':{
-          const task = taskMap.get(receiver)
+          const task = taskMap.get(receiverId)
 
           if (task) {
             return
           }
 
-          taskMap.set(receiver, yield * spawn(() => this.raiiReceiver(receiver)))
+          taskMap.set(receiverId, yield * spawn(() => this.raiiReceiver(receiverId)))
         }
           break
       }
@@ -93,28 +93,28 @@ export class ReceiverService extends ModuleRaii {
     }
   }
 
-  private *onReceiverDelete(receiver: number) {
-    const exists = yield * this.prismaClient.$pushReceiver().forQuery([receiver])
+  private *onReceiverDelete(receiverId: number) {
+    const exists = yield * this.prismaClient.$pushReceiver().forQuery([receiverId])
 
     if (0 < exists.length) {
       return
     }
 
-    this.delete(receiver)
+    this.delete(receiverId)
   }
 
-  private onReceiverSubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
-    return this.subscribe(receiver, push.type, push.sources)
+  private onReceiverSubscribe(receiverId: number, push: { sources: readonly number[], type: string }) {
+    return this.subscribe(receiverId, push.type, push.sources)
   }
 
-  private *onReceiverUnsubscribe(receiver: number, push: { sources: readonly number[], type: string }) {
-    const _receiver = this.receiverMap.get(receiver)
+  private *onReceiverUnsubscribe(receiverId: number, push: { sources: readonly number[], type: string }) {
+    const receiver = this.receiverMap.get(receiverId)
 
-    if (!_receiver) {
+    if (!receiver) {
       return
     }
 
-    const pushes = yield * pipe(
+    const pushIdArray = yield * pipe(
       () => this.prismaClient.push.findMany({
         select: { id: true },
         where: { source: { in: where.writable(push.sources) }, type: push.type },
@@ -125,52 +125,52 @@ export class ReceiverService extends ModuleRaii {
       ),
     )()
 
-    if (0 < pushes.length) {
+    if (0 < pushIdArray.length) {
       const exists = yield * this.prismaClient
         .$pushSubscription()
-        .pushesForQuery(receiver, pushes)
+        .pushesForQuery(receiverId, pushIdArray)
 
       if (0 < exists.length) {
         return
       }
     }
 
-    _receiver.unsubscribe(push.type, push.sources)
+    receiver.unsubscribe(push.type, push.sources)
   }
 
-  private raiiReceiver(receiver: number): Operation<void> {
+  private raiiReceiver(receiverId: number): Operation<void> {
     return call(
       function*(this: ReceiverService) {
         const notification = this.entityPushService.getNotification()
 
         const client = yield * notification.isolate()
 
-        const channel = notification.getChannel(receiver)
+        const channel = notification.getChannel(receiverId)
 
         const scope = yield * useScope()
 
         yield * client.subscribe(channel, (message) => {
           switch (message.type) {
             case 'delete':
-              void scope.run(() => this.onReceiverDelete(receiver))
+              void scope.run(() => this.onReceiverDelete(receiverId))
               break
             case 'subscribe':
-              void scope.run(() => this.onReceiverSubscribe(receiver, message.push))
+              void scope.run(() => this.onReceiverSubscribe(receiverId, message.push))
               break
             case 'unsubscribe':
-              void scope.run(() => this.onReceiverUnsubscribe(receiver, message.push))
+              void scope.run(() => this.onReceiverUnsubscribe(receiverId, message.push))
               break
           }
         })
 
         yield * this.prismaClient.$callTransaction(
           function* (this: ReceiverService, tx: PrismaTransaction) {
-            const pushes = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiver)
+            const pushIdArray = yield * tx.$pushSubscription().pushesForQueryByReceiver(receiverId)
 
             const pushRecord = yield * pipe(
               () => tx.push.findMany({
                 select: { source: true, type: true },
-                where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushes) } },
+                where: { expiredAt: { gt: new Date() }, id: { in: where.writable(pushIdArray) } },
               }),
               cOperation.FromTask.fromTask,
               cOperation.map(flow(
@@ -184,7 +184,7 @@ export class ReceiverService extends ModuleRaii {
             yield * pipe(
               Object.entries(pushRecord),
               readonlyArray.map(([type, sources]) =>
-                () => this.subscribe(receiver, type, sources, tx),
+                () => this.subscribe(receiverId, type, sources, tx),
               ),
               cOperation.sequenceArray,
             )()
@@ -196,16 +196,18 @@ export class ReceiverService extends ModuleRaii {
   }
 
   private *subscribe(
-    receiver: number, type: string, sources: readonly number[],
+    receiverId: number,
+    type: string,
+    sources: readonly number[],
     tx: PrismaTransaction = this.prismaClient,
   ): Operation<void> {
     if (0 === sources.length) {
       return
     }
 
-    const _receiver = this.receiverMap.get(receiver)
+    const receiver = this.receiverMap.get(receiverId)
 
-    if (!_receiver) {
+    if (!receiver) {
       return
     }
 
@@ -340,6 +342,6 @@ class Receiver {
 }
 
 type ReceiverEvent = {
-  receiver: number
+  receiverId: number
   type: 'delete' | 'put'
 }

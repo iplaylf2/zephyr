@@ -285,7 +285,7 @@ export class PushService extends ModuleRaii {
 
         yield * notification.publish(
           notification.getChannel(receiverId),
-          { push: { sources: newSources, type }, type: 'unsubscribe' },
+          { push: { sources: newSources, type }, type: 'subscribe' },
         )
 
         return either.right(newSources)
