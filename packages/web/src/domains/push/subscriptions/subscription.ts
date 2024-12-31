@@ -5,7 +5,7 @@ export namespace subscription{
   export type Validator = {
     readonly type: string
     validate(
-      tx: PrismaTransaction, receiver: number, pushes: readonly number[]
+      tx: PrismaTransaction, receiverId: number, pushIdArray: readonly number[]
     ): Operation<readonly number[]>
   }
 }

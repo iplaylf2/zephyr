@@ -9,8 +9,8 @@ export class ConversationService {
   @Inject()
   private readonly redisService!: RedisService
 
-  public getRecords(type: string, conversation: number) {
-    return Conversations.Records.get(this.redisService, type, conversation)
+  public getRecords(type: string, conversationId: number) {
+    return Conversations.Records.get(this.redisService, type, conversationId)
   }
 }
 
@@ -22,10 +22,10 @@ export namespace Conversations{
       super()
     }
 
-    public static get(client: RedisClientType, type: string, conversation: number) {
+    public static get(client: RedisClientType, type: string, conversationId: number) {
       return new Records(
         client,
-        `stream://${encodeURIComponent(type)}.conversations/${conversation.toString()}/records`,
+        `stream://${encodeURIComponent(type)}.conversations/${conversationId.toString()}/records`,
       )
     }
 

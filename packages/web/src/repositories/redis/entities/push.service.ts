@@ -21,8 +21,8 @@ export namespace PushService{
       super()
     }
 
-    public getChannel(receiver: number) {
-      return Notification.getChannel(receiver)
+    public getChannel(receiverId: number) {
+      return Notification.getChannel(receiverId)
     }
 
     protected override duplicate() {
@@ -31,8 +31,8 @@ export namespace PushService{
   }
 
   export namespace Notification{
-    export function getChannel(receiver: number) {
-      return `s-pub-sub://push/receivers/${receiver.toString()}/notification` as const
+    export function getChannel(receiverId: number) {
+      return `s-pub-sub://push/receivers/${receiverId.toString()}/notification` as const
     }
   }
 }

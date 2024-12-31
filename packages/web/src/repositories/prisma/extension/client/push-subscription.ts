@@ -9,7 +9,7 @@ export const pushSubscription = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        pushesForQuery(receiver: number, pushIdArray: readonly number[]) {
+        pushesForQuery(receiverId: number, pushIdArray: readonly number[]) {
           if (0 === pushIdArray.length) {
             return cOperation.Pointed.of([])()
           }
@@ -21,7 +21,7 @@ export const pushSubscription = Prisma.defineExtension({
               from
                 "push-subscriptions"
               where
-                receiver = ${receiver} and
+                "receiverId" = ${receiverId} and
                 "pushId" in (${Prisma.join(pushIdArray)})
               for key share`,
             cOperation.FromTask.fromTask,
@@ -30,7 +30,7 @@ export const pushSubscription = Prisma.defineExtension({
             ),
           )()
         },
-        pushesForQueryByReceiver(receiver: number) {
+        pushesForQueryByReceiver(receiverId: number) {
           return pipe(
             () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
@@ -38,7 +38,7 @@ export const pushSubscription = Prisma.defineExtension({
               from
                 "push-subscriptions"
               where
-                receiver = ${receiver}
+                "receiverId" = ${receiverId}
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -46,7 +46,7 @@ export const pushSubscription = Prisma.defineExtension({
             ),
           )()
         },
-        pushesForScale(receiver: number, pushIdArray: readonly number[]) {
+        pushesForScale(receiverId: number, pushIdArray: readonly number[]) {
           if (0 === pushIdArray.length) {
             return cOperation.Pointed.of([])()
           }
@@ -58,7 +58,7 @@ export const pushSubscription = Prisma.defineExtension({
               from
                 "push-subscriptions"
               where
-                receiver = ${receiver} and
+                "receiverId" = ${receiverId} and
                 "pushId" in (${Prisma.join(pushIdArray)})
               for update`,
             cOperation.FromTask.fromTask,
@@ -67,7 +67,7 @@ export const pushSubscription = Prisma.defineExtension({
             ),
           )()
         },
-        pushesForUpdate(receiver: number, pushIdArray: readonly number[]) {
+        pushesForUpdate(receiverId: number, pushIdArray: readonly number[]) {
           if (0 === pushIdArray.length) {
             return cOperation.Pointed.of([])()
           }
@@ -79,7 +79,7 @@ export const pushSubscription = Prisma.defineExtension({
               from
                 "push-subscriptions"
               where
-                receiver = ${receiver} and
+                "receiverId" = ${receiverId} and
                 "pushId" in (${Prisma.join(pushIdArray)})
               for no key update`,
             cOperation.FromTask.fromTask,

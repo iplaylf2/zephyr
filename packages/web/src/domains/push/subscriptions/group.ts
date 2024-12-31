@@ -6,12 +6,12 @@ import { subscription } from './subscription.js'
 
 export const groupValidator = {
   type: 'group' as const,
-  validate(tx, _receiver, pushes) {
+  validate(tx, _receiverId, pushIdArray) {
     return pipe(
       () => tx.$queryRaw<{ id: number }[]>`
         with validated as (
         select
-          unnest(array[${Prisma.join(pushes)}]) as "id"
+          unnest(array[${Prisma.join(pushIdArray)}]) as "id"
         )
         select
           v.id
@@ -19,7 +19,7 @@ export const groupValidator = {
           validated v
         left join conversations c on
           c.id = v.id and
-          'group' = c."type"
+          c."type" = 'group'
         where
           c is null`,
       cOperation.FromTask.fromTask,

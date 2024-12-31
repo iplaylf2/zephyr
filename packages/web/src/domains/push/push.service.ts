@@ -33,48 +33,48 @@ export class PushService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
   }
 
-  public active(receivers: readonly number[]) {
+  public active(receiverIdArray: readonly number[]) {
     return this.prismaClient.$callTransaction(
       function*(this: PushService, tx: PrismaTransaction) {
-        const _receivers = yield * tx.$pushReceiver().forUpdate(receivers)
+        const _receiverIdArray = yield * tx.$pushReceiver().forUpdate(receiverIdArray)
 
         yield * call(
           () => tx.pushReceiver.updateMany({
             data: {
               lastActiveAt: new Date(),
             },
-            where: { id: { in: where.writable(_receivers) } },
+            where: { id: { in: where.writable(_receiverIdArray) } },
           }),
         )
 
-        return _receivers
+        return _receiverIdArray
       }.bind(this),
     )
   }
 
-  public deleteReceiver(receiver: number) {
+  public deleteReceiver(receiverId: number) {
     return this.prismaClient.$callTransaction(
       function*(this: PushService, tx: PrismaTransaction) {
         yield * call(
           () => tx.pushReceiver.delete({
             select: {},
-            where: { id: receiver },
+            where: { id: receiverId },
           }),
         )
 
         const notification = this.entityPushService.getNotification()
 
-        yield * notification.publish(notification.getChannel(receiver), { type: 'delete' })
+        yield * notification.publish(notification.getChannel(receiverId), { type: 'delete' })
       }.bind(this),
     )
   }
 
-  public *deleteSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
-    if (0 === pushes.length) {
+  public *deleteSubscriptions(receiverId: number, type: string, pushIdArray: readonly number[]) {
+    if (0 === pushIdArray.length) {
       return []
     }
 
-    const exists = yield * this.existsReceivers([receiver])
+    const exists = yield * this.existsReceivers([receiverId])
 
     if (0 === exists.length) {
       return []
@@ -84,7 +84,7 @@ export class PushService extends ModuleRaii {
       () => this.prismaClient.push.findMany({
         select: { id: true, source: true },
         where: {
-          source: { in: where.writable(pushes) },
+          source: { in: where.writable(pushIdArray) },
           type,
         },
       }),
@@ -95,11 +95,11 @@ export class PushService extends ModuleRaii {
       function*(this: PushService, tx: PrismaTransaction) {
         const toDelete = yield * tx
           .$pushSubscription()
-          .pushesForScale(receiver, existsPushes.map(x => x.id))
+          .pushesForScale(receiverId, existsPushes.map(x => x.id))
 
         yield * call(
           () => tx.pushSubscription.deleteMany({
-            where: { push: { in: where.writable(toDelete) }, receiver },
+            where: { pushId: { in: where.writable(toDelete) }, receiverId },
           }),
         )
 
@@ -108,7 +108,7 @@ export class PushService extends ModuleRaii {
         const notification = this.entityPushService.getNotification()
 
         yield * notification.publish(
-          notification.getChannel(receiver),
+          notification.getChannel(receiverId),
           { push: { sources: deletedSources, type }, type: 'unsubscribe' },
         )
 
@@ -117,12 +117,12 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public existsReceivers(receivers: readonly number[]) {
-    return this.prismaClient.$pushReceiver().forQuery(receivers)
+  public existsReceivers(receiverIdArray: readonly number[]) {
+    return this.prismaClient.$pushReceiver().forQuery(receiverIdArray)
   }
 
   public expireReceivers(
-    receivers: readonly number[],
+    receiverIdArray: readonly number[],
     seconds = this.defaultExpire.total('seconds'),
   ) {
     return this.prismaClient.$callTransaction(
@@ -130,17 +130,17 @@ export class PushService extends ModuleRaii {
         const interval = `${seconds.toFixed(0)} seconds`
         const now = new Date()
 
-        const _receivers = yield * pipe(
-          receivers,
+        const receivers = yield * pipe(
+          receiverIdArray,
           readonlyArray.map(
-            receiver => () => tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
+            receiverId => () => tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
               update "push-receivers" r
               set
                 "expiredAt" = r."lastActiveAt" + ${interval}::interval
               where
                 ${now} < r."expiredAt" and
                 r."expiredAt" < r."lastActiveAt" + ${interval}::interval and
-                r.id = ${receiver}
+                r.id = ${receiverId}
               returning
                 r."expiredAt", r.id`,
           ),
@@ -152,7 +152,7 @@ export class PushService extends ModuleRaii {
         )()
 
         yield * pipe(
-          _receivers,
+          receivers,
           readonlyArray.map(
             ({ expiredAt, id }) => () => tx.$executeRaw`
               update pushes
@@ -164,13 +164,13 @@ export class PushService extends ModuleRaii {
                 s.push = pushes.id and
                 ${now} < pushes."expiredAt" and
                 pushes."expiredAt" < ${expiredAt} and
-                s.receiver = ${id}`,
+                s."receiverId" = ${id}`,
           ),
           task.sequenceArray,
           cOperation.FromTask.fromTask,
         )()
 
-        return _receivers.map(x => x.id)
+        return receivers.map(x => x.id)
       }.bind(this),
     )
   }
@@ -208,31 +208,31 @@ export class PushService extends ModuleRaii {
     )()
   }
 
-  public getSubscriptions(receiver: number, type: string) {
+  public getSubscriptions(receiverId: number, type: string) {
     return pipe(
       () => this.prismaClient.pushSubscription.findMany({
-        select: { xPush: { select: { source: true } } },
-        where: { receiver, xPush: { expiredAt: { gt: new Date() }, type } },
+        select: { push: { select: { source: true } } },
+        where: { push: { expiredAt: { gt: new Date() }, type }, receiverId },
       }),
       cOperation.FromTask.fromTask,
       cOperation.map(
-        readonlyArray.map(x => x.xPush.source),
+        readonlyArray.map(x => x.push.source),
       ),
     )()
   }
 
-  public *patchSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
-    if (0 === pushes.length) {
+  public *patchSubscriptions(receiverId: number, type: string, pushIdArray: readonly number[]) {
+    if (0 === pushIdArray.length) {
       return either.right([])
     }
 
-    const exists = yield * this.existsReceivers([receiver])
+    const exists = yield * this.existsReceivers([receiverId])
 
     if (0 === exists.length) {
       return either.right([])
     }
 
-    const invalid = yield * this.validateSubscriptions(receiver, type, pushes)
+    const invalid = yield * this.validateSubscriptions(receiverId, type, pushIdArray)
 
     if (0 < invalid.length) {
       return either.left(invalid)
@@ -242,13 +242,13 @@ export class PushService extends ModuleRaii {
     const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
     const existsPushes = yield * pipe(
-      pushes,
-      readonlyArray.map(source => pipe(
+      pushIdArray,
+      readonlyArray.map(pushId => pipe(
         () => this.prismaClient.push.upsert({
-          create: { expiredAt, source, type },
+          create: { expiredAt, source: pushId, type },
           select: { id: true, source: true },
           update: { expiredAt },
-          where: { rawId: { source, type } },
+          where: { rawId: { source: pushId, type } },
         }),
         cOperation.FromTask.fromTask,
       )),
@@ -260,7 +260,7 @@ export class PushService extends ModuleRaii {
         const pushesId = existsPushes.map(x => x.id)
 
         const newSubscriptions = yield * pipe(
-          () => tx.$pushSubscription().pushesForScale(receiver, pushesId),
+          () => tx.$pushSubscription().pushesForScale(receiverId, pushesId),
           cOperation.map(flow(
             a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
             identity.ap(pushesId),
@@ -271,10 +271,10 @@ export class PushService extends ModuleRaii {
 
         yield * call(
           () => tx.pushSubscription.createMany({
-            data: newSubscriptions.map(push => ({
+            data: newSubscriptions.map(pushId => ({
               createdAt: now,
-              push,
-              receiver,
+              pushId,
+              receiverId,
             })),
           }),
         )
@@ -284,7 +284,7 @@ export class PushService extends ModuleRaii {
         const notification = this.entityPushService.getNotification()
 
         yield * notification.publish(
-          notification.getChannel(receiver),
+          notification.getChannel(receiverId),
           { push: { sources: newSources, type }, type: 'unsubscribe' },
         )
 
@@ -311,24 +311,24 @@ export class PushService extends ModuleRaii {
     )
   }
 
-  public *putClaimer(receiver: number, claimer: number) {
-    const _receiver = yield * call(
+  public *putClaimer(receiverId: number, claimer: number) {
+    const receiver = yield * call(
       () => this.prismaClient.pushReceiver.findUnique({
         select: { claimer: true },
-        where: { expiredAt: { gt: new Date() }, id: receiver },
+        where: { expiredAt: { gt: new Date() }, id: receiverId },
       }),
     )
 
-    if (null === _receiver) {
+    if (null === receiver) {
       return false
     }
 
-    if (null !== _receiver.claimer) {
-      if (claimer === _receiver.claimer) {
+    if (null !== receiver.claimer) {
+      if (claimer === receiver.claimer) {
         return true
       }
       else {
-        yield * this.deleteReceiver(receiver)
+        yield * this.deleteReceiver(receiverId)
 
         return false
       }
@@ -337,7 +337,7 @@ export class PushService extends ModuleRaii {
     yield * call(
       () => this.prismaClient.pushReceiver.update({
         data: { claimer, lastActiveAt: new Date() },
-        where: { OR: [{ claimer }, { claimer: null }], id: receiver },
+        where: { OR: [{ claimer }, { claimer: null }], id: receiverId },
       }),
     )
 
@@ -405,7 +405,7 @@ export class PushService extends ModuleRaii {
       .total('milliseconds')
 
     while (true) {
-      const receivers = yield * pipe(
+      const receiverIdArray = yield * pipe(
         () => this.prismaClient.pushReceiver.findMany({
           select: { id: true },
           where: where.halfLife(this.defaultExpire),
@@ -416,25 +416,25 @@ export class PushService extends ModuleRaii {
         ),
       )()
 
-      if (0 < receivers.length) {
-        yield * this.expireReceivers(receivers)
+      if (0 < receiverIdArray.length) {
+        yield * this.expireReceivers(receiverIdArray)
       }
 
       yield * sleep(interval)
     }
   }
 
-  private validateSubscriptions(receiver: number, type: string, pushes: readonly number[]) {
+  private validateSubscriptions(receiverId: number, type: string, pushIdArray: readonly number[]) {
     return match(type)
       .with(
         dialogueValidator.type,
-        () => dialogueValidator.validate(this.prismaClient, receiver, pushes),
+        () => dialogueValidator.validate(this.prismaClient, receiverId, pushIdArray),
       )
       .with(
         groupValidator.type,
-        () => groupValidator.validate(this.prismaClient, receiver, pushes),
+        () => groupValidator.validate(this.prismaClient, receiverId, pushIdArray),
       )
-      .otherwise(cOperation.Pointed.of(pushes))
+      .otherwise(cOperation.Pointed.of(pushIdArray))
   }
 }
 
