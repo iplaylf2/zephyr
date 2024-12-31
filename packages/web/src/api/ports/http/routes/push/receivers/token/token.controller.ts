@@ -1,12 +1,8 @@
 import { ApiParam, ApiTags } from '@nestjs/swagger'
-import { Controller, Inject, Sse } from '@nestjs/common'
-import { EMPTY, Observable, concatMap, from, isObservable, map } from 'rxjs'
-import { flow, pipe } from 'fp-ts/lib/function.js'
-import { identity, ioOption, option } from 'fp-ts'
+import { Controller, Inject, NotFoundException, Sse } from '@nestjs/common'
+import { Observable, concatMap, from, map } from 'rxjs'
 import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { ReceiverService } from '../../../../../../../domains/push/receiver.service.js'
-import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
-import { push } from '../../../../../../../models/push.js'
 import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
 import { urlPattern } from '../../../../kits/url-pattern.js'
 
@@ -31,22 +27,17 @@ export class TokenController {
   @Sse()
   public [`@Sse()`](): Observable<string> {
     return from(
-      unsafeGlobalScopeRun(pipe(
-        () => this.pushService.getReceiver(this.token),
-        cOperation.chain(flow(
-          option.fromNullable,
-          option.map(
-            x => () => this.receiverService.put(x).shared,
-          ),
-          ioOption.fromOption,
-          ioOption.chainIOK(identity.of),
-          ioOption.getOrElse<Observable<push.Message>>(
-            () => () => EMPTY,
-          ),
-          cOperation.FromIO.fromIO,
-        )),
-      ))).pipe(
-      concatMap(x => isObservable(x) ? x : EMPTY),
+      unsafeGlobalScopeRun(function*(this: TokenController) {
+        const receiver = yield * this.pushService.getReceiver(this.token)
+
+        if (null === receiver) {
+          throw new NotFoundException()
+        }
+
+        return this.receiverService.put(receiver).shared
+      }.bind(this)),
+    ).pipe(
+      concatMap(x => x),
       map(x => JSON.stringify(x)),
     )
   }

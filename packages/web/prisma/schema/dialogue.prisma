@@ -1,11 +1,11 @@
 model Dialogue {
     conversationId Int      @id
     expiredAt      DateTime
-    initiator      Int
-    participant    Int
+    initiatorId    Int
+    participantId  Int
 
-    @@unique([initiator, participant])
-    @@unique([participant, initiator])
+    @@unique([initiatorId, participantId])
+    @@unique([participantId, initiatorId])
     @@index([expiredAt])
     @@map("dialogues")
 }

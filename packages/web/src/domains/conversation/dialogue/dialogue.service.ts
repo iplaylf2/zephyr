@@ -48,48 +48,48 @@ export class DialogueService extends ConversationService {
   }
 
   public existsDialogues(
-    participant: number,
+    participantId: number,
     tx: PrismaTransaction = this.prismaClient,
   ) {
-    return tx.$dialogue().forQuery(participant)
+    return tx.$dialogue().forQuery(participantId)
   }
 
   public *expireDialogue(
-    participant: number,
+    participantId: number,
     expireAt: number,
     tx?: PrismaTransaction,
   ): Operation<readonly number[]> {
     if (!tx) {
       return yield * this.prismaClient.$callTransaction(
-        tx => this.expireDialogue(participant, expireAt, tx),
+        tx => this.expireDialogue(participantId, expireAt, tx),
       )
     }
 
-    const dialogues = yield * tx.$dialogue().forUpdate(participant)
+    const dialogueIdArray = yield * tx.$dialogue().forUpdate(participantId)
 
-    if (0 === dialogues.length) {
+    if (0 === dialogueIdArray.length) {
       return []
     }
 
     const _expireAt = new Date(expireAt)
-    const conversations = where.writable(dialogues)
+    const _dialogueIdArray = where.writable(dialogueIdArray)
 
     yield * pipe(
       [
         () => tx.dialogue.updateMany({
           data: { expiredAt: _expireAt },
-          where: { conversation: { in: conversations }, expiredAt: { lt: _expireAt } },
+          where: { conversationId: { in: _dialogueIdArray }, expiredAt: { lt: _expireAt } },
         }),
         () => tx.conversation.updateMany({
           data: { expiredAt: _expireAt },
-          where: { expiredAt: { lt: _expireAt }, id: { in: conversations } },
+          where: { expiredAt: { lt: _expireAt }, id: { in: _dialogueIdArray } },
         }),
         () => tx.conversationXParticipant.updateMany({
           data: { expiredAt: _expireAt },
           where: {
-            conversation: { in: conversations },
+            conversationId: { in: _dialogueIdArray },
             expiredAt: { lt: _expireAt },
-            participant,
+            participantId: participantId,
           },
         }),
       ],
@@ -97,29 +97,29 @@ export class DialogueService extends ConversationService {
         cOperation.FromTask.fromTask,
       ),
       readonlyArray.append<cOperation.COperation<any>>(
-        () => this.expireRecords(conversations.map(id => ({ expiredAt: _expireAt, id }))),
+        () => this.expireRecords(_dialogueIdArray.map(id => ({ expiredAt: _expireAt, id }))),
       ),
       cOperation.sequenceArray,
     )()
 
-    return conversations
+    return _dialogueIdArray
   }
 
-  public override *getConversationsRecord(participant: number) {
+  public override *getConversationsRecord(participantId: number) {
     const [conversations, dialogues] = yield * all([
-      super.getConversationsRecord(participant),
+      super.getConversationsRecord(participantId),
       call(
         () => this.prismaClient.dialogue.findMany({
-          select: { conversationId: true, initiator: true, participant: true },
+          select: { conversationId: true, initiatorId: true, participantId: true },
           where: {
-            OR: [{ initiator: participant }, { participant }],
+            OR: [{ initiatorId: participantId }, { participantId: participantId }],
             expiredAt: { gt: new Date() },
           },
         }),
       ),
     ])
 
-    const dialogueMap = Object.fromEntries(dialogues.map(x => [x.conversation, x]))
+    const dialogueMap = Object.fromEntries(dialogues.map(x => [x.conversationId, x]))
 
     return pipe(
       conversations,
@@ -130,8 +130,8 @@ export class DialogueService extends ConversationService {
           option.map(x =>
             ({
               ...conversation,
-              initiatorId: x.initiator,
-              participantId: x.participant,
+              initiatorId: x.initiatorId,
+              participantId: x.participantId,
             }),
           ),
         ),
@@ -139,13 +139,13 @@ export class DialogueService extends ConversationService {
     )
   }
 
-  public getDialogue(participantA: number, participantB: number) {
+  public getDialogue(participantIdA: number, participantIdB: number) {
     return pipe(
       () => this.prismaClient.dialogue.findFirst({
         where: {
           OR: [
-            { initiator: participantA, participant: participantB },
-            { initiator: participantB, participant: participantA },
+            { initiatorId: participantIdA, participantId: participantIdB },
+            { initiatorId: participantIdB, participantId: participantIdA },
           ],
           expiredAt: { gt: new Date() },
         },
@@ -154,8 +154,8 @@ export class DialogueService extends ConversationService {
     )()
   }
 
-  public *putDialogue(initiator: number, participant: number) {
-    const dialogue = yield * this.getDialogue(initiator, participant)
+  public *putDialogue(initiatorId: number, participantId: number) {
+    const dialogue = yield * this.getDialogue(initiatorId, participantId)
 
     if (dialogue) {
       return dialogue
@@ -165,15 +165,15 @@ export class DialogueService extends ConversationService {
 
     return yield * this.prismaClient.$callTransaction(
       function*(this: DialogueService, tx: PrismaTransaction) {
-        void (yield * spawn(() => this.putParticipants(conversation.id, [initiator, participant], tx)))
+        void (yield * spawn(() => this.putParticipants(conversation.id, [initiatorId, participantId], tx)))
 
         return yield * call(
           () => tx.dialogue.create({
             data: {
-              conversation: conversation.id,
+              conversationId: conversation.id,
               expiredAt: conversation.expiredAt,
-              initiator,
-              participant,
+              initiatorId: initiatorId,
+              participantId: participantId,
             },
           }),
         )

@@ -48,7 +48,7 @@ export class GroupService extends ConversationService {
       .total('milliseconds')
 
     while (true) {
-      const conversations = yield * pipe(
+      const conversationIdArray = yield * pipe(
         () => this.prismaClient.conversation.findMany({
           select: { id: true },
           where: { expiredAt: { gt: new Date() }, type: this.type },
@@ -59,8 +59,8 @@ export class GroupService extends ConversationService {
         ),
       )()
 
-      if (0 < conversations.length) {
-        yield * this.active(conversations)
+      if (0 < conversationIdArray.length) {
+        yield * this.active(conversationIdArray)
       }
 
       yield * sleep(interval)

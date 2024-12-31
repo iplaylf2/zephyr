@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 export namespace dialogue{
   const creation = z.object({
-    participant: user.id,
+    participantId: user.id,
   })
 
   export class CreationDto extends createZodDto(creation) {}

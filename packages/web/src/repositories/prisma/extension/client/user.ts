@@ -41,7 +41,7 @@ export const user = Prisma.defineExtension({
               from 
                 users
               where 
-                ${Date.now()} < expiredAt and
+                ${Date.now()} < "expiredAt" and
                 id in (${Prisma.join(idArray)})
               for key share`,
             cOperation.FromTask.fromTask,
@@ -82,7 +82,7 @@ export const user = Prisma.defineExtension({
               from 
                 users
               where 
-                ${Date.now()} < expiredAt and
+                ${Date.now()} < "expiredAt" and
                 id in (${Prisma.join(idArray)})
               for no key update`,
             cOperation.FromTask.fromTask,

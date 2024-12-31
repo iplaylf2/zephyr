@@ -1,15 +1,13 @@
 import { ApiCreatedResponse, ApiOkResponse, ApiResponse, ApiTags } from '@nestjs/swagger'
 import {
   Body, Controller, Delete, Get, HttpCode, HttpStatus,
-  Inject, InternalServerErrorException, Patch, Post,
+  Inject, NotFoundException, Patch, Post,
 } from '@nestjs/common'
 import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { UserService } from '../../../../../domains/user/user.service.js'
 import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
-import { cOperationEither } from '../../../../../common/fp-effection/c-operation-either.js'
-import { either } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 import { unsafeGlobalScopeRun } from '../../../../../kits/effection/global-scope.js'
 import { user } from './user.dto.js'
@@ -42,18 +40,15 @@ export class UserController {
   @RequirePassport()
   @Get('info')
   public async [`@Get('info')`](@Passport.param passport: Passport): Promise<user.InfoDto> {
-    return unsafeGlobalScopeRun(pipe(
-      () => this.userService.get([passport.id]),
-      cOperation.map(
-        x => 0 === x.length
-          ? either.left(new InternalServerErrorException())
-          : either.right(x[0]!),
-      ),
-      cOperationEither.fold(
-        (e) => { throw e },
-        cOperation.Pointed.of,
-      ),
-    ))
+    return unsafeGlobalScopeRun(function*(this: UserController) {
+      const [user] = yield * this.userService.get([passport.id])
+
+      if (!user) {
+        throw new NotFoundException()
+      }
+
+      return user
+    }.bind(this))
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)

@@ -19,12 +19,12 @@ model ConversationXParticipant {
     data           Json
     expiredAt      DateTime
     lastActiveAt   DateTime
-    participant    Int
+    participantId  Int
 
     conversation Conversation @relation(fields: [conversationId], references: [id])
 
-    @@id([conversationId, participant])
-    @@unique([participant, conversationId])
+    @@id([conversationId, participantId])
+    @@unique([participantId, conversationId])
     @@index([expiredAt])
     @@map("conversation-x-participant")
 }

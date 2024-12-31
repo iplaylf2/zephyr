@@ -9,17 +9,17 @@ export const dialogue = Prisma.defineExtension({
       const client = Prisma.getExtensionContext(this)
 
       return {
-        forQuery(participant: number) {
+        forQuery(participantId: number) {
           return pipe(
             () => client.$queryRaw<Pick<Dialogue, 'conversationId'>[]>`
               select
-                conversationId
+                "conversationId"
               from 
                 dialogues
               where
                 ${new Date()} < "expiredAt" and
-                ( initiator = ${participant} or
-                  participant = ${participant} )
+                ( "initiatorId" = ${participantId} or
+                  "participantId" = ${participantId} )
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -27,17 +27,17 @@ export const dialogue = Prisma.defineExtension({
             ),
           )()
         },
-        forUpdate(participant: number) {
+        forUpdate(participantId: number) {
           return pipe(
             () => client.$queryRaw<Pick<Dialogue, 'conversationId'>[]>`
               select
-                conversationId
+                "conversationId"
               from 
                 dialogues
               where
                 ${new Date()} < "expiredAt" and
-                ( initiator = ${participant} or
-                  participant = ${participant} )
+                ( "initiatorId" = ${participantId} or
+                  "participantId" = ${participantId} )
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(

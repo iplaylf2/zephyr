@@ -17,12 +17,12 @@ export const pushSubscription = Prisma.defineExtension({
           return pipe(
             () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                pushId
+                "pushId"
               from
                 "push-subscriptions"
               where
                 receiver = ${receiver} and
-                pushId in (${Prisma.join(pushIdArray)})
+                "pushId" in (${Prisma.join(pushIdArray)})
               for key share`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -34,7 +34,7 @@ export const pushSubscription = Prisma.defineExtension({
           return pipe(
             () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                pushId
+                "pushId"
               from
                 "push-subscriptions"
               where
@@ -54,12 +54,12 @@ export const pushSubscription = Prisma.defineExtension({
           return pipe(
             () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                pushId
+                "pushId"
               from
                 "push-subscriptions"
               where
                 receiver = ${receiver} and
-                pushId in (${Prisma.join(pushIdArray)})
+                "pushId" in (${Prisma.join(pushIdArray)})
               for update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
@@ -75,12 +75,12 @@ export const pushSubscription = Prisma.defineExtension({
           return pipe(
             () => client.$queryRaw<Pick<PushSubscription, 'pushId'>[]>`
               select
-                pushId
+                "pushId"
               from
                 "push-subscriptions"
               where
                 receiver = ${receiver} and
-                pushId in (${Prisma.join(pushIdArray)})
+                "pushId" in (${Prisma.join(pushIdArray)})
               for no key update`,
             cOperation.FromTask.fromTask,
             cOperation.map(
