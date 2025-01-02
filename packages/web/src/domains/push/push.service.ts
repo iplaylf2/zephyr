@@ -109,7 +109,15 @@ export class PushService extends ModuleRaii {
 
         yield * notification.publish(
           notification.getChannel(receiverId),
-          { push: { sources: deletedSources, type }, type: 'unsubscribe' },
+          {
+            pushes: pipe(
+              deletedSources,
+              readonlyArray.map(
+                source => ({ source, type }),
+              ),
+            ),
+            type: 'unsubscribe',
+          },
         )
 
         return deletedSources
@@ -285,7 +293,15 @@ export class PushService extends ModuleRaii {
 
         yield * notification.publish(
           notification.getChannel(receiverId),
-          { push: { sources: newSources, type }, type: 'subscribe' },
+          {
+            pushes: pipe(
+              newSources,
+              readonlyArray.map(
+                source => ({ source, type }),
+              ),
+            ),
+            type: 'subscribe',
+          },
         )
 
         return either.right(newSources)

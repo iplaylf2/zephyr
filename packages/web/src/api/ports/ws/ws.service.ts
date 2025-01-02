@@ -9,6 +9,7 @@ import { PushService } from '../../../domains/push/push.service.js'
 import { ReceiverService } from '../../../domains/push/receiver.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
+import { finalize } from 'rxjs'
 import { pipe } from 'fp-ts/lib/function.js'
 
 @Injectable()
@@ -88,17 +89,11 @@ export class WsService extends ModuleRaii {
       }
 
       websocketServer.handleUpgrade(request, socket, head, (ws) => {
-        const subscription = receiver.subscribe({
-          complete() {
-            ws.close()
-          },
-          error() {
-            ws.close()
-          },
-          next(x) {
-            ws.send(JSON.stringify(x))
-          },
-        })
+        const subscription = receiver
+          .pipe(
+            finalize(() => { ws.close() }),
+          )
+          .subscribe((x) => { ws.send(JSON.stringify(x)) })
 
         ws.on('close', () => {
           subscription.unsubscribe()

@@ -10,13 +10,17 @@ export namespace push{
 
   export type Receiver = Readonly<z.infer<typeof receiver>>
 
+  export const push = z.object({
+    source: z.number(),
+    type: z.string(),
+  })
+
+  export type Push = Readonly<z.infer<typeof push>>
+
   const notificationItem = [
     z.object({
-      push: z.object({
-        sources: z.array(z.number()),
-        type: z.string(),
-      }),
-      type: z.enum(['subscribe', 'unsubscribe']),
+      pushes: z.array(push),
+      type: z.enum(['subscribe', 'unsubscribe', 'complete']),
     }),
     z.object({ type: z.literal('delete') }),
   ] as const
@@ -25,13 +29,14 @@ export namespace push{
 
   export type Notification = ReadonlyDeep<z.infer<typeof notification>>
 
-  export const Message = z.discriminatedUnion('type', [
+  export const message = z.discriminatedUnion('type', [
     ...notificationItem,
     z.object({
       content: z.custom<JsonValue>(),
+      push,
       type: z.literal('message'),
     }),
   ])
 
-  export type Message = ReadonlyDeep<z.infer<typeof Message>>
+  export type Message = ReadonlyDeep<z.infer<typeof message>>
 }
