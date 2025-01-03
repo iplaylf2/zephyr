@@ -162,8 +162,12 @@ export class ReceiverService extends ModuleRaii {
   private *subscribe(
     receiverId: number,
     pushes: readonly push.Push[],
-    tx: PrismaTransaction = this.prismaClient,
+    tx?: PrismaTransaction,
   ): Operation<void> {
+    if (!tx) {
+      return yield * this.prismaClient.$callTransaction(tx => this.subscribe(receiverId, pushes, tx))
+    }
+
     if (0 === pushes.length) {
       return
     }
@@ -175,7 +179,6 @@ export class ReceiverService extends ModuleRaii {
     }
 
     void this.conversationService
-    void tx
 
     yield * suspend()
     throw new Error('todo')
@@ -184,49 +187,35 @@ export class ReceiverService extends ModuleRaii {
   private *unsubscribe(
     receiverId: number,
     pushes: readonly push.Push[],
-    tx: PrismaTransaction = this.prismaClient,
-  ) {
-    void receiverId
-    void pushes
-    void tx
-    // const receiver = this.receiverMap.get(receiverId)
+    tx?: PrismaTransaction,
+  ): Operation<void> {
+    if (!tx) {
+      return yield * this.prismaClient.$callTransaction(tx => this.unsubscribe(receiverId, pushes, tx))
+    }
 
-    // if (!receiver) {
-    //   return
-    // }
+    const receiver = this.receiverMap.get(receiverId)
 
-    // const pushIdArray = yield * pipe(
-    //   () => this.prismaClient.push.findMany({
-    //     select: { id: true },
-    //     where: { source: { in: where.writable(push.sources) }, type: push.type },
-    //   }),
-    //   cOperation.FromTask.fromTask,
-    //   cOperation.map(
-    //     readonlyArray.map(x => x.id),
-    //   ),
-    // )()
+    if (!receiver) {
+      return
+    }
 
-    // if (0 < pushIdArray.length) {
-    //   const exists = yield * this.prismaClient
-    //     .$pushSubscription()
-    //     .pushesForQuery(receiverId, pushIdArray)
+    const innerPushes = yield * pipe(
+      () => tx.push.findMany({
+        select: { id: true, source: true, type: true },
+        where: { OR: where.writable(pushes) },
+      }),
+      cOperation.FromTask.fromTask,
+    )()
 
-    //   if (0 < exists.length) {
-    //     return
-    //   }
-    // }
+    const exists = new Set(
+      0 === innerPushes.length
+        ? []
+        : yield * tx
+          .$pushSubscription()
+          .pushesForQuery(receiverId, innerPushes.map(x => x.id)),
+    )
 
-    // receiver.unsubscribe(
-    //   pipe(
-    //     push.sources,
-    //     readonlyArray.map(
-    //       source => ({ source, type: push.type }),
-    //     ),
-    //   ),
-    // )
-
-    yield * suspend()
-    throw new Error('todo')
+    receiver.unsubscribe(innerPushes.filter(({ id }) => !exists.has(id)))
   }
 }
 
