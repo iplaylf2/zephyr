@@ -647,6 +647,13 @@ export abstract class ConversationService extends ModuleRaii {
       identity.ap(callbacks),
     )
 
+    try {
+      yield * event.groupCreate(parallelGroup.group, '0')
+    }
+    catch {
+      // ignore duplicated group
+    }
+
     yield * parallelGroup.read(
       randomUUID(),
       flow(

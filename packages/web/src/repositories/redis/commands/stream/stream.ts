@@ -78,19 +78,10 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     )
   }
 
-  public *groupCreate(group: RedisCommandArgument, id: RedisCommandArgument, options?: XGroupCreateOptions) {
-    try {
-      return yield * call(
-        () => this.client.xGroupCreate(this.key, group, id, options),
-      )
-    }
-    catch (e) {
-      if ('BUSYGROUP Consumer Group name already exists' !== (e as any)?.message) {
-        throw e
-      }
-
-      return null
-    }
+  public groupCreate(group: RedisCommandArgument, id: RedisCommandArgument, options?: XGroupCreateOptions) {
+    return call(
+      () => this.client.xGroupCreate(this.key, group, id, options),
+    )
   }
 
   public groupDestroy(group: RedisCommandArgument) {
