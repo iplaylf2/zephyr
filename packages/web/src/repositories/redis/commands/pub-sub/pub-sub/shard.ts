@@ -23,7 +23,7 @@ export abstract class Shard<
   }
 
   public override unsubscribe(channel?: Channel, listener?: pubSub.Listener<T, Channel>) {
-  // listener 也许会复用，因此不能主动从 listenerMap 删除；WeakMap 会兜底的。
+    // listener 也许会复用，因此不能主动从 listenerMap 删除；WeakMap 会兜底的。
 
     const raw = listener && this.getRawListener(listener)
 

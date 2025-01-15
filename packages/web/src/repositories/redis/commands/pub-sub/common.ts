@@ -21,11 +21,12 @@ export abstract class PubSub<
       io.map(option.fromNullable),
       ioOption.getOrElse(
         flow(
-          constant(io.of(
+          constant(
             ((message, channel) =>
-              listener(this.decode(message), channel.toString() as Channel)
-            ) satisfies PubSubListener<BufferMode>,
-          )),
+              listener(this.decode(message), channel.toString() as Channel)) satisfies
+            PubSubListener<BufferMode>,
+          ),
+          io.of,
           io.tap(x => () => this.rawListenerMap.set(listener, x)),
         ),
       ),
