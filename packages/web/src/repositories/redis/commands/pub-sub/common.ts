@@ -1,6 +1,6 @@
 import { Isolable, RedisCommandArgument } from '../common.js'
 import { constant, flow, pipe } from 'fp-ts/lib/function.js'
-import { io, option } from 'fp-ts'
+import { io, ioOption, option } from 'fp-ts'
 import { Operation } from 'effection'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
 import { RedisClientType } from '@redis/client'
@@ -18,20 +18,17 @@ export abstract class PubSub<
   protected cacheAndTransformListener(listener: pubSub.Listener<T, Channel>) {
     return pipe(
       () => this.rawListenerMap.get(listener),
-      io.chain(flow(
-        option.fromNullable,
-        option.fold(
-          flow(
-            constant(io.of(
-              ((message, channel) =>
-                listener(this.decode(message), channel.toString() as Channel)
-              ) satisfies PubSubListener<BufferMode>,
-            )),
-            io.tap(x => () => this.rawListenerMap.set(listener, x)),
-          ),
-          io.of,
+      io.map(option.fromNullable),
+      ioOption.getOrElse(
+        flow(
+          constant(io.of(
+            ((message, channel) =>
+              listener(this.decode(message), channel.toString() as Channel)
+            ) satisfies PubSubListener<BufferMode>,
+          )),
+          io.tap(x => () => this.rawListenerMap.set(listener, x)),
         ),
-      )),
+      ),
     )()
   }
 

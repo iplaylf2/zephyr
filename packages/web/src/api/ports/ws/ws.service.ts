@@ -1,6 +1,5 @@
 import { IncomingMessage, Server } from 'http'
 import { Inject, Injectable } from '@nestjs/common'
-import { identity, ioOption, option } from 'fp-ts'
 import { suspend, useScope } from 'effection'
 import { Duplex } from 'stream'
 import { HttpAdapterHost } from '@nestjs/core'
@@ -10,6 +9,7 @@ import { ReceiverService } from '../../../domains/push/receiver.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
 import { finalize } from 'rxjs'
+import { ioOption } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 
 @Injectable()
@@ -73,12 +73,10 @@ export class WsService extends ModuleRaii {
 
       const receiver = pipe(
         receiverId,
-        option.fromNullable,
-        option.map(
+        ioOption.fromNullable,
+        ioOption.chainIOK(
           x => () => this.receiverService.put(x).shared,
         ),
-        ioOption.fromOption,
-        ioOption.chainIOK(identity.of),
         ioOption.toNullable,
       )()
 
