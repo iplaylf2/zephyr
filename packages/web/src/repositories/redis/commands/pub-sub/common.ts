@@ -1,9 +1,9 @@
 import { Isolable, RedisCommandArgument } from '../common.js'
-import { constant, flow, pipe } from 'fp-ts/lib/function.js'
-import { io, ioOption, option } from 'fp-ts'
+import { either, ioEither } from 'fp-ts'
 import { Operation } from 'effection'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
 import { RedisClientType } from '@redis/client'
+import { pipe } from 'fp-ts/lib/function.js'
 
 export abstract class PubSub<
   const BufferMode extends boolean,
@@ -17,19 +17,16 @@ export abstract class PubSub<
 
   protected cacheAndTransformListener(listener: pubSub.Listener<T, Channel>) {
     return pipe(
-      () => this.rawListenerMap.get(listener),
-      io.map(option.fromNullable),
-      ioOption.getOrElse(
-        flow(
-          constant(
-            ((message, channel) =>
-              listener(this.decode(message), channel.toString() as Channel)) satisfies
-            PubSubListener<BufferMode>,
-          ),
-          io.of,
-          io.tap(x => () => this.rawListenerMap.set(listener, x)),
-        ),
+      () => either.fromNullable(null)(this.rawListenerMap.get(listener)),
+      ioEither.mapLeft(
+        () => ((message, channel) =>
+          listener(this.decode(message), channel.toString() as Channel)) satisfies
+        PubSubListener<BufferMode>,
       ),
+      ioEither.orElseFirstIOK(
+        newListener => () => this.rawListenerMap.set(listener, newListener),
+      ),
+      ioEither.toUnion,
     )()
   }
 

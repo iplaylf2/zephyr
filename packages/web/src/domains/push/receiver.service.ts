@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
+import { Observable, share } from 'rxjs'
 import { Operation, Scope, Task, call, createSignal, each, lift, spawn, suspend, useScope } from 'effection'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
+import { either, ioEither, readonlyArray } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { io, ioOption, option, readonlyArray } from 'fp-ts'
 import { ConversationService } from '../../repositories/redis/entities/conversation.service.js'
 import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
+import { JKMap } from '../../kits/jk-map.js'
+import { JsonValue } from 'type-fest'
 import { ModuleRaii } from '../../common/module-raii.js'
-import { Observable } from 'rxjs'
 import { Receiver } from './receiver.js'
 import { cOperation } from '../../common/fp-effection/c-operation.js'
 import { group } from '../../repositories/redis/commands/stream/group.js'
@@ -31,6 +33,8 @@ export class ReceiverService extends ModuleRaii {
 
   private scope!: Scope
 
+  private readonly subscriptionMap = new JKMap<[string, number], Observable<JsonValue>>()
+
   public constructor() {
     super()
 
@@ -42,17 +46,15 @@ export class ReceiverService extends ModuleRaii {
 
   public put(id: number): Receiver {
     return pipe(
-      () => this.receiverMap.get(id),
-      io.map(option.fromNullable),
-      ioOption.getOrElse(flow(
-        () => io.of(new Receiver()),
-        io.tap(
-          x => () => {
-            this.receiverMap.set(id, x)
-            this.receiverSignal.send({ receiverId: id, type: 'put' })
-          },
-        ),
-      )),
+      () => either.fromNullable(id)(this.receiverMap.get(id)),
+      ioEither.mapLeft(() => new Receiver()),
+      ioEither.orElseFirstIOK(
+        receiver => () => {
+          this.receiverMap.set(id, receiver)
+          this.receiverSignal.send({ receiverId: id, type: 'put' })
+        },
+      ),
+      ioEither.toUnion,
     )()
   }
 
@@ -66,6 +68,46 @@ export class ReceiverService extends ModuleRaii {
     receiver.close()
     this.receiverMap.delete(id)
     this.receiverSignal.send({ receiverId: id, type: 'delete' })
+  }
+
+  private ensureSubscription(push: push.Push) {
+    return pipe(
+      () => either.fromNullable(push)(this.subscriptionMap.get([push.type, push.source])),
+      ioEither.mapLeft(
+        push => new Observable<JsonValue>((subscriber) => {
+          const task = this.scope.run(function*(this: ReceiverService) {
+            const records = this.conversationService.getRecords(push.type, push.source)
+            const serialGroup = new group.Serial(records, randomUUID())
+
+            try {
+              yield * records.groupCreate(serialGroup.group, '$', { MKSTREAM: true })
+              yield * serialGroup.read(
+                randomUUID(),
+                lift(({ message }) => { subscriber.next(message) }),
+              )
+            }
+            catch (e) {
+              subscriber.error(e)
+            }
+            finally {
+              yield * records.groupDestroy(serialGroup.group)
+            }
+          }.bind(this))
+
+          return () => {
+            void task.halt()
+          }
+        }).pipe(
+
+        ).pipe(
+          share({ resetOnRefCountZero: true }),
+        ),
+      ),
+      ioEither.orElseFirstIOK(
+        subscription => () => this.subscriptionMap.set([push.type, push.source], subscription),
+      ),
+      ioEither.toUnion,
+    )()
   }
 
   private *listenEvent() {
@@ -209,31 +251,7 @@ export class ReceiverService extends ModuleRaii {
     receiver.subscribe(
       existsSubscriptions.map(
         push => ({
-          observable: new Observable((subscriber) => {
-            const task = this.scope.run(function*(this: ReceiverService) {
-              const records = this.conversationService.getRecords(push.type, push.source)
-              const serialGroup = new group.Serial(records, randomUUID())
-
-              try {
-                yield * records.groupCreate(serialGroup.group, '$', { MKSTREAM: true })
-                yield * serialGroup.read(
-                  randomUUID(),
-                  lift(({ message }) => { subscriber.next(message) },
-                  ),
-                )
-              }
-              catch (e) {
-                subscriber.error(e)
-              }
-              finally {
-                yield * records.groupDestroy(serialGroup.group)
-              }
-            }.bind(this))
-
-            return () => {
-              void task.halt()
-            }
-          }),
+          observable: this.ensureSubscription(push),
           push,
         }),
       ),

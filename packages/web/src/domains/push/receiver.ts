@@ -93,7 +93,7 @@ export class Receiver {
     const unsubscribedPushes = pipe(
       pushes,
       readonlyArray.map(flow(
-        push => () => this.sourceMap.has([push.type, push.source]) ? option.some(push) : option.none,
+        ioOption.fromPredicate(({ type, source }) => this.sourceMap.has([type, source])),
         ioOption.tapIO(({ source, type }) => () => this.sourceMap.delete([type, source])),
       )),
       io.sequenceArray,
