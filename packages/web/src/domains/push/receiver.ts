@@ -52,8 +52,8 @@ export class Receiver {
       pushes,
       readonlyArray.map(flow(
         push => () => this.sourceMap.has([push.push.type, push.push.source]) ? option.none : option.some(push),
-        ioOption.chainIOK(
-          ({ observable, push }) => () => {
+        ioOption.tapIO(
+          ({ observable, push }) => () =>
             this.sourceMap.set(
               [push.type, push.source],
               observable.pipe(
@@ -62,11 +62,9 @@ export class Receiver {
                   this.innerSubject.next({ pushes: [push], type: 'complete' })
                 }),
               ),
-            )
-
-            return push
-          },
+            ),
         ),
+        ioOption.map(({ push }) => push),
       )),
       io.sequenceArray,
       io.map(
