@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { Observable, defer, finalize, share } from 'rxjs'
-import { Operation, Scope, Task, call, createSignal, each, lift, spawn, suspend, useScope } from 'effection'
+import { Operation, Scope, Task, createSignal, each, lift, scoped, spawn, suspend, useScope } from 'effection'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { either, ioEither, readonlyArray } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
@@ -169,7 +169,7 @@ export class ReceiverService extends ModuleRaii {
   }
 
   private raiiReceiver(receiverId: number): Operation<void> {
-    return call(
+    return scoped(
       function*(this: ReceiverService) {
         const notification = this.entityPushService.getNotification()
 

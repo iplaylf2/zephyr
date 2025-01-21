@@ -1,4 +1,4 @@
-import { Operation, call, each, ensure, sleep, spawn } from 'effection'
+import { Operation, each, ensure, scoped, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../common.js'
@@ -28,7 +28,7 @@ export class Parallel<T extends StreamMessageBody> {
   }
 
   public read(consumer: RedisCommandArgument, f: (x: StreamMessage<T>) => Operation<any>) {
-    return call(
+    return scoped(
       function*(this: Parallel<T>) {
         let processed: string[] = []
 

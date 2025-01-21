@@ -1,4 +1,4 @@
-import { Operation, call, useScope } from 'effection'
+import { Operation, call, scoped, useScope } from 'effection'
 import { ClientDenyList } from './deny-list.js'
 import { Prisma } from '../../generated/index.js'
 import { PrismaClient } from '../../client.js'
@@ -16,7 +16,7 @@ export const effection = Prisma.defineExtension({
     ): Operation<R> {
       const client = Prisma.getExtensionContext(this) as unknown as PrismaClient
 
-      return call(
+      return scoped(
         function*() {
           const scope = yield * useScope()
 
