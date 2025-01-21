@@ -1,5 +1,5 @@
 import { JsonValue } from 'type-fest'
-import { RedisCommandArgument } from '../../commands/generic.js'
+import { RedisCommandArgument } from '../../commands/common.js'
 import { String } from '../../commands/string.js'
 
 export abstract class JsonString<T extends JsonValue> extends String<T> {

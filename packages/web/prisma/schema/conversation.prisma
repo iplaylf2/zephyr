@@ -1,0 +1,30 @@
+model Conversation {
+    createdAt    DateTime
+    expiredAt    DateTime
+    id           Int      @id @default(autoincrement())
+    lastActiveAt DateTime
+    name         String
+    type         String
+
+    participants ConversationXParticipant[]
+
+    @@index([expiredAt])
+    @@index([type])
+    @@map("conversations")
+}
+
+model ConversationXParticipant {
+    conversationId Int
+    createdAt      DateTime
+    data           Json
+    expiredAt      DateTime
+    lastActiveAt   DateTime
+    participantId  Int
+
+    conversation Conversation @relation(fields: [conversationId], references: [id])
+
+    @@id([conversationId, participantId])
+    @@unique([participantId, conversationId])
+    @@index([expiredAt])
+    @@map("conversation-x-participant")
+}

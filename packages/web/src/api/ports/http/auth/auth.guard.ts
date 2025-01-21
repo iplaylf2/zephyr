@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { CanActivate, ExecutionContext, FactoryProvider, Inject, Injectable, InternalServerErrorException, Scope, createParamDecorator } from '@nestjs/common'
+import { CanActivate, ExecutionContext, FactoryProvider, Inject, Injectable, InternalServerErrorException, Scope, UnauthorizedException, createParamDecorator } from '@nestjs/common'
 import { AuthService } from './auth.service.js'
 import { REQUEST } from '@nestjs/core'
 import { Request } from 'express'
-import { globalScope } from '../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '../../../../kits/effection/global-scope.js'
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -11,7 +11,7 @@ export class AuthGuard implements CanActivate {
   private readonly authService!: AuthService
 
   public canActivate(context: ExecutionContext) {
-    return globalScope.run(function*(this: AuthGuard) {
+    return unsafeGlobalScopeRun(function*(this: AuthGuard) {
       const request = context.switchToHttp().getRequest<Request>()
       const token = this.extractToken(request)
 
@@ -21,6 +21,10 @@ export class AuthGuard implements CanActivate {
 
       try {
         const data = yield * this.authService.authenticate(token)
+
+        if (null === data) {
+          throw new UnauthorizedException()
+        }
 
         ;(request as any)[passport] = data
 
@@ -38,7 +42,7 @@ export class AuthGuard implements CanActivate {
 }
 
 export abstract class Passport {
-  public abstract readonly id: string
+  public abstract readonly id: number
 }
 
 export namespace Passport{

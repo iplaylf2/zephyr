@@ -1,27 +1,27 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { Scope } from 'effection'
+import { Operation, Scope } from 'effection'
 
 export function initGlobalScope(scope: Scope) {
-  if (_scope) {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition
+  if (globalScope) {
     return false
   }
 
-  _scope = scope
+  globalScope = scope
 
   return true
 }
 
-export const globalScope = new Proxy(
-  {} as Scope,
-  {
-    get(_target, p) {
-      if (null === _scope) {
-        throw new Error()
+export let globalScope!: Scope
+
+export function unsafeGlobalScopeRun<T>(operation: () => Operation<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    globalScope.run(function*() {
+      try {
+        resolve(yield * operation())
       }
-
-      return (_scope as any)[p]
-    },
-  },
-)
-
-let _scope: Scope | null = null
+      catch (e) {
+        reject(e as Error)
+      }
+    }).catch((e: unknown) => { reject(e as Error) })
+  })
+}

@@ -1,6 +1,6 @@
 import { Operation, call, resource } from 'effection'
 import { RedisClientType } from '@redis/client'
-import { RedisCommandArgument } from './generic.js'
+import { RedisCommandArgument } from '@redis/client/dist/lib/commands/index.js'
 
 export interface Model<T> {
   readonly client: RedisClientType
@@ -20,14 +20,20 @@ export abstract class Isolable<T extends Isolable<T>> {
       const client = duplication.client
 
       try {
-        yield * call(client.connect())
+        yield * call(
+          () => client.connect(),
+        )
         yield * provide(duplication)
       }
       finally {
-        yield * call(client.quit())
+        yield * call(
+          () => client.disconnect(),
+        )
       }
     })
   }
 
   protected abstract duplicate(): T
 }
+
+export { RedisCommandArgument }

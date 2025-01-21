@@ -1,10 +1,15 @@
 import { ApiCreatedResponse, ApiOkResponse, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, InternalServerErrorException, Post, Put, ServiceUnavailableException } from '@nestjs/common'
+import {
+  Body, Controller, Delete, Get, HttpCode, HttpStatus,
+  Inject, NotFoundException, Patch, Post,
+} from '@nestjs/common'
 import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { UserService } from '../../../../../domains/user/user.service.js'
-import { globalScope } from '../../../../../kits/effection/global-scope.js'
+import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
+import { pipe } from 'fp-ts/lib/function.js'
+import { unsafeGlobalScopeRun } from '../../../../../kits/effection/global-scope.js'
 import { user } from './user.dto.js'
 
 @ApiTags('user')
@@ -22,12 +27,11 @@ export class UserController {
   })
   @RequirePassport()
   @Delete()
-  public [`@Delete()`](@Passport.param passport: Passport) {
-    return globalScope.run(function*(this: UserController) {
-      const deleted = yield * this.userService.unregister([passport.id])
-
-      return 0 < deleted.length
-    }.bind(this))
+  public [`@Delete()`](@Passport.param passport: Passport): Promise<boolean> {
+    return unsafeGlobalScopeRun(pipe(
+      () => this.userService.unregister([passport.id]),
+      cOperation.map(x => 0 < x.length),
+    ))
   }
 
   @ApiOkResponse({
@@ -36,40 +40,34 @@ export class UserController {
   @RequirePassport()
   @Get('info')
   public async [`@Get('info')`](@Passport.param passport: Passport): Promise<user.InfoDto> {
-    return globalScope.run(function*(this: UserController) {
-      const infos = yield * this.userService.get([passport.id])
+    return unsafeGlobalScopeRun(function*(this: UserController) {
+      const [user] = yield * this.userService.get([passport.id])
 
-      if (0 === infos.length) {
-        throw new InternalServerErrorException()
+      if (!user) {
+        throw new NotFoundException()
       }
 
-      return infos[0]!
+      return user
     }.bind(this))
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePassport()
+  @Patch('info')
+  public async [`@Patch('info')`](@Passport.param passport: Passport, @Body() info: user.InfoDto) {
+    await unsafeGlobalScopeRun(
+      () => this.userService.patch(passport.id, info),
+    )
   }
 
   @ApiCreatedResponse({
     type: user.CreationResultDto,
   })
   @Post()
-  public async [`@Post()`](@Body() creationData: user.CreationDataDto): Promise<user.CreationResultDto> {
-    return globalScope.run(function*(this: UserController) {
-      const id = yield * this.userService.register({ group: 'user', nickname: creationData.nickname })
-
-      if (null === id) {
-        throw new ServiceUnavailableException()
-      }
-
-      return {
-        id: id,
-        token: this.authService.authorize(id),
-      }
-    }.bind(this))
-  }
-
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @RequirePassport()
-  @Put('info')
-  public [`@Put('info')`](@Passport.param passport: Passport, @Body() updateData: user.UpdateDataDto) {
-    return globalScope.run(() => this.userService.put(passport.id, updateData))
+  public async [`@Post()`](@Body() info: user.InfoDto): Promise<user.CreationResultDto> {
+    return unsafeGlobalScopeRun(pipe(
+      () => this.userService.register(info),
+      cOperation.map(id => ({ id: id, token: this.authService.authorize(id) })),
+    ))
   }
 }

@@ -1,0 +1,11 @@
+model Dialogue {
+    conversationId Int      @id
+    expiredAt      DateTime
+    initiatorId    Int
+    participantId  Int
+
+    @@unique([initiatorId, participantId])
+    @@unique([participantId, initiatorId])
+    @@index([expiredAt])
+    @@map("dialogues")
+}

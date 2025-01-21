@@ -1,13 +1,16 @@
 import { IncomingMessage, Server } from 'http'
 import { Inject, Injectable } from '@nestjs/common'
+import { suspend, useScope } from 'effection'
 import { Duplex } from 'stream'
 import { HttpAdapterHost } from '@nestjs/core'
 import { ModuleRaii } from '../../../common/module-raii.js'
-import { ReceiverService } from '../../../domains/receiver/receiver.service.js'
+import { PushService } from '../../../domains/push/push.service.js'
+import { ReceiverService } from '../../../domains/push/receiver.service.js'
 import { URLPattern } from 'urlpattern-polyfill'
 import { WebSocketServer } from 'ws'
-import { globalScope } from '../../../kits/effection/global-scope.js'
-import { suspend } from 'effection'
+import { finalize } from 'rxjs'
+import { ioOption } from 'fp-ts'
+import { pipe } from 'fp-ts/lib/function.js'
 
 @Injectable()
 export class WsService extends ModuleRaii {
@@ -15,31 +18,39 @@ export class WsService extends ModuleRaii {
   private readonly httpAdapterHost!: HttpAdapterHost
 
   @Inject()
+  private readonly pushService!: PushService
+
+  @Inject()
   private readonly receiverService!: ReceiverService
 
   public constructor() {
     super()
 
-    this.initializeCallback.push(() => this.listen())
+    this.initializeCallbacks.push(() => this.listen())
   }
 
   private *listen() {
-    const urlPattern = new URLPattern({ pathname: '/receiver/:id' })
+    const scope = yield * useScope()
+
+    const urlPattern = new URLPattern({ pathname: '/push/receivers/:token' })
     const websocketServer = new WebSocketServer({ noServer: true })
     const upgradeListener = (request: IncomingMessage, socket: Duplex, head: Buffer) => {
       const patternResult = urlPattern.exec(request.url, 'ws://x')
-      const id = patternResult?.pathname.groups['id'] ?? null
+      const token = patternResult?.pathname.groups['token'] ?? null
 
-      if (null === id) {
+      if (null === token) {
         socket.destroy()
 
         return
       }
 
-      void globalScope.run(() => this.tryUpgrading(websocketServer, request, socket, head, id))
+      void scope.run(
+        () => this.tryUpgrading(websocketServer, request, socket, head, token),
+      )
     }
 
     const httpServer: Server = this.httpAdapterHost.httpAdapter.getHttpServer()
+
     httpServer.addListener('upgrade', upgradeListener)
 
     try {
@@ -55,29 +66,32 @@ export class WsService extends ModuleRaii {
     request: IncomingMessage,
     socket: Duplex,
     head: Buffer,
-    id: string,
+    token: string,
   ) {
     try {
-      const channel = yield * this.receiverService.getChannel(id)
+      const receiverId = yield * this.pushService.getReceiver(token)
 
-      if (null === channel) {
+      const receiver = pipe(
+        receiverId,
+        ioOption.fromNullable,
+        ioOption.chainIOK(
+          x => () => this.receiverService.put(x).shared,
+        ),
+        ioOption.toNullable,
+      )()
+
+      if (!receiver) {
         socket.destroy()
 
         return
       }
 
       websocketServer.handleUpgrade(request, socket, head, (ws) => {
-        const subscription = channel.subscribe({
-          complete() {
-            ws.close()
-          },
-          error() {
-            ws.close()
-          },
-          next(x) {
-            ws.send(x, () => {})
-          },
-        })
+        const subscription = receiver
+          .pipe(
+            finalize(() => { ws.close() }),
+          )
+          .subscribe((x) => { ws.send(JSON.stringify(x)) })
 
         ws.on('close', () => {
           subscription.unsubscribe()

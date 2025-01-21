@@ -1,7 +1,6 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { UserService } from '../../../../domains/user/user.service.js'
-import { spawn } from 'effection'
 
 @Injectable()
 export class AuthService {
@@ -14,22 +13,20 @@ export class AuthService {
   public *authenticate(token: string) {
     const passport: AuthService.Passport = this.jwtService.verify(token)
 
-    void (yield * spawn(() => this.userService.expire([passport.id])))
-
-    const exists = yield * this.userService.exists([passport.id])
+    const exists = yield * this.userService.active([passport.id])
 
     if (0 === exists.length) {
-      throw new UnauthorizedException()
+      return null
     }
 
     return passport
   }
 
-  public authorize(userId: string) {
+  public authorize(userId: number) {
     return this.jwtService.sign({ id: userId } satisfies AuthService.Passport)
   }
 }
 
 export namespace AuthService{
-  export type Passport = { id: string }
+  export type Passport = { id: number }
 }

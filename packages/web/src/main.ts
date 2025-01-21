@@ -10,7 +10,9 @@ await main(function *() {
 
   initGlobalScope(scope)
 
-  const app = yield * call(NestFactory.create(AppModule))
+  const app = yield * call(
+    () => NestFactory.create(AppModule),
+  )
 
   app.enableShutdownHooks()
 
@@ -24,6 +26,14 @@ await main(function *() {
 
   SwaggerModule.setup('api', app, document)
 
-  yield * call(app.listen(3000))
-  yield * suspend()
+  yield * call(
+    () => app.listen(3000),
+  )
+
+  try {
+    yield * suspend()
+  }
+  finally {
+    yield * call(() => app.close())
+  }
 })
