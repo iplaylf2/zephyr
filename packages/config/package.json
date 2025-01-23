@@ -3,8 +3,8 @@
     "type": "module",
     "private": true,
     "exports": {
-        "./tsconfig.json": "./tsconfig.json",
-        "./eslint.config.js": "./eslint.config.js"
+        "./eslint.config.js": "./eslint.config.js",
+        "./tsconfig.json": "./tsconfig.json"
     },
     "devDependencies": {
         "@stylistic/eslint-plugin": "^2.13.0",
