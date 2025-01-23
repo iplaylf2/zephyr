@@ -11,7 +11,7 @@ import { GenericService } from '../../../repositories/redis/entities/generic.ser
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../user/user.service.js'
-import { cOperation } from '../../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { user } from '../../../models/user.js'
 import { where } from '../../../repositories/prisma/common/where.js'

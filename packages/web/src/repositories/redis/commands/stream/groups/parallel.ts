@@ -2,12 +2,12 @@ import { Operation, each, ensure, scoped, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../common.js'
-import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
-import { cStream } from '../../../../../common/fp-effection/c-stream.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
+import { cStream } from '@zephyr/kit/fp-effection/c-stream.js'
 import defaults from 'defaults'
 import { either } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
-import { stream } from '../../../../../kits/effection/stream.js'
+import { stream } from '@zephyr/kit/effection/stream.js'
 
 export class Parallel<T extends StreamMessageBody> {
   private readonly config: Parallel.Config

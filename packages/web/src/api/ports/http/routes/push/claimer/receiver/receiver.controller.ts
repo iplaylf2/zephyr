@@ -3,9 +3,9 @@ import { Controller, Delete, Get, HttpCode, HttpStatus, Inject, Put } from '@nes
 import { Passport } from '../../../../auth/auth.guard.js'
 import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
-import { cOperation } from '../../../../../../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
-import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 
 @ApiTags('push/claimer/receiver')
 @RequirePassport()

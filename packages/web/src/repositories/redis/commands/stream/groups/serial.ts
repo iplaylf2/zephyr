@@ -2,9 +2,9 @@ import { Operation, each, ensure, scoped, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../common.js'
-import { cStream } from '../../../../../common/fp-effection/c-stream.js'
+import { cStream } from '@zephyr/kit/fp-effection/c-stream.js'
 import defaults from 'defaults'
-import { stream } from '../../../../../kits/effection/stream.js'
+import { stream } from '@zephyr/kit/effection/stream.js'
 
 export class Serial<T extends StreamMessageBody> {
   private readonly config: Serial.Config

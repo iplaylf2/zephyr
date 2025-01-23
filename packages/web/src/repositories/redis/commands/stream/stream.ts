@@ -7,7 +7,7 @@ import { RedisClientType } from '@redis/client'
 import { XAutoClaimOptions } from '@redis/client/dist/lib/commands/XAUTOCLAIM.js'
 import { XReadGroupOptions } from '@redis/client/dist/lib/commands/XREADGROUP.js'
 import { call } from 'effection'
-import { readonlyRecordPlus } from '../../../../kits/fp-ts/readonly-record-plus.js'
+import { readonlyRecordPlus } from '@zephyr/kit/fp-ts/readonly-record-plus.js'
 
 export abstract class Stream<T extends StreamMessageBody> extends Isolable<Stream<T>> implements Model<T[string]> {
   public abstract override readonly client: RedisClientType

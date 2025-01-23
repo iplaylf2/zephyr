@@ -7,9 +7,21 @@
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
     },
     "exports": {
-        ".": {
+        "./*.js": {
             "default": "./dist/*.js",
             "types": "./dist/*.d.ts"
+        },
+        "./effection/*.js": {
+            "default": "./dist/effection/*.js",
+            "types": "./dist/effection/*.d.ts"
+        },
+        "./fp-effection/*.js": {
+            "default": "./dist/fp-effection/*.js",
+            "types": "./dist/fp-effection/*.d.ts"
+        },
+        "./fp-ts/*.js": {
+            "default": "./dist/fp-ts/*.js",
+            "types": "./dist/fp-ts/*.d.ts"
         }
     },
     "peerDependencies": {

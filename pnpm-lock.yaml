@@ -81,6 +81,9 @@ importers:
       '@redis/client':
         specifier: ^1.6.0
         version: 1.6.0
+      '@zephyr/kit':
+        specifier: workspace:*
+        version: link:../kit
       defaults:
         specifier: ^3.0.0
         version: 3.0.0

@@ -3,7 +3,7 @@ import { Controller, Inject, NotFoundException, Sse } from '@nestjs/common'
 import { Observable, concatMap, from, map } from 'rxjs'
 import { PushService } from '../../../../../../../domains/push/push.service.js'
 import { ReceiverService } from '../../../../../../../domains/push/receiver.service.js'
-import { unsafeGlobalScopeRun } from '../../../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 import { urlPattern } from '../../../../kits/url-pattern.js'
 
 export const tokenPath = urlPattern.path('token')

@@ -7,9 +7,9 @@ import { UserService as EntityUserService } from '../../repositories/redis/entit
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { User } from '../../repositories/prisma/generated/index.js'
-import { cOperation } from '../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { coerceReadonly } from '../../utils/identity.js'
-import { readonlyRecordPlus } from '../../kits/fp-ts/readonly-record-plus.js'
+import { readonlyRecordPlus } from '@zephyr/kit/fp-ts/readonly-record-plus.js'
 import { user } from '../../models/user.js'
 import { where } from '../../repositories/prisma/common/where.js'
 

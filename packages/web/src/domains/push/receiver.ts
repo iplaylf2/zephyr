@@ -1,7 +1,7 @@
 import { BehaviorSubject, Observable, Subject, finalize, map, merge, of, share, switchMap } from 'rxjs'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
-import { JKMap } from '../../kits/jk-map.js'
+import { JKMap } from '@zephyr/kit/jk-map.js'
 import { JsonValue } from 'type-fest'
 import { push } from '../../models/push.js'
 
