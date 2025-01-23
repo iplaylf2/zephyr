@@ -1,5 +1,6 @@
 # compiled output
 .pnpm-store
+.turbo
 node_modules
 
 # Logs
