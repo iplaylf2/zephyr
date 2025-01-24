@@ -17,6 +17,10 @@
             ]
         },
         "dev": {},
-        "lint": {}
+        "lint": {
+            "dependsOn": [
+                "^build"
+            ]
+        }
     }
 }
