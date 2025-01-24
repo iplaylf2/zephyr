@@ -4,19 +4,23 @@
     "private": true,
     "scripts": {
         "init": "echo init",
-        "build": "tsc",
-        "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
+        "dev": "vite",
+        "build": "tsc -b && vite build",
+        "lint": "eslint \"src/**/*.ts\" --fix"
     },
     "dependencies": {
         "@zephyr/kit": "workspace:*",
         "effection": "^3.2.0",
         "fp-ts": "^2.16.9",
+        "solid-js": "^1.9.4",
         "zod": "^3.24.1"
     },
     "devDependencies": {
         "@zephyr/config": "workspace:*",
         "eslint": "^9.18.0",
         "type-fest": "^4.33.0",
-        "typescript": "^5.7.3"
+        "typescript": "^5.7.3",
+        "vite": "^6.0.11",
+        "vite-plugin-solid": "^2.11.0"
     }
 }

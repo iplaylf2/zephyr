@@ -1,5 +1,6 @@
 ```bash
 # corepack enable
 pnpm install
-pnpm --filter web run start
+pnpm exec turbo run init
+pnpm exec turbo run dev
 ```

@@ -1,4 +1,3 @@
-import { cwd } from 'process'
 import eslint from '@eslint/js'
 import stylistic from '@stylistic/eslint-plugin'
 import typescript from 'typescript-eslint'
@@ -19,8 +18,9 @@ export default [
       languageOptions: {
         parser: typescript.parser,
         parserOptions: {
-          projectService: { allowDefaultProject: ['eslint.config.js'], defaultProject: 'tsconfig.json' },
-          tsconfigRootDir: cwd(),
+          projectService: {
+            allowDefaultProject: ['*.js'],
+          },
         },
       },
       rules: {

@@ -1,6 +1,13 @@
 {
     "$schema": "https://turbo.build/schema.json",
     "tasks": {
+        "init": {
+            "dependsOn": [
+                "^init",
+                "^build"
+            ],
+            "cache": false
+        },
         "build": {
             "dependsOn": [
                 "^build"
@@ -9,13 +16,7 @@
                 "dist/**"
             ]
         },
-        "init": {
-            "dependsOn": [
-                "^init",
-                "^build"
-            ],
-            "cache": false
-        },
+        "dev": {},
         "lint": {}
     }
 }
