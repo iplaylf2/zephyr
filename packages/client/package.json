@@ -4,8 +4,10 @@
     "private": true,
     "scripts": {
         "init": "echo init",
-        "dev": "vite",
-        "build": "tsc -b && vite build",
+        "dev": "node server",
+        "build": "pnpm run build:client && pnpm run build:server",
+        "build:client": "vite build --outDir dist/client",
+        "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
         "lint": "eslint \"src/**/*.ts\" --fix"
     },
     "dependencies": {
@@ -22,6 +24,7 @@
         "@types/compression": "^1.7.5",
         "@types/express": "^5.0.0",
         "@zephyr/config": "workspace:*",
+        "cross-env": "^7.0.3",
         "eslint": "^9.18.0",
         "type-fest": "^4.33.0",
         "typescript": "^5.7.3",
