@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
+    "init": "prisma generate",
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
