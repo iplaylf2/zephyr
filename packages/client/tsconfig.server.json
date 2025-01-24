@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "module": "ESNext",
+        "target": "ES2024",
+        /* Bundler mode */
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "isolatedModules": true,
+        "moduleDetection": "force",
+        "noEmit": true,
+    },
+    "include": [
+        "vite.config.ts",
+        "server.ts"
+    ],
+    "extends": "@zephyr/config/tsconfig.json",
+}

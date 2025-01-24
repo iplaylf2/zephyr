@@ -10,12 +10,17 @@
     },
     "dependencies": {
         "@zephyr/kit": "workspace:*",
+        "compression": "^1.7.5",
         "effection": "^3.2.0",
+        "express": "^4.21.2",
         "fp-ts": "^2.16.9",
+        "sirv": "^3.0.0",
         "solid-js": "^1.9.4",
         "zod": "^3.24.1"
     },
     "devDependencies": {
+        "@types/compression": "^1.7.5",
+        "@types/express": "^5.0.0",
         "@zephyr/config": "workspace:*",
         "eslint": "^9.18.0",
         "type-fest": "^4.33.0",
