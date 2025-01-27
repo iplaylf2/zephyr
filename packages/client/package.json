@@ -25,7 +25,7 @@
         "@types/express": "^5.0.0",
         "@zephyr/config": "workspace:*",
         "cross-env": "^7.0.3",
-        "eslint": "^9.18.0",
+        "eslint": "^9.19.0",
         "type-fest": "^4.33.0",
         "typescript": "^5.7.3",
         "vite": "^6.0.11",

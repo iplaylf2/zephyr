@@ -17,6 +17,11 @@
             ]
         },
         "dev": {},
+        "@zephyr/client#dev": {
+            "dependsOn": [
+                "^build"
+            ]
+        },
         "lint": {
             "dependsOn": [
                 "^build"
