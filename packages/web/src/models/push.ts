@@ -25,7 +25,7 @@ export namespace push{
     z.object({ type: z.literal('delete') }),
   ] as const
 
-  export const notification = z.discriminatedUnion('type', [...notificationItem])
+  export const notification = z.discriminatedUnion('type', notificationItem)
 
   export type Notification = ReadonlyDeep<z.infer<typeof notification>>
 

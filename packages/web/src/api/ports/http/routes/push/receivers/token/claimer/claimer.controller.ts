@@ -4,7 +4,7 @@ import { Passport } from '../../../../../auth/auth.guard.js'
 import { PushService } from '../../../../../../../../domains/push/push.service.js'
 import { RequirePassport } from '../../../../../decorators/require-passport.decorator.js'
 import { path } from '../../../../../pattern.js'
-import { unsafeGlobalScopeRun } from '../../../../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 
 @ApiParam({
   name: path.token.name,

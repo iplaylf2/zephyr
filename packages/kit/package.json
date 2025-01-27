@@ -1,0 +1,38 @@
+{
+    "name": "@zephyr/kit",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "build": "tsc",
+        "lint": "eslint \"src/**/*.ts\" --fix"
+    },
+    "exports": {
+        "./*.js": {
+            "default": "./dist/*.js",
+            "types": "./dist/*.d.ts"
+        },
+        "./effection/*.js": {
+            "default": "./dist/effection/*.js",
+            "types": "./dist/effection/*.d.ts"
+        },
+        "./fp-effection/*.js": {
+            "default": "./dist/fp-effection/*.js",
+            "types": "./dist/fp-effection/*.d.ts"
+        },
+        "./fp-ts/*.js": {
+            "default": "./dist/fp-ts/*.js",
+            "types": "./dist/fp-ts/*.d.ts"
+        }
+    },
+    "peerDependencies": {
+        "effection": "^3.2.0",
+        "fp-ts": "^2.16.9",
+        "zod": "^3.24.1"
+    },
+    "devDependencies": {
+        "@zephyr/config": "workspace:*",
+        "eslint": "^9.19.0",
+        "type-fest": "^4.33.0",
+        "typescript": "^5.7.3"
+    }
+}

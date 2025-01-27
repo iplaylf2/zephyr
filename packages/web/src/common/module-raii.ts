@@ -1,6 +1,6 @@
 import { OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import { Operation, Task, all } from 'effection'
-import { globalScope } from '../kits/effection/global-scope.js'
+import { globalScope } from '@zephyr/kit/effection/global-scope.js'
 
 export class ModuleRaii implements OnModuleInit, OnModuleDestroy {
   protected readonly initializeCallbacks = new Array<() => Operation<any> >()

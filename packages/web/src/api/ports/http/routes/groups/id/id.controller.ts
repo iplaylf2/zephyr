@@ -2,11 +2,11 @@ import { ApiCreatedResponse, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/sw
 import { Body, Controller, Get, Inject, NotFoundException, Post, Query } from '@nestjs/common'
 import { Passport } from '../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../decorators/require-passport.decorator.js'
-import { cOperation } from '../../../../../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { conversation } from '../../../../../../domains/conversation/conversation.js'
 import { id } from './id.dto.js'
 import { pipe } from 'fp-ts/lib/function.js'
-import { unsafeGlobalScopeRun } from '../../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 import { urlPattern } from '../../../kits/url-pattern.js'
 
 export const idPath = urlPattern.path('id', Number)

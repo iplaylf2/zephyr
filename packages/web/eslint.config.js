@@ -1,4 +1,4 @@
-import configs from '../../eslint.config.js'
+import configs from '@zephyr/config/eslint.config.js'
 
 export default [
   ...configs,

@@ -7,9 +7,9 @@ import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { UserService } from '../../../../../domains/user/user.service.js'
-import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
-import { unsafeGlobalScopeRun } from '../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 import { user } from './user.dto.js'
 
 @ApiTags('user')

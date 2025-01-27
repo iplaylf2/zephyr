@@ -6,7 +6,7 @@ import {
   pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
 import { cOperation } from './c-operation.js'
-import { merge } from '../../kits/effection/merge.js'
+import { merge } from '../effection/merge.js'
 
 export namespace cStream{
   export type CStream<T, R> = LazyArg<Stream<T, R>>

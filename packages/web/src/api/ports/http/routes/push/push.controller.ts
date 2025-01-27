@@ -1,9 +1,9 @@
 import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger'
 import { Controller, Inject, Post } from '@nestjs/common'
 import { PushService } from '../../../../../domains/push/push.service.js'
-import { cOperation } from '../../../../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
-import { unsafeGlobalScopeRun } from '../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 
 @ApiTags('push')
 @Controller('push')

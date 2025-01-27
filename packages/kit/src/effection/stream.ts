@@ -1,5 +1,5 @@
-import { cOperation } from '../../common/fp-effection/c-operation.js'
-import { cStream } from '../../common/fp-effection/c-stream.js'
+import { cOperation } from '../fp-effection/c-operation.js'
+import { cStream } from '../fp-effection/c-stream.js'
 import { pipe } from 'fp-ts/lib/function.js'
 
 export namespace stream{

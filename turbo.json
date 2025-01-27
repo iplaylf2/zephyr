@@ -1,0 +1,31 @@
+{
+    "$schema": "https://turbo.build/schema.json",
+    "tasks": {
+        "init": {
+            "dependsOn": [
+                "^init",
+                "^build"
+            ],
+            "cache": false
+        },
+        "build": {
+            "dependsOn": [
+                "^build"
+            ],
+            "outputs": [
+                "dist/**"
+            ]
+        },
+        "dev": {},
+        "@zephyr/client#dev": {
+            "dependsOn": [
+                "^build"
+            ]
+        },
+        "lint": {
+            "dependsOn": [
+                "^build"
+            ]
+        }
+    }
+}

@@ -1,5 +1,5 @@
 import { Prisma, PushSubscription } from '../../generated/index.js'
-import { cOperation } from '../../../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { readonlyArray } from 'fp-ts'
 

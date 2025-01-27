@@ -7,13 +7,13 @@ import { PushService as EntityPushService } from '../../repositories/redis/entit
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PushReceiver } from '../../repositories/prisma/generated/index.js'
 import { Temporal } from 'temporal-polyfill'
-import { cOperation } from '../../common/fp-effection/c-operation.js'
+import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { dialogueValidator } from './subscriptions/dialogue.js'
 import { groupValidator } from './subscriptions/group.js'
 import { match } from 'ts-pattern'
 import { where } from '../../repositories/prisma/common/where.js'
 import { z } from 'zod'
-import { zPlus } from '../../kits/z-plus.js'
+import { zPlus } from '@zephyr/kit/z-plus.js'
 
 @Injectable()
 export class PushService extends ModuleRaii {

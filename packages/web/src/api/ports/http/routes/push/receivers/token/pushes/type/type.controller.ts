@@ -4,7 +4,7 @@ import { PushService } from '../../../../../../../../../domains/push/push.servic
 import { either } from 'fp-ts'
 import { path } from '../../../../../../pattern.js'
 import { type } from './type.dto.js'
-import { unsafeGlobalScopeRun } from '../../../../../../../../../kits/effection/global-scope.js'
+import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 import { urlPattern } from '../../../../../../kits/url-pattern.js'
 
 export const typePath = urlPattern.path('type')
