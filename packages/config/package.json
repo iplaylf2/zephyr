@@ -10,6 +10,6 @@
         "@stylistic/eslint-plugin": "^3.0.0",
         "eslint": "^9.19.0",
         "typescript": "^5.7.3",
-        "typescript-eslint": "^8.21.0"
+        "typescript-eslint": "^8.22.0"
     }
 }
