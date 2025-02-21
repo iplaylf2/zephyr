@@ -140,7 +140,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   public abstract encode(x: T[string]): RedisCommandArgument
 }
 
-export type StreamMessage<T extends StreamMessageBody> = Readonly< {
+export type StreamMessage<T extends StreamMessageBody> = Readonly<{
   id: string
   message: T
 }>

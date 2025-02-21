@@ -30,9 +30,12 @@
         "zod": "^3.24.1"
     },
     "devDependencies": {
+        "@jest/globals": "^29.7.0",
         "@zephyr/config": "workspace:*",
-        "eslint": "^9.19.0",
-        "type-fest": "^4.33.0",
+        "eslint": "^9.20.1",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.2.5",
+        "type-fest": "^4.35.0",
         "typescript": "^5.7.3"
     }
 }
