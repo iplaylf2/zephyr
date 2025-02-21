@@ -25,9 +25,9 @@
         }
     },
     "peerDependencies": {
-        "effection": "^3.2.0",
+        "effection": "^3.2.1",
         "fp-ts": "^2.16.9",
-        "zod": "^3.24.1"
+        "zod": "^3.24.2"
     },
     "devDependencies": {
         "@jest/globals": "^29.7.0",
