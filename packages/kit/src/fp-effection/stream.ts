@@ -1,22 +1,24 @@
-import { LazyArg, constant, flow, pipe } from 'fp-ts/lib/function.js'
-import { Operation, Stream, Subscription, all } from 'effection'
+import { Operation, Subscription, Stream as _Stream, all } from 'effection'
 import {
   applicative, apply, chain, fromIO, fromTask, functor,
   io, monad, monadIO, monadTask, monoid, option, pipeable,
   pointed, predicate, refinement, task, unfoldable, zero,
 } from 'fp-ts'
-import { cOperation } from './c-operation.js'
+import { constant, flow, pipe } from 'fp-ts/lib/function.js'
 import { merge } from '../effection/merge.js'
+import { operation } from './operation.js'
 
-export namespace cStream{
-  export type CStream<T, R> = LazyArg<Stream<T, R>>
-  export const URI = 'CStream.effection'
+export namespace stream{
+  export type Stream<T, R> = _Stream<T, R>
+  export const URI = 'stream.effection'
   export type URI = typeof URI
+
+  export type Infer<K extends Stream<unknown, unknown>> = K extends Stream<infer T, infer R> ? [T, R] : never
 
   export const Functor: functor.Functor2<URI> = {
     URI,
-    map: (fa, f) => function*() {
-      const subscription = yield * fa()
+    map: function*(fa, f) {
+      const subscription = yield * fa
 
       return {
         *next() {
@@ -35,8 +37,8 @@ export namespace cStream{
   export const Pointed: pointed.Pointed2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    of: <E, A>(a: A): CStream<A, E> => function*() {
-      const iterator = [a][Symbol.iterator]() as Iterator<A, E>
+    of: function*(a) {
+      const iterator = [a][Symbol.iterator]() as Iterator<any>
 
       return {
         // eslint-disable-next-line require-yield
@@ -50,7 +52,7 @@ export namespace cStream{
   export const Zero: zero.Zero2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    zero: () => function*() {
+    zero: function*() {
       return {
         // eslint-disable-next-line require-yield
         *next() { return { done: true, value: void 0 as never } },
@@ -60,15 +62,19 @@ export namespace cStream{
 
   export const Apply: apply.Apply2<URI> = {
     URI,
-    ap: <E, A, B>(fab: CStream<(a: A) => B, E>, fa: CStream<A, E>) => function*() {
-      const [abSubscription, _aSubscription] = yield * all([fab(), Zero.zero<E, A>()()])
+    ap: function*(fab, fa) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      const [abSubscription, _aSubscription] = yield * all([fab, Zero.zero() as typeof fa])
+
+      type Ab = Infer<typeof fab>[0]
+      type E = Infer<typeof fab>[1]
 
       let aSubscription = _aSubscription
-      let ab: (a: A) => B
+      let ab: Ab
       let iReturn: IteratorReturnResult<E> | undefined
 
       return {
-        next: function* next(): Operation<IteratorResult<B, E>> {
+        next: function* next(): Operation<IteratorResult<ReturnType<Ab>, E>> {
           if (iReturn) {
             return iReturn
           }
@@ -79,7 +85,7 @@ export namespace cStream{
             return { value: ab(value) }
           }
 
-          const [abIR, _aSubscription] = yield * all([abSubscription.next(), fa()])
+          const [abIR, _aSubscription] = yield * all([abSubscription.next(), fa])
 
           if (true === abIR.done) {
             iReturn = abIR
@@ -106,8 +112,14 @@ export namespace cStream{
   export const Chain: chain.Chain2<URI> = {
     URI,
     ap: Apply.ap,
-    chain: <E, A, B>(fa: CStream<A, E>, f: (a: A) => CStream<B, E>) => function*() {
-      const [aSubscription, _bSubscription] = yield * all([fa(), Zero.zero<E, B>()()])
+    chain: function*(fa, f) {
+      type F = ReturnType<typeof f>
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      const [aSubscription, _bSubscription] = yield * all([fa, Zero.zero() as F])
+
+      type B = Infer<F>[0]
+      type E = Infer<F>[1]
 
       let bSubscription = _bSubscription
       let iReturn: IteratorReturnResult<E> | undefined
@@ -130,7 +142,7 @@ export namespace cStream{
             iReturn = aIR
           }
           else {
-            bSubscription = yield * f(aIR.value)()
+            bSubscription = yield * f(aIR.value)
           }
 
           return yield * next()
@@ -151,8 +163,8 @@ export namespace cStream{
   export const FromIO: fromIO.FromIO2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    fromIO: <A, E>(fa: io.IO<A>): CStream<A, E> => function*() {
-      const iterator = [fa()][Symbol.iterator]() as Iterator<A, E>
+    fromIO: function*(fa) {
+      const iterator = [fa()][Symbol.iterator]() as Iterator<ReturnType<typeof fa>>
 
       return {
         // eslint-disable-next-line require-yield
@@ -176,8 +188,8 @@ export namespace cStream{
     URI,
     fromIO: FromIO.fromIO,
     fromTask: <A, E>(fa: task.Task<A>) => pipe(
-      cOperation.FromTask.fromTask(fa),
-      cOperation.chain(Pointed.of<E, A>),
+      operation.FromTask.fromTask(fa),
+      operation.chain(Pointed.of<E, A>),
     ),
   }
 
@@ -194,7 +206,7 @@ export namespace cStream{
   export const Unfoldable: unfoldable.Unfoldable2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    unfold: <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): CStream<A, E> => function* () {
+    unfold: function* <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): Stream<A, E> {
       let done = false
 
       return {
@@ -224,9 +236,9 @@ export namespace cStream{
     },
   }
 
-  export const getMonoid = <E = never, A = never>(): monoid.Monoid<CStream<A, E>> => ({
-    concat: (x, y) => function*() {
-      let s = yield * x()
+  export const getMonoid = <E = never, A = never>(): monoid.Monoid<Stream<A, E>> => ({
+    concat: function*(x, y) {
+      let s = yield * x
 
       let sBelongY = false
 
@@ -242,7 +254,7 @@ export namespace cStream{
             return result
           }
 
-          s = yield * y()
+          s = yield * y
 
           sBelongY = true
 
@@ -253,26 +265,22 @@ export namespace cStream{
     empty: Zero.zero<E, A>(),
   })
 
-  export const getMonoidPar = <E = never, A = never>(): monoid.Monoid<CStream<A, E>> => ({
-    concat: (x, y) => function*() {
-      const [subscriptionA, streamB] = yield * merge(x(), y())
+  export const getMonoidPar = <E = never, A = never>(): monoid.Monoid<Stream<A, E>> => ({
+    concat: function*(x, y) {
+      const [subscriptionA, streamB] = yield * merge(x, y)
 
-      function createNextStep(subscription: Subscription<A, E>) {
-        return function*() {
-          const value = yield * subscription.next()
+      function *createNextStep(subscription: Subscription<A, E>): Operation<[IteratorResult<A, E>, Subscription<A, E>]> {
+        const value = yield * subscription.next()
 
-          return [createNextStep(subscription), value, subscription] as const
-        }
+        return [value, subscription]
       }
 
       let faster = createNextStep(subscriptionA)
-      let slower = function*() {
+      let slower: ReturnType<typeof createNextStep> = (function*() {
         const subscription = yield * streamB
 
-        const nextStep = createNextStep(subscription)
-
-        return yield * nextStep()
-      }
+        return yield * createNextStep(subscription)
+      })()
 
       let singleSubscription: Subscription<A, E> | null = null
 
@@ -282,36 +290,37 @@ export namespace cStream{
             return yield * singleSubscription.next()
           }
 
-          const [a, b] = yield * merge(faster(), slower())
+          const [a, b] = yield * merge(faster, slower)
 
-          faster = a[0]
-          slower = () => b
-
-          const value = a[1]
+          const value = a[0]
 
           if (true === value.done) {
             faster = null as any
             slower = null as any
 
-            const [,value, subscription] = yield * b
+            const [value, subscription] = yield * b
 
             singleSubscription = subscription
 
             return value
           }
+          else {
+            faster = createNextStep(a[1])
+            slower = b
 
-          return value
+            return value
+          }
         },
       }
     },
     empty: Zero.zero<E, A>(),
   })
 
-  export function repeat<A>(a: A): CStream<A, void> {
+  export function repeat<A>(a: A): Stream<A, void> {
     return Unfoldable.unfold(a, a => option.some([a, a] as const))
   }
 
-  export function fromArray<A>(as: readonly A[]): CStream<A, void> {
+  export function fromArray<A>(as: readonly A[]): Stream<A, void> {
     return Unfoldable.unfold(
       [as, 0 as number] as const,
       ([as, index]) =>
@@ -321,21 +330,22 @@ export namespace cStream{
     )
   }
 
-  export function fromCOperation<A>(a: cOperation.COperation<A>): CStream<A, void> {
-    return cOperation.Monad.chain(a, Pointed.of<void, A>)
+  export function fromOperation<A>(a: operation.Operation<A>): Stream<A, void> {
+    return operation.Monad.chain(a, Pointed.of<void, A>)
   }
 
   export function takeLeftWhile<E, A, B extends A>(
     predicate: refinement.Refinement<A, B>,
-  ): (as: CStream<A, E>) => CStream<B, E>
+  ): (as: Stream<A, E>) => Stream<B, E>
   export function takeLeftWhile<E, A>(
     predicate: predicate.Predicate<A>
-  ): <B extends A>(bs: CStream<B, E>) => CStream<B, E>
+  ): <B extends A>(bs: Stream<B, E>) => Stream<B, E>
   export function takeLeftWhile<E, A>(
     predicate: predicate.Predicate<A>,
-  ): (as: CStream<A, E>) => CStream<A, E> {
-    return as => function*() {
-      const s = yield * as()
+  ): (as: Stream<A, E>) => Stream<A, E> {
+    return function*(as) {
+      const s = yield * as
+
       let iReturn: IteratorReturnResult<E> | undefined
 
       return {
@@ -371,6 +381,6 @@ export namespace cStream{
 
 declare module 'fp-ts/HKT' {
   export interface URItoKind2<E, A> {
-    readonly [cStream.URI]: cStream.CStream<A, E>
+    readonly [stream.URI]: stream.Stream<A, E>
   }
 }
