@@ -1,34 +1,35 @@
-import { Yielded, Operation as _Operation, all, call } from 'effection'
+import { Operation, all, call } from 'effection'
 import {
   applicative, apply, chain, chainRec, either, fromIO, fromTask, functor,
   monad, monadIO, monadTask, pipeable, pointed,
 } from 'fp-ts'
+import { Plan as _Plan } from '../effection/operation.js'
 
-export namespace operation{
-  export type Operation<T> = _Operation<T>
-  export const URI = 'operation.effection'
+export namespace plan{
+  export type Plan<T> = _Plan<T>
+  export const URI = 'directive.effection'
   export type URI = typeof URI
-  export type Infer<T extends Operation<unknown>> = Yielded<T>
+  export type Infer<T extends Plan<unknown>> = T extends Plan<infer K> ? K : unknown
 
   export const Functor: functor.Functor1<URI> = {
     URI,
-    map: function*(fa, f) {
-      return f(yield * fa)
+    map: (fa, f) => function* () {
+      return f(yield* fa())
     },
   }
 
   export const Pointed: pointed.Pointed1<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    of: function*(a) {
+    of: a => function* () {
       return a
     },
   }
 
   export const ApplyPar: apply.Apply1<URI> = {
     URI,
-    ap: function*(fab, fa) {
-      const [ab, a] = yield * all([fab, fa])
+    ap: (fab, fa) => function* () {
+      const [ab, a] = yield* all([fab(), fa()])
 
       return ab(a)
     },
@@ -37,8 +38,8 @@ export namespace operation{
 
   export const ApplySeq: apply.Apply1<URI> = {
     URI,
-    ap: function*(fab, fa) {
-      return (yield * fab)(yield * fa)
+    ap: (fab, fa) => function* () {
+      return (yield* fab())(yield* fa())
     },
     map: Functor.map,
   }
@@ -60,8 +61,8 @@ export namespace operation{
   export const Chain: chain.Chain1<URI> = {
     URI,
     ap: ApplyPar.ap,
-    chain: function*(fa, f) {
-      return yield * f(yield * fa)
+    chain: (fa, f) => function* () {
+      return yield* f(yield* fa())()
     },
     map: Functor.map,
   }
@@ -77,7 +78,7 @@ export namespace operation{
   export const FromIO: fromIO.FromIO1<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    fromIO: function*(fa) {
+    fromIO: fa => function* () {
       return fa()
     },
   }
@@ -94,7 +95,7 @@ export namespace operation{
   export const FromTask: fromTask.FromTask1<URI> = {
     URI,
     fromIO: FromIO.fromIO,
-    fromTask: call,
+    fromTask: fa => function* () { return yield* call(fa) },
   }
 
   export const MonadTask: monadTask.MonadTask1<URI> = {
@@ -111,11 +112,11 @@ export namespace operation{
     URI,
     ap: Chain.ap,
     chain: Chain.chain,
-    chainRec: function*(a, f) {
+    chainRec: (a, f) => function* () {
       let x = a
 
       while (true) {
-        const result = yield * f(x)
+        const result = yield* f(x)()
 
         if (either.isLeft(result)) {
           x = result.left
@@ -129,18 +130,26 @@ export namespace operation{
     map: Chain.map,
   }
 
-  export function sequenceArray<A>(arr: ReadonlyArray<Operation<A>>): Operation<ReadonlyArray<A>> {
-    return all(arr)
+  export function sequenceArray<A>(arr: ReadonlyArray<Plan<A>>): Plan<ReadonlyArray<A>> {
+    return function* () {
+      return yield* all(arr.map(fa => fa()))
+    }
   }
 
   export const map = pipeable.map(Functor)
   export const apPar = pipeable.ap(ApplyPar)
   export const apSeq = pipeable.ap(ApplySeq)
   export const chain = pipeable.chain(Chain)
+
+  export function fromEffection<T>(effection: () => Operation<T>): Plan<T> {
+    return function* () {
+      return yield* effection()
+    }
+  }
 }
 
 declare module 'fp-ts/HKT' {
   export interface URItoKind<A> {
-    readonly [operation.URI]: operation.Operation<A>
+    readonly [plan.URI]: plan.Plan<A>
   }
 }

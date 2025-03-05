@@ -15,9 +15,9 @@ export let globalScope!: Scope
 
 export function unsafeGlobalScopeRun<T>(operation: () => Operation<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    globalScope.run(function*() {
+    globalScope.run(function* () {
       try {
-        resolve(yield * operation())
+        resolve(yield* operation())
       }
       catch (e) {
         reject(e as Error)
