@@ -8,7 +8,7 @@ import { plan } from './plan.js'
 
 export namespace planEither{
   export type PlanEither<E, A> = plan.Plan<either.Either<E, A>>
-  export const URI = 'planEither.effection'
+  export const URI = 'plan-either.effection'
   export type URI = typeof URI
   export type Infer<T extends PlanEither<unknown, unknown>> = T extends PlanEither<infer E, infer A> ?
       [E, A]

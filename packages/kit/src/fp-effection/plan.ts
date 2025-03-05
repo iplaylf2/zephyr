@@ -7,7 +7,7 @@ import { Plan as _Plan } from '../effection/operation.js'
 
 export namespace plan{
   export type Plan<T> = _Plan<T>
-  export const URI = 'directive.effection'
+  export const URI = 'plan.effection'
   export type URI = typeof URI
   export type Infer<T extends Plan<unknown>> = T extends Plan<infer K> ? K : unknown
 
