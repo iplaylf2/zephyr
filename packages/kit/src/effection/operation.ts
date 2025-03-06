@@ -1,4 +1,4 @@
-import { Instruction } from 'effection'
+import { Instruction, Operation } from 'effection'
 
 export type Directive<T> = Generator<Instruction, T>
 export type Procedure<T> = Iterable<Instruction, T> & {
@@ -7,17 +7,23 @@ export type Procedure<T> = Iterable<Instruction, T> & {
 export type Plan<T> = () => Directive<T>
 
 export namespace Plan{
-  export function toProcedure<T>(plan: Plan<T>): Procedure<T> {
-    return {
-      [Symbol.iterator]: plan,
+  export function fromProcedure<T>(procedure: Procedure<T>): Plan<T> {
+    return function* () {
+      return yield* procedure
+    }
+  }
+
+  export function fromOperationPlan<T>(plan: () => Operation<T>): Plan<T> {
+    return function* () {
+      return yield* plan()
     }
   }
 }
 
 export namespace Procedure{
-  export function toPlan<T>(procedure: Procedure<T>): Plan<T> {
-    return function* () {
-      return yield* procedure
+  export function fromPlan<T>(plan: Plan<T>): Procedure<T> {
+    return {
+      [Symbol.iterator]: plan,
     }
   }
 }

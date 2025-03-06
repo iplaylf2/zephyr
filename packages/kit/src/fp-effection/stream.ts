@@ -18,7 +18,7 @@ export namespace stream{
 
   export const Functor: functor.Functor2<URI> = {
     URI,
-    map: (fa, f) => Plan.toProcedure(function* () {
+    map: (fa, f) => Procedure.fromPlan(function* () {
       const subscription = yield* fa
 
       return {
@@ -38,7 +38,7 @@ export namespace stream{
   export const Pointed: pointed.Pointed2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    of: a => Plan.toProcedure(function* () {
+    of: a => Procedure.fromPlan(function* () {
       const iterator = [a][Symbol.iterator]() as Iterator<any>
 
       return {
@@ -53,7 +53,7 @@ export namespace stream{
   export const Zero: zero.Zero2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    zero: () => Plan.toProcedure(function* () {
+    zero: () => Procedure.fromPlan(function* () {
       return {
         // eslint-disable-next-line require-yield
         * next() { return { done: true, value: void 0 as never } },
@@ -63,7 +63,7 @@ export namespace stream{
 
   export const Apply: apply.Apply2<URI> = {
     URI,
-    ap: (fab, fa) => Plan.toProcedure(function* () {
+    ap: (fab, fa) => Procedure.fromPlan(function* () {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const [abSubscription, _aSubscription] = yield* all([fab, Zero.zero() as typeof fa])
 
@@ -113,7 +113,7 @@ export namespace stream{
   export const Chain: chain.Chain2<URI> = {
     URI,
     ap: Apply.ap,
-    chain: (fa, f) => Plan.toProcedure(function* () {
+    chain: (fa, f) => Procedure.fromPlan(function* () {
       type F = ReturnType<typeof f>
 
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -164,7 +164,7 @@ export namespace stream{
   export const FromIO: fromIO.FromIO2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    fromIO: fa => Plan.toProcedure(function* () {
+    fromIO: fa => Procedure.fromPlan(function* () {
       const iterator = [fa()][Symbol.iterator]() as Iterator<ReturnType<typeof fa>>
 
       return {
@@ -207,7 +207,7 @@ export namespace stream{
   export const Unfoldable: unfoldable.Unfoldable2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    unfold: <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): Stream<A, E> => Plan.toProcedure(function* () {
+    unfold: <E, A, B>(b: B, f: (b: B) => option.Option<[A, B]>): Stream<A, E> => Procedure.fromPlan(function* () {
       let done = false
 
       return {
@@ -238,7 +238,7 @@ export namespace stream{
   }
 
   export const getMonoid = <E = never, A = never>(): monoid.Monoid<Stream<A, E>> => ({
-    concat: (x, y) => Plan.toProcedure(function* () {
+    concat: (x, y) => Procedure.fromPlan(function* () {
       let s = yield* x
 
       let sBelongY = false
@@ -267,7 +267,7 @@ export namespace stream{
   })
 
   export const getMonoidPar = <E = never, A = never>(): monoid.Monoid<Stream<A, E>> => ({
-    concat: (x, y) => Plan.toProcedure(function* () {
+    concat: (x, y) => Procedure.fromPlan(function* () {
       const [subscriptionA, streamB] = yield* merge(() => x, () => y)
 
       function createNextStep(
@@ -311,7 +311,7 @@ export namespace stream{
           }
           else {
             faster = createNextStep(a[1])
-            slower = Procedure.toPlan(b)
+            slower = Plan.fromProcedure(b)
 
             return value
           }
@@ -336,7 +336,7 @@ export namespace stream{
   }
 
   export function fromPlan<A>(fa: plan.Plan<A>): Stream<A, void> {
-    return Plan.toProcedure(function* () {
+    return Procedure.fromPlan(function* () {
       const a = yield* fa()
 
       return yield* Pointed.of(a)
@@ -352,7 +352,7 @@ export namespace stream{
   export function takeLeftWhile<E, A>(
     predicate: predicate.Predicate<A>,
   ): (as: Stream<A, E>) => Stream<A, E> {
-    return as => Plan.toProcedure(function* () {
+    return as => Procedure.fromPlan(function* () {
       const s = yield* as
 
       let iReturn: IteratorReturnResult<E> | undefined
