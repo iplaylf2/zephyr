@@ -4,5 +4,6 @@
 		"Prisma.prisma",
 		"redhat.vscode-yaml",
 		"streetsidesoftware.code-spell-checker",
+		"Vercel.turbo-vsc",
 	]
 }

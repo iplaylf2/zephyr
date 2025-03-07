@@ -2,7 +2,6 @@
   "compilerOptions": {
     "module": "ES2022",
     "moduleResolution": "bundler",
-    "declaration": true,
     "removeComments": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2024",

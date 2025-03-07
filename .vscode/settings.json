@@ -25,7 +25,6 @@
   "editor.formatOnSave": true,
   "eslint.format.enable": true,
   "eslint.useFlatConfig": true,
-  "javascript.inlayHints.enumMemberValues.enabled": true,
   "javascript.inlayHints.parameterNames.enabled": "literals",
   "javascript.preferences.importModuleSpecifier": "relative",
   "typescript.inlayHints.enumMemberValues.enabled": true,
