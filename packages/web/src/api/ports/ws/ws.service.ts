@@ -29,8 +29,8 @@ export class WsService extends ModuleRaii {
     this.initializeCallbacks.push(() => this.listen())
   }
 
-  private *listen() {
-    const scope = yield * useScope()
+  private* listen() {
+    const scope = yield* useScope()
 
     const urlPattern = new URLPattern({ pathname: '/push/receivers/:token' })
     const websocketServer = new WebSocketServer({ noServer: true })
@@ -54,14 +54,14 @@ export class WsService extends ModuleRaii {
     httpServer.addListener('upgrade', upgradeListener)
 
     try {
-      yield * suspend()
+      yield* suspend()
     }
     finally {
       httpServer.removeListener('upgrade', upgradeListener)
     }
   }
 
-  private *tryUpgrading(
+  private* tryUpgrading(
     websocketServer: WebSocketServer,
     request: IncomingMessage,
     socket: Duplex,
@@ -69,7 +69,7 @@ export class WsService extends ModuleRaii {
     token: string,
   ) {
     try {
-      const receiverId = yield * this.pushService.getReceiver(token)
+      const receiverId = yield* this.pushService.getReceiver(token)
 
       const receiver = pipe(
         receiverId,

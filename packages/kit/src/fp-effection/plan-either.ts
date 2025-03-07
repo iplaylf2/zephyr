@@ -3,13 +3,16 @@ import {
   functor, monad, monadIO, monadTask, pointed, task,
   taskEither,
 } from 'fp-ts'
-import { cOperation } from './c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from './plan.js'
 
-export namespace cOperationEither{
-  export type COperationEither<E, A> = cOperation.COperation<either.Either<E, A>>
-  export const URI = 'COperationEither.effection'
+export namespace planEither{
+  export type PlanEither<E, A> = plan.Plan<either.Either<E, A>>
+  export const URI = 'plan-either.effection'
   export type URI = typeof URI
+  export type Infer<T extends PlanEither<unknown, unknown>> = T extends PlanEither<infer E, infer A> ?
+      [E, A]
+    : unknown
 
   export const Functor: functor.Functor2<URI> = {
     URI,
@@ -18,7 +21,7 @@ export namespace cOperationEither{
 
   export const Pointed: pointed.Pointed2<URI> = {
     URI,
-    of: eitherT.right(cOperation.Pointed),
+    of: eitherT.right(plan.Pointed),
   }
 
   export const ApplyPar: apply.Apply2<URI> = {
@@ -65,7 +68,7 @@ export namespace cOperationEither{
   export const FromIO: fromIO.FromIO2<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    fromIO: fa => function*() {
+    fromIO: fa => function* () {
       return either.right(fa())
     },
   }
@@ -83,8 +86,8 @@ export namespace cOperationEither{
     URI,
     fromIO: FromIO.fromIO,
     fromTask: <A, E>(fa: task.Task<A>) => pipe(
-      cOperation.FromTask.fromTask(fa),
-      cOperation.chain(Pointed.of<E, A>),
+      plan.FromTask.fromTask(fa),
+      plan.chain(Pointed.of<E, A>),
     ),
   }
 
@@ -98,21 +101,21 @@ export namespace cOperationEither{
     of: Monad.of,
   }
 
-  export function fromCOperation<A>(a: cOperation.COperation<A>): COperationEither<void, A> {
-    return cOperation.chain(Pointed.of)(a)
+  export function fromPlan<A>(a: plan.Plan<A>): PlanEither<void, A> {
+    return plan.chain(Pointed.of)(a)
   }
 
-  export function fromTaskEither<E, A>(a: taskEither.TaskEither<E, A>): COperationEither<E, A> {
-    return cOperation.FromTask.fromTask(a)
+  export function fromTaskEither<E, A>(a: taskEither.TaskEither<E, A>): PlanEither<E, A> {
+    return plan.FromTask.fromTask(a)
   }
 
   export function tryCatch<E, A>(
-    f: cOperation.COperation<A>,
+    f: plan.Plan<A>,
     onRejected: (reason: unknown) => E,
-  ): COperationEither<E, A> {
-    return function*() {
+  ): PlanEither<E, A> {
+    return function* () {
       try {
-        return either.right(yield * f())
+        return either.right(yield* f())
       }
       catch (e) {
         return either.left(onRejected(e))
@@ -120,15 +123,15 @@ export namespace cOperationEither{
     }
   }
 
-  export const map = eitherT.map(cOperation.Functor)
-  export const apPar = eitherT.ap(cOperation.ApplyPar)
-  export const apSeq = eitherT.ap(cOperation.ApplySeq)
-  export const chain = eitherT.chain(cOperation.Monad)
-  export const fold = eitherT.matchE(cOperation.Monad)
+  export const map = eitherT.map(plan.Functor)
+  export const apPar = eitherT.ap(plan.ApplyPar)
+  export const apSeq = eitherT.ap(plan.ApplySeq)
+  export const chain = eitherT.chain(plan.Monad)
+  export const fold = eitherT.matchE(plan.Monad)
 }
 
 declare module 'fp-ts/HKT' {
   export interface URItoKind2<E, A> {
-    readonly [cOperationEither.URI]: cOperationEither.COperationEither<E, A>
+    readonly [planEither.URI]: planEither.PlanEither<E, A>
   }
 }

@@ -1,13 +1,14 @@
 import { Operation, each, ensure, scoped, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
+import { Plan } from '@zephyr/kit/effection/operation.js'
 import { RedisCommandArgument } from '../../common.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
-import { cStream } from '@zephyr/kit/fp-effection/c-stream.js'
 import defaults from 'defaults'
 import { either } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
-import { stream } from '@zephyr/kit/effection/stream.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
+import { stream } from '@zephyr/kit/fp-effection/stream.js'
+import { streamPlus } from '@zephyr/kit/effection/stream-plus.js'
 
 export class Parallel<T extends StreamMessageBody> {
   private readonly config: Parallel.Config
@@ -29,18 +30,18 @@ export class Parallel<T extends StreamMessageBody> {
 
   public read(consumer: RedisCommandArgument, f: (x: StreamMessage<T>) => Operation<any>) {
     return scoped(
-      function*(this: Parallel<T>) {
+      function* (this: Parallel<T>) {
         let processed: string[] = []
 
-        yield * ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
+        yield* ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
 
-        const blockStream = yield * this.stream.isolate()
+        const blockStream = yield* this.stream.isolate()
 
         const { ackInternal, claimIdleLimit, minIdleTime } = this.config.message
 
-        void (yield * spawn(function*(this: Parallel<T>) {
+        void (yield* spawn(function* (this: Parallel<T>) {
           while (true) {
-            yield * sleep(ackInternal)
+            yield* sleep(ackInternal)
 
             if (0 === processed.length) {
               continue
@@ -50,17 +51,18 @@ export class Parallel<T extends StreamMessageBody> {
 
             processed = []
 
-            yield * this.ack(_processed)
+            yield* this.ack(_processed)
           }
         }.bind(this)))
 
-        const newMessages = stream.generate(
+        const newMessages = streamPlus.generate(
           () => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: 1 }),
         )
-        const idleMessages = stream.generate(pipe(
+        const idleMessages = streamPlus.generate(pipe(
           () => sleep(minIdleTime / 2),
-          cOperation.chain(
-            () => cOperation.ChainRec.chainRec(null, () => pipe(
+          Plan.fromOperationPlan,
+          plan.chain(
+            () => plan.ChainRec.chainRec(null, () => pipe(
               () => this.stream.autoClaim(
                 this.group,
                 consumer,
@@ -68,7 +70,7 @@ export class Parallel<T extends StreamMessageBody> {
                 '0',
                 { COUNT: claimIdleLimit },
               ),
-              cOperation.map((x) => {
+              plan.map((x) => {
                 if (0 < x.messages.length) {
                   return either.right(x.messages)
                 }
@@ -83,19 +85,19 @@ export class Parallel<T extends StreamMessageBody> {
           ),
         ))
 
-        const messages = cStream
+        const messages = stream
         // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
           .getMonoidPar<void, StreamMessage<T>>()
           .concat(newMessages, idleMessages)
 
-        for (const message of yield * each(messages())) {
-          void (yield * spawn(function*() {
-            yield * f(message)
+        for (const message of yield* each(messages)) {
+          void (yield* spawn(function* () {
+            yield* f(message)
 
             processed.push(message.id)
           }))
 
-          yield * each.next()
+          yield* each.next()
         }
       }.bind(this),
     )

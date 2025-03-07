@@ -27,8 +27,8 @@ export class TokenController {
   @Sse()
   public [`@Sse()`](): Observable<string> {
     return from(
-      unsafeGlobalScopeRun(function*(this: TokenController) {
-        const receiver = yield * this.pushService.getReceiver(this.token)
+      unsafeGlobalScopeRun(function* (this: TokenController) {
+        const receiver = yield* this.pushService.getReceiver(this.token)
 
         if (null === receiver) {
           throw new NotFoundException()

@@ -16,8 +16,5 @@
         "jsx": "preserve",
         "jsxImportSource": "solid-js",
     },
-    "include": [
-        "src"
-    ],
     "extends": "@zephyr/config/tsconfig.json",
 }

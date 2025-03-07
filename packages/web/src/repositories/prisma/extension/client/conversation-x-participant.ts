@@ -1,6 +1,6 @@
 import { ConversationXParticipant, Prisma } from '../../generated/index.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
 
 export const conversationXParticipant = Prisma.defineExtension({
@@ -11,7 +11,7 @@ export const conversationXParticipant = Prisma.defineExtension({
       return {
         participantsForQuery(type: string, conversationId: number, participantIdArray: readonly number[]) {
           if (0 === participantIdArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -28,15 +28,15 @@ export const conversationXParticipant = Prisma.defineExtension({
                 x."conversationId" = ${conversationId} and
                 x."participantId" in (${Prisma.join(participantIdArray)})
               for key share`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.participantId),
             ),
           )()
         },
         participantsForScale(type: string, conversationId: number, participantIdArray: readonly number[]) {
           if (0 === participantIdArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -52,8 +52,8 @@ export const conversationXParticipant = Prisma.defineExtension({
                 x."conversationId" = ${conversationId} and
                 x."participantId" in (${Prisma.join(participantIdArray)})
               for update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.participantId),
             ),
 
@@ -61,7 +61,7 @@ export const conversationXParticipant = Prisma.defineExtension({
         },
         participantsForUpdate(type: string, conversationId: number, participantIdArray: readonly number[]) {
           if (0 === participantIdArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -78,8 +78,8 @@ export const conversationXParticipant = Prisma.defineExtension({
                 x."conversationId" = ${conversationId} and
                 x.participant in (${Prisma.join(participantIdArray)})
               for no key update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.participantId),
             ),
           )()

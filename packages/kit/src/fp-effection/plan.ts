@@ -1,34 +1,35 @@
-import { LazyArg, pipe } from 'fp-ts/lib/function.js'
 import { Operation, all, call } from 'effection'
 import {
   applicative, apply, chain, chainRec, either, fromIO, fromTask, functor,
-  io, monad, monadIO, monadTask, pipeable, pointed,
+  monad, monadIO, monadTask, pipeable, pointed,
 } from 'fp-ts'
+import { Plan as _Plan } from '../effection/operation.js'
 
-export namespace cOperation{
-  export type COperation<A> = LazyArg <Operation<A>>
-  export const URI = 'COperation.effection'
+export namespace plan{
+  export type Plan<T> = _Plan<T>
+  export const URI = 'plan.effection'
   export type URI = typeof URI
+  export type Infer<T extends Plan<unknown>> = T extends Plan<infer K> ? K : unknown
 
   export const Functor: functor.Functor1<URI> = {
     URI,
-    map: (fa, f) => function*() {
-      return f(yield * fa())
+    map: (fa, f) => function* () {
+      return f(yield* fa())
     },
   }
 
   export const Pointed: pointed.Pointed1<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    of: a => function*() {
+    of: a => function* () {
       return a
     },
   }
 
   export const ApplyPar: apply.Apply1<URI> = {
     URI,
-    ap: (fab, fa) => function*() {
-      const [ab, a] = yield * all([fab(), fa()])
+    ap: (fab, fa) => function* () {
+      const [ab, a] = yield* all([fab(), fa()])
 
       return ab(a)
     },
@@ -37,8 +38,8 @@ export namespace cOperation{
 
   export const ApplySeq: apply.Apply1<URI> = {
     URI,
-    ap: (fab, fa) => function*() {
-      return (yield * fab())(yield * fa())
+    ap: (fab, fa) => function* () {
+      return (yield* fab())(yield* fa())
     },
     map: Functor.map,
   }
@@ -60,8 +61,8 @@ export namespace cOperation{
   export const Chain: chain.Chain1<URI> = {
     URI,
     ap: ApplyPar.ap,
-    chain: (fa, f) => function*() {
-      return yield * (f(yield * fa()))()
+    chain: (fa, f) => function* () {
+      return yield* f(yield* fa())()
     },
     map: Functor.map,
   }
@@ -77,7 +78,7 @@ export namespace cOperation{
   export const FromIO: fromIO.FromIO1<URI> = {
     URI,
     // eslint-disable-next-line require-yield
-    fromIO: fa => function*() {
+    fromIO: fa => function* () {
       return fa()
     },
   }
@@ -94,7 +95,7 @@ export namespace cOperation{
   export const FromTask: fromTask.FromTask1<URI> = {
     URI,
     fromIO: FromIO.fromIO,
-    fromTask: fa => pipe(call(fa), io.of),
+    fromTask: fa => function* () { return yield* call(fa) },
   }
 
   export const MonadTask: monadTask.MonadTask1<URI> = {
@@ -111,11 +112,11 @@ export namespace cOperation{
     URI,
     ap: Chain.ap,
     chain: Chain.chain,
-    chainRec: (a, f) => function*() {
+    chainRec: (a, f) => function* () {
       let x = a
 
       while (true) {
-        const result = yield * f(x)()
+        const result = yield* f(x)()
 
         if (either.isLeft(result)) {
           x = result.left
@@ -129,18 +130,26 @@ export namespace cOperation{
     map: Chain.map,
   }
 
-  export function sequenceArray<A>(arr: ReadonlyArray<COperation<A>>): COperation<ReadonlyArray<A>> {
-    return () => all(arr.map(x => x()))
+  export function sequenceArray<A>(arr: ReadonlyArray<Plan<A>>): Plan<ReadonlyArray<A>> {
+    return function* () {
+      return yield* all(arr.map(fa => fa()))
+    }
   }
 
   export const map = pipeable.map(Functor)
   export const apPar = pipeable.ap(ApplyPar)
   export const apSeq = pipeable.ap(ApplySeq)
   export const chain = pipeable.chain(Chain)
+
+  export function fromEffection<T>(effection: () => Operation<T>): Plan<T> {
+    return function* () {
+      return yield* effection()
+    }
+  }
 }
 
 declare module 'fp-ts/HKT' {
   export interface URItoKind<A> {
-    readonly [cOperation.URI]: cOperation.COperation<A>
+    readonly [plan.URI]: plan.Plan<A>
   }
 }

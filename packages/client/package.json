@@ -12,23 +12,23 @@
     },
     "dependencies": {
         "@zephyr/kit": "workspace:*",
-        "compression": "^1.7.5",
-        "effection": "^3.2.0",
+        "compression": "^1.8.0",
+        "effection": "^3.2.1",
         "express": "^4.21.2",
         "fp-ts": "^2.16.9",
-        "sirv": "^3.0.0",
-        "solid-js": "^1.9.4",
-        "zod": "^3.24.1"
+        "sirv": "^3.0.1",
+        "solid-js": "^1.9.5",
+        "zod": "^3.24.2"
     },
     "devDependencies": {
         "@types/compression": "^1.7.5",
         "@types/express": "^5.0.0",
         "@zephyr/config": "workspace:*",
         "cross-env": "^7.0.3",
-        "eslint": "^9.19.0",
-        "type-fest": "^4.33.0",
-        "typescript": "^5.7.3",
-        "vite": "^6.0.11",
-        "vite-plugin-solid": "^2.11.0"
+        "eslint": "^9.21.0",
+        "type-fest": "^4.37.0",
+        "typescript": "^5.8.2",
+        "vite": "^6.2.1",
+        "vite-plugin-solid": "^2.11.6"
     }
 }

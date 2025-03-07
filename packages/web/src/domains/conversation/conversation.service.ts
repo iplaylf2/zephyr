@@ -2,10 +2,11 @@ import { Conversation, ConversationXParticipant } from '../../repositories/prism
 import {
   Conversations, ConversationService as EntityConversationService,
 } from '../../repositories/redis/entities/conversation.service.js'
-import { Operation, all, call, sleep } from 'effection'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
+import { all, call, sleep } from 'effection'
 import { flip, flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, number, option, readonlyArray, task } from 'fp-ts'
+import { Directive } from '@zephyr/kit/effection/operation.js'
 import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
 import { GenericService } from '../../repositories/redis/entities/generic.service.js'
 import { JsonObject } from 'type-fest'
@@ -14,10 +15,10 @@ import { Participant } from './participant.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../user/user.service.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/group.js'
 import { match } from 'ts-pattern'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { randomUUID } from 'crypto'
 import { readonlyNonEmptyArrayPlus } from '@zephyr/kit/fp-ts/readonly-non-empty-array-plus.js'
 import { user } from '../../models/user.js'
@@ -25,10 +26,10 @@ import { where } from '../../repositories/prisma/common/where.js'
 
 export abstract class ConversationService extends ModuleRaii {
   protected readonly participantsExpireCallbacks
-    = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Operation<any>>()
+    = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Directive<any>>()
 
   protected readonly participantsUnregisterCallbacks
-    = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Operation<any>>()
+    = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Directive<any>>()
 
   public abstract readonly defaultConversationExpire: Temporal.Duration
   public abstract readonly defaultParticipantExpire: Temporal.Duration
@@ -54,10 +55,10 @@ export abstract class ConversationService extends ModuleRaii {
 
   public active(conversationIdArray: readonly number[]) {
     return this.prismaClient.$callTransaction(
-      function*(this: ConversationService, tx: PrismaTransaction) {
-        const _conversationIdArray = yield * tx.$conversation().forUpdate(this.type, conversationIdArray)
+      function* (this: ConversationService, tx: PrismaTransaction) {
+        const _conversationIdArray = yield* tx.$conversation().forUpdate(this.type, conversationIdArray)
 
-        yield * call(
+        yield* call(
           () => tx.conversation.updateMany({
             data: {
               lastActiveAt: new Date(),
@@ -73,12 +74,12 @@ export abstract class ConversationService extends ModuleRaii {
 
   public activeParticipants(conversationId: number, participantIdArray: readonly number[]) {
     return this.prismaClient.$callTransaction(
-      function*(this: ConversationService, tx: PrismaTransaction) {
-        const _participantIdArray = yield * tx
+      function* (this: ConversationService, tx: PrismaTransaction) {
+        const _participantIdArray = yield* tx
           .$conversationXParticipant()
           .participantsForUpdate(this.type, conversationId, participantIdArray)
 
-        yield * call(
+        yield* call(
           () => tx.conversationXParticipant.updateMany({
             data: {
               lastActiveAt: new Date(),
@@ -110,12 +111,12 @@ export abstract class ConversationService extends ModuleRaii {
                 conversations.type = ${this.type} and
                 x."conversationId" = ${conversationId} and
                 x."participantId" = ${participantId}`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(x => 0 < x ? Number(conversationId) : null),
+            plan.FromTask.fromTask,
+            plan.map(x => 0 < x ? Number(conversationId) : null),
           ),
         ),
-        cOperation.sequenceArray,
-        cOperation.map(
+        plan.sequenceArray,
+        plan.map(
           readonlyArray.filterMap(option.fromNullable),
         ),
       )(),
@@ -124,8 +125,8 @@ export abstract class ConversationService extends ModuleRaii {
 
   public deleteParticipants(conversationId: number, participantIdArray: readonly number[]) {
     return this.prismaClient.$callTransaction(
-      function*(this: ConversationService, tx: PrismaTransaction) {
-        const _participantIdArray = yield * tx
+      function* (this: ConversationService, tx: PrismaTransaction) {
+        const _participantIdArray = yield* tx
           .$conversationXParticipant()
           .participantsForScale(this.type, conversationId, participantIdArray)
 
@@ -135,7 +136,7 @@ export abstract class ConversationService extends ModuleRaii {
 
         const now = Date.now()
 
-        yield * call(
+        yield* call(
           () => tx.conversationXParticipant.deleteMany({
             where: {
               conversation: { type: this.type },
@@ -145,7 +146,7 @@ export abstract class ConversationService extends ModuleRaii {
           }),
         )
 
-        yield * this.post(
+        yield* this.post(
           conversationId,
           system.say({
             content: { participantId: _participantIdArray, timestamp: now, type: 'leave' },
@@ -178,11 +179,11 @@ export abstract class ConversationService extends ModuleRaii {
     seconds = this.defaultConversationExpire.total('seconds'),
   ) {
     return this.prismaClient.$callTransaction(
-      function*(this: ConversationService, tx: PrismaTransaction) {
+      function* (this: ConversationService, tx: PrismaTransaction) {
         const interval = `${seconds.toFixed(0)} seconds`
         const now = new Date()
 
-        const _conversationIdArray = yield * pipe(
+        const _conversationIdArray = yield* pipe(
           conversationIdArray,
           readonlyArray.map(
             conversationId => () => tx.$queryRaw<Pick<Conversation, 'expiredAt' | 'id'>[]>`
@@ -198,13 +199,13 @@ export abstract class ConversationService extends ModuleRaii {
                 conversations."expiredAt", conversations.id`,
           ),
           task.sequenceArray,
-          cOperation.FromTask.fromTask,
-          cOperation.map(
+          plan.FromTask.fromTask,
+          plan.map(
             readonlyArray.filterMap(readonlyArray.head),
           ),
         )()
 
-        yield * this.expireRecords(_conversationIdArray)
+        yield* this.expireRecords(_conversationIdArray)
 
         return _conversationIdArray.map(x => x.id)
       }.bind(this),
@@ -219,8 +220,8 @@ export abstract class ConversationService extends ModuleRaii {
     const interval = `${seconds.toFixed(0)} seconds`
 
     return this.prismaClient.$callTransaction(
-      function*(this: ConversationService, tx: PrismaTransaction) {
-        return yield * pipe(
+      function* (this: ConversationService, tx: PrismaTransaction) {
+        return yield* pipe(
           participantIdArray,
           readonlyArray.map(
             participantId => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participantId'>[]>`
@@ -239,8 +240,8 @@ export abstract class ConversationService extends ModuleRaii {
                 x."participantId"`,
           ),
           task.sequenceArray,
-          cOperation.FromTask.fromTask,
-          cOperation.map(
+          plan.FromTask.fromTask,
+          plan.map(
             readonlyArray.filterMap(flow(
               readonlyArray.head,
               option.map(x => x.participantId),
@@ -251,8 +252,8 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public *getConversationsRecord(participantId: number) {
-    const conversationIdArray = yield * pipe(
+  public* getConversationsRecord(participantId: number) {
+    const conversationIdArray = yield* pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversationId: true },
         where: {
@@ -260,8 +261,8 @@ export abstract class ConversationService extends ModuleRaii {
           participantId,
         },
       }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(
+      plan.FromTask.fromTask,
+      plan.map(
         readonlyArray.map(x => x.conversationId),
       ),
     )()
@@ -270,12 +271,12 @@ export abstract class ConversationService extends ModuleRaii {
       return []
     }
 
-    const records = yield * pipe(
+    const records = yield* pipe(
       conversationIdArray,
       readonlyArray.map(
         x => () => this.entityConversationService.getRecords(this.type, x).infoStream(),
       ),
-      cOperation.sequenceArray,
+      plan.sequenceArray,
     )()
 
     return pipe(
@@ -301,8 +302,8 @@ export abstract class ConversationService extends ModuleRaii {
           participantId,
         },
       }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(flow(
+      plan.FromTask.fromTask,
+      plan.map(flow(
         readonlyArray.map(x => [x.conversationId, x.data as JsonObject] as const),
         x => Object.fromEntries(x),
       )),
@@ -318,8 +319,8 @@ export abstract class ConversationService extends ModuleRaii {
           conversationId,
         },
       }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(
+      plan.FromTask.fromTask,
+      plan.map(
         readonlyArray.map(x => x.participantId),
       ),
     )()
@@ -343,13 +344,13 @@ export abstract class ConversationService extends ModuleRaii {
               conversations.type = ${this.type} and
               x."conversationId" = ${conversationId} and
               x."participantId" = ${participantId}`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(x => 0 < x ? Number(conversationId) : null),
+            plan.FromTask.fromTask,
+            plan.map(x => 0 < x ? Number(conversationId) : null),
           ),
         )),
         identity.ap(new Date()),
-        cOperation.sequenceArray,
-        cOperation.map(
+        plan.sequenceArray,
+        plan.map(
           readonlyArray.filterMap(option.fromNullable),
         ),
       )(),
@@ -358,12 +359,12 @@ export abstract class ConversationService extends ModuleRaii {
 
   public postConversation(info: conversation.Info) {
     return this.prismaClient.$callTransaction(
-      function*(this: ConversationService, tx: PrismaTransaction) {
+      function* (this: ConversationService, tx: PrismaTransaction) {
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultConversationExpire).epochMilliseconds)
 
-        const conversation = yield * pipe(
+        const conversation = yield* pipe(
           () => tx.conversation.create({
             data: {
               createdAt,
@@ -373,13 +374,13 @@ export abstract class ConversationService extends ModuleRaii {
               type: this.type,
             },
           }),
-          cOperation.FromTask.fromTask,
+          plan.FromTask.fromTask,
         )()
 
         const records = this.entityConversationService.getRecords(this.type, conversation.id)
         const forCreation = 'for-creation'
 
-        yield * call(
+        yield* call(
           () => this.redisService.multi()
             .xGroupCreate(records.key, forCreation, '$', { MKSTREAM: true })
             .xGroupDestroy(records.key, forCreation)
@@ -392,32 +393,32 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public *putParticipants(
+  public* putParticipants(
     conversationId: number,
     userIdArray: readonly number[],
     tx?: PrismaTransaction,
-  ): Operation<readonly number[]> {
+  ): Directive<readonly number[]> {
     if (!tx) {
-      return yield * this.prismaClient.$callTransaction(
+      return yield* this.prismaClient.$callTransaction(
         tx => this.putParticipants(conversationId, userIdArray, tx),
       )
     }
 
-    const exists = yield * this.exists([conversationId], tx)
+    const exists = yield* this.exists([conversationId], tx)
 
     if (0 === exists.length) {
       return []
     }
 
-    const _userIdArray = yield * this.userService.exists(userIdArray, tx)
+    const _userIdArray = yield* this.userService.exists(userIdArray, tx)
 
     if (0 === _userIdArray.length) {
       return []
     }
 
-    const newParticipantIdArray = yield * pipe(
+    const newParticipantIdArray = yield* pipe(
       () => tx.$conversationXParticipant().participantsForScale(this.type, conversationId, _userIdArray),
-      cOperation.map(flow(
+      plan.map(flow(
         a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
         identity.ap(_userIdArray),
       )),
@@ -431,7 +432,7 @@ export abstract class ConversationService extends ModuleRaii {
     const createdAt = new Date(now.epochMilliseconds)
     const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
 
-    yield * call(
+    yield* call(
       () => tx.conversationXParticipant.createMany({
         data: newParticipantIdArray.map(participantId =>
           ({
@@ -445,7 +446,7 @@ export abstract class ConversationService extends ModuleRaii {
         ),
       }))
 
-    yield * this.post(
+    yield* this.post(
       conversationId,
       system.say({
         content: { participantIdArray: newParticipantIdArray, timestamp: createdAt.valueOf(), type: 'join' },
@@ -460,14 +461,14 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       this.entityConversationService.getRecords(this.type, conversationId),
       x => () => x.range(start, end),
-      cOperation.map(
+      plan.map(
         readonlyArray.map(x => ({ id: x.id, ...x.message })),
       ),
     )()
   }
 
-  public *userPost(conversationId: number, participantId: number, body: conversation.MessageBody) {
-    const exists = yield * this.existsParticipants(conversationId, [participantId])
+  public* userPost(conversationId: number, participantId: number, body: conversation.MessageBody) {
+    const exists = yield* this.existsParticipants(conversationId, [participantId])
 
     if (0 === exists.length) {
       return null
@@ -475,7 +476,7 @@ export abstract class ConversationService extends ModuleRaii {
 
     const _participant = new Participant(participantId, 'user')
 
-    return yield * this.post(conversationId, _participant.say(body))
+    return yield* this.post(conversationId, _participant.say(body))
   }
 
   protected expireRecords(conversations: readonly Pick<Conversation, 'expiredAt' | 'id'>[]) {
@@ -487,33 +488,33 @@ export abstract class ConversationService extends ModuleRaii {
           .key,
         key => () => this.genericService.expireAt(key, expiredAt, 'GT'),
       )),
-      cOperation.sequenceArray,
+      plan.sequenceArray,
     )()
   }
 
-  private *deleteExpiredConversions() {
+  private* deleteExpiredConversions() {
     const interval = Temporal.Duration
       .from({ minutes: 10 })
       .total('milliseconds')
 
     while (true) {
-      yield * call(
+      yield* call(
         () => this.prismaClient.conversation.deleteMany({
           where: { expiredAt: { lte: new Date() }, type: this.type },
         }),
       )
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 
-  private *deleteExpiredParticipants() {
+  private* deleteExpiredParticipants() {
     const interval = Temporal.Duration
       .from({ minutes: 10 })
       .total('milliseconds')
 
     while (true) {
-      const group = yield * pipe(
+      const group = yield* pipe(
         () => this.prismaClient.conversationXParticipant.findMany({
           select: { conversationId: true, participantId: true },
           where: {
@@ -521,28 +522,28 @@ export abstract class ConversationService extends ModuleRaii {
             expiredAt: { lte: new Date() },
           },
         }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(
+        plan.FromTask.fromTask,
+        plan.map(
           readonlyNonEmptyArrayPlus.groupBy(x => x.conversationId),
         ),
       )()
 
-      yield * pipe(
+      yield* pipe(
         Array.from(group),
         readonlyArray.map(([conversationId, x]) =>
           () => this.deleteParticipants(conversationId, x.map(x => x.participantId)),
         ),
-        cOperation.sequenceArray,
+        plan.sequenceArray,
       )()
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 
-  private *deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
-    const deletedUserIdArray = yield * pipe(
+  private* deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
+    const deletedUserIdArray = yield* pipe(
       () => this.prismaClient.$user().forKey(event.users),
-      cOperation.map(flow(
+      plan.map(flow(
         a => (b: typeof a) => readonlyArray.difference(number.Eq)(b, a),
         identity.ap(event.users),
       )),
@@ -552,7 +553,7 @@ export abstract class ConversationService extends ModuleRaii {
       return
     }
 
-    const group = yield * pipe(
+    const group = yield* pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
         select: { conversationId: true, participantId: true },
         where: {
@@ -560,28 +561,28 @@ export abstract class ConversationService extends ModuleRaii {
           participantId: { in: where.writable(deletedUserIdArray) },
         },
       }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(
+      plan.FromTask.fromTask,
+      plan.map(
         readonlyNonEmptyArrayPlus.groupBy(x => x.conversationId),
       ),
     )()
 
-    yield * pipe(
+    yield* pipe(
       Array.from(group),
-      readonlyArray.map(
-        ([conversationId, x]) => () => this.deleteParticipants(conversationId, x.map(x => x.participantId)),
+      readonlyArray.map(([conversationId, x]) =>
+        () => this.deleteParticipants(conversationId, x.map(x => x.participantId)),
       ),
-      cOperation.sequenceArray,
+      plan.sequenceArray,
     )()
   }
 
-  private *expireConversationsEfficiently() {
+  private* expireConversationsEfficiently() {
     const interval = Temporal.Duration
       .from({ minutes: 1 })
       .total('milliseconds')
 
     while (true) {
-      const conversationIdArray = yield * pipe(
+      const conversationIdArray = yield* pipe(
         () => this.prismaClient.conversation.findMany({
           select: { id: true },
           where: {
@@ -589,27 +590,27 @@ export abstract class ConversationService extends ModuleRaii {
             type: this.type,
           },
         }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(
+        plan.FromTask.fromTask,
+        plan.map(
           readonlyArray.map(x => x.id),
         ),
       )()
 
       if (0 < conversationIdArray.length) {
-        yield * this.expire(conversationIdArray)
+        yield* this.expire(conversationIdArray)
       }
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 
-  private *expireParticipantsEfficiently() {
+  private* expireParticipantsEfficiently() {
     const interval = Temporal.Duration
       .from({ minutes: 1 })
       .total('milliseconds')
 
     while (true) {
-      const group = yield * pipe(
+      const group = yield* pipe(
         () => this.prismaClient.conversationXParticipant.findMany({
           select: { conversationId: true, participantId: true },
           where: {
@@ -617,27 +618,27 @@ export abstract class ConversationService extends ModuleRaii {
             conversation: { type: this.type },
           },
         }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(
+        plan.FromTask.fromTask,
+        plan.map(
           readonlyNonEmptyArrayPlus.groupBy(x => x.conversationId),
         ),
       )()
 
       if (0 < group.size) {
-        yield * pipe(
+        yield* pipe(
           Array.from(group),
           readonlyArray.map(([conversationId, x]) =>
             () => this.expireParticipants(conversationId, x.map(x => x.participantId)),
           ),
-          cOperation.sequenceArray,
+          plan.sequenceArray,
         )()
       }
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 
-  private *listenUserEvent() {
+  private* listenUserEvent() {
     const event = this.entityUserService.getEvent()
     const parallelGroup = new group.Parallel(event, `${this.type}.conversation`)
 
@@ -648,13 +649,13 @@ export abstract class ConversationService extends ModuleRaii {
     )
 
     try {
-      yield * event.groupCreate(parallelGroup.group, '0')
+      yield* event.groupCreate(parallelGroup.group, '0')
     }
     catch {
       // ignore duplicated group
     }
 
-    yield * parallelGroup.read(
+    yield* parallelGroup.read(
       randomUUID(),
       flow(
         ({ message }) => match(message)

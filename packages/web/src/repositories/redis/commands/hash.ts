@@ -1,8 +1,9 @@
 import { Model, RedisCommandArgument } from './common.js'
-import { Operation, call } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyRecord } from 'fp-ts'
+import { Directive } from '@zephyr/kit/effection/operation.js'
 import { RedisClientType } from '@redis/client'
+import { call } from 'effection'
 
 export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract readonly client: RedisClientType
@@ -31,8 +32,8 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     )
   }
 
-  public *get<K extends string & keyof T>(field: K): Operation<option.Option<T[K]>> {
-    const value = yield * call(
+  public* get<K extends string & keyof T>(field: K): Directive<option.Option<T[K]>> {
+    const value = yield* call(
       () => this.client.hGet(this.key, field),
     )
 
@@ -43,8 +44,8 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     )
   }
 
-  public *getAll(): Operation<Readonly<Partial<T>> | null> {
-    const value = yield * call(
+  public* getAll(): Directive<Readonly<Partial<T>> | null> {
+    const value = yield* call(
       () => this.client.hGetAll(this.key),
     )
 

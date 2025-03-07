@@ -1,4 +1,4 @@
-import { Operation } from 'effection'
+import { Directive } from '@zephyr/kit/effection/operation.js'
 import { PrismaTransaction } from '../../../repositories/prisma/client.js'
 
 export namespace subscription{
@@ -6,6 +6,6 @@ export namespace subscription{
     readonly type: string
     validate(
       tx: PrismaTransaction, receiverId: number, pushIdArray: readonly number[]
-    ): Operation<readonly number[]>
+    ): Directive<readonly number[]>
   }
 }

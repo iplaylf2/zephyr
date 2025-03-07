@@ -7,8 +7,8 @@ import { PrismaClient } from '../../../repositories/prisma/client.js'
 import { RedisService } from '../../../repositories/redis/redis.service.js'
 import { Temporal } from 'temporal-polyfill'
 import { UserService } from '../../user/user.service.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
 import { sleep } from 'effection'
 
@@ -42,28 +42,28 @@ export class GroupService extends ConversationService {
     this.initializeCallbacks.push(() => this.activeGroup())
   }
 
-  private *activeGroup() {
+  private* activeGroup() {
     const interval = Temporal.Duration
       .from({ minutes: 10 })
       .total('milliseconds')
 
     while (true) {
-      const conversationIdArray = yield * pipe(
+      const conversationIdArray = yield* pipe(
         () => this.prismaClient.conversation.findMany({
           select: { id: true },
           where: { expiredAt: { gt: new Date() }, type: this.type },
         }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(
+        plan.FromTask.fromTask,
+        plan.map(
           readonlyArray.map(x => x.id),
         ),
       )()
 
       if (0 < conversationIdArray.length) {
-        yield * this.active(conversationIdArray)
+        yield* this.active(conversationIdArray)
       }
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 }

@@ -1,32 +1,35 @@
-import { Operation, Yielded, spawn, withResolvers } from 'effection'
+import { Directive, Procedure } from './operation.js'
+import { Operation, useScope, withResolvers } from 'effection'
 
-export function* merge<O1 extends Operation<unknown>, O2 extends Operation<unknown>>(
-  o1: O1,
-  o2: O2): Operation<[Yielded<O1>, O2] | [Yielded<O2>, O1]> {
+export function* merge<T1, T2>(
+  o1: () => Operation<T1>,
+  o2: () => Operation<T2>,
+): Directive<[T1, Procedure<T2>] | [T2, Procedure<T1>]> {
+  const scope = yield* useScope()
+
   // eslint-disable-next-line @typescript-eslint/unbound-method
-  const { operation, reject, resolve } = withResolvers<[Yielded<O1>, O2] | [Yielded<O2>, O1]>()
+  const { operation, reject, resolve } = withResolvers<[T1, Procedure<T2>] | [T2, Procedure<T1>]>()
 
-  void (yield * spawn(function*() {
-    try {
-      const v1 = yield * o1
+  const task1 = scope.run(o1)
+  const task2 = scope.run(o2)
 
-      resolve([v1 as Yielded<O1>, o2])
-    }
-    catch (e) {
-      reject(e as Error)
-    }
-  }))
+  task1.then(
+    (v1) => {
+      resolve([v1, task2])
+    },
+    (e: unknown) => {
+      reject(e as never)
+    },
+  )
 
-  void (yield * spawn(function*() {
-    try {
-      const v2 = yield * o2
+  task2.then(
+    (v2) => {
+      resolve([v2, task1])
+    },
+    (e: unknown) => {
+      reject(e as never)
+    },
+  )
 
-      resolve([v2 as Yielded<O2>, o1])
-    }
-    catch (e) {
-      reject(e as Error)
-    }
-  }))
-
-  return yield * operation
+  return yield* operation
 }

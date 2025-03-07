@@ -10,10 +10,10 @@ export class AuthService {
   @Inject()
   private readonly userService!: UserService
 
-  public *authenticate(token: string) {
+  public* authenticate(token: string) {
     const passport: AuthService.Passport = this.jwtService.verify(token)
 
-    const exists = yield * this.userService.active([passport.id])
+    const exists = yield* this.userService.active([passport.id])
 
     if (0 === exists.length) {
       return null

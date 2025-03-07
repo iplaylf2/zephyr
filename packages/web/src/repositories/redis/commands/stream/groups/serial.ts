@@ -2,9 +2,9 @@ import { Operation, each, ensure, scoped, sleep, spawn } from 'effection'
 import { PartialDeep, ReadonlyDeep } from 'type-fest'
 import { Stream, StreamMessage, StreamMessageBody } from '../stream.js'
 import { RedisCommandArgument } from '../../common.js'
-import { cStream } from '@zephyr/kit/fp-effection/c-stream.js'
 import defaults from 'defaults'
-import { stream } from '@zephyr/kit/effection/stream.js'
+import { stream } from '@zephyr/kit/fp-effection/stream.js'
+import { streamPlus } from '@zephyr/kit/effection/stream-plus.js'
 
 export class Serial<T extends StreamMessageBody> {
   private readonly config: Serial.Config
@@ -23,18 +23,18 @@ export class Serial<T extends StreamMessageBody> {
 
   public read(consumer: RedisCommandArgument, f: (x: StreamMessage<T>) => Operation<any>) {
     return scoped(
-      function*(this: Serial<T>) {
+      function* (this: Serial<T>) {
         let processed: string[] = []
 
-        yield * ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
+        yield* ensure(() => 0 === processed.length ? (void 0) : this.ack(processed))
 
-        const blockStream = yield * this.stream.isolate()
+        const blockStream = yield* this.stream.isolate()
 
         const { ackInternal, batchLimit } = this.config.message
 
-        void (yield * spawn(function*(this: Serial<T>) {
+        void (yield* spawn(function* (this: Serial<T>) {
           while (true) {
-            yield * sleep(ackInternal)
+            yield* sleep(ackInternal)
 
             if (0 === processed.length) {
               continue
@@ -44,28 +44,28 @@ export class Serial<T extends StreamMessageBody> {
 
             processed = []
 
-            yield * this.ack(_processed)
+            yield* this.ack(_processed)
           }
         }.bind(this)))
 
-        const pendingMessages = stream.generate(
+        const pendingMessages = streamPlus.generate(
           () => this.stream.readGroup(this.group, consumer, '0', { COUNT: batchLimit }),
         )
-        const newMessages = stream.generate(
+        const newMessages = streamPlus.generate(
           () => blockStream.readGroup(this.group, consumer, '>', { BLOCK: 0, COUNT: batchLimit }),
         )
 
-        const messages = cStream
+        const messages = stream
         // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
           .getMonoid<void, StreamMessage<T>>()
           .concat(pendingMessages, newMessages)
 
-        for (const message of yield * each(messages())) {
-          yield * f(message)
+        for (const message of yield* each(messages)) {
+          yield* f(message)
 
           processed.push(message.id)
 
-          yield * each.next()
+          yield* each.next()
         }
       }.bind(this),
     )

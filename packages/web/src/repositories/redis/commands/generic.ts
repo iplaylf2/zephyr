@@ -25,8 +25,8 @@ export class Generic extends Isolable<Generic> {
     )
   }
 
-  public expireAt(key: RedisCommandArgument, timestamp: Date | number, mode?: 'GT' | 'LT' | 'NX' | 'XX') {
-    return call(
+  public* expireAt(key: RedisCommandArgument, timestamp: Date | number, mode?: 'GT' | 'LT' | 'NX' | 'XX') {
+    return yield* call(
       () => this.client.expireAt(key, timestamp, mode),
     )
   }

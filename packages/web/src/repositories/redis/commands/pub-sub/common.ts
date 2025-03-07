@@ -1,6 +1,6 @@
 import { Isolable, RedisCommandArgument } from '../common.js'
 import { either, ioEither } from 'fp-ts'
-import { Operation } from 'effection'
+import { Directive } from '@zephyr/kit/effection/operation.js'
 import { PubSubListener } from '@redis/client/dist/lib/client/pub-sub.js'
 import { RedisClientType } from '@redis/client'
 import { pipe } from 'fp-ts/lib/function.js'
@@ -36,9 +36,9 @@ export abstract class PubSub<
 
   public abstract decode(x: BufferMode extends true ? RedisCommandArgument : string): T
   public abstract encode(x: T): BufferMode extends true ? RedisCommandArgument : string
-  public abstract publish(channel: Channel, message: T): Operation<number>
-  public abstract subscribe(channels: Channel, listener: pubSub.Listener<T, Channel>): Operation<void>
-  public abstract unsubscribe(channels?: Channel, listener?: pubSub.Listener<T, Channel>): Operation<void>
+  public abstract publish(channel: Channel, message: T): Directive<number>
+  public abstract subscribe(channels: Channel, listener: pubSub.Listener<T, Channel>): Directive<void>
+  public abstract unsubscribe(channels?: Channel, listener?: pubSub.Listener<T, Channel>): Directive<void>
 }
 
 export namespace pubSub{

@@ -1,6 +1,6 @@
 import { Prisma } from '../../../repositories/prisma/generated/index.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
 import { subscription } from './subscription.js'
 
@@ -22,8 +22,8 @@ export const groupValidator = {
           c."type" = 'group'
         where
           c is null`,
-      cOperation.FromTask.fromTask,
-      cOperation.map(
+      plan.FromTask.fromTask,
+      plan.map(
         readonlyArray.map(x => x.id),
       ),
     )()
