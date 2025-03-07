@@ -1,6 +1,7 @@
 import { Model, RedisCommandArgument } from './common.js'
-import { Operation, call } from 'effection'
 import { RedisClientType, SetOptions } from '@redis/client'
+import { Directive } from '@zephyr/kit/effection/operation.js'
+import { call } from 'effection'
 import { option } from 'fp-ts'
 import { pipe } from 'fp-ts/lib/function.js'
 
@@ -8,8 +9,8 @@ export abstract class String<T> implements Model<T> {
   public abstract readonly client: RedisClientType
   public abstract readonly key: RedisCommandArgument
 
-  public *get(): Operation<option.Option<T>> {
-    const value = yield * call(
+  public* get(): Directive<option.Option<T>> {
+    const value = yield* call(
       () => this.client.get(this.key),
     )
 

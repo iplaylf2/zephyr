@@ -1,6 +1,6 @@
 import { Conversation, Prisma } from '../../generated/index.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
 
 export const conversation = Prisma.defineExtension({
@@ -11,7 +11,7 @@ export const conversation = Prisma.defineExtension({
       return {
         forQuery(type: string, idArray: readonly number[]) {
           if (0 === idArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -25,15 +25,15 @@ export const conversation = Prisma.defineExtension({
                 ${new Date()} < "expiredAt" and
                 id in (${Prisma.join(idArray)})
               for key share`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.id),
             ),
           )()
         },
         forUpdate(type: string, idArray: readonly number[]) {
           if (0 === idArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -47,8 +47,8 @@ export const conversation = Prisma.defineExtension({
                 ${new Date()} < "expiredAt" and
                 id in (${Prisma.join(idArray)})
               for no key update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.id),
             ),
           )()

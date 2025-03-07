@@ -1,8 +1,8 @@
 import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger'
 import { Controller, Inject, Post } from '@nestjs/common'
 import { PushService } from '../../../../../domains/push/push.service.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 
 @ApiTags('push')
@@ -18,7 +18,7 @@ export class PushController {
   public [`@Post('receiver')`](): Promise<string> {
     return unsafeGlobalScopeRun(pipe(
       () => this.pushService.postReceiver(null),
-      cOperation.map(x => x.token),
+      plan.map(x => x.token),
     ))
   }
 }

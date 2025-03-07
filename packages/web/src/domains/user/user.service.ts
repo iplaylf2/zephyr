@@ -7,8 +7,8 @@ import { UserService as EntityUserService } from '../../repositories/redis/entit
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { User } from '../../repositories/prisma/generated/index.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { coerceReadonly } from '../../utils/identity.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyRecordPlus } from '@zephyr/kit/fp-ts/readonly-record-plus.js'
 import { user } from '../../models/user.js'
 import { where } from '../../repositories/prisma/common/where.js'
@@ -32,10 +32,10 @@ export class UserService extends ModuleRaii {
 
   public active(users: readonly number[]) {
     return this.prismaClient.$callTransaction(
-      function*(this: UserService, tx: PrismaTransaction) {
-        const _users = yield * tx.$user().forUpdate(users)
+      function* (this: UserService, tx: PrismaTransaction) {
+        const _users = yield* tx.$user().forUpdate(users)
 
-        yield * call(
+        yield* call(
           () => tx.user.updateMany({
             data: {
               lastActiveAt: new Date(),
@@ -63,10 +63,10 @@ export class UserService extends ModuleRaii {
     const interval = `${seconds.toFixed(0)} seconds`
 
     return this.prismaClient.$callTransaction(
-      function*(this: UserService, tx: PrismaTransaction) {
+      function* (this: UserService, tx: PrismaTransaction) {
         const now = new Date()
 
-        const _users = yield * pipe(
+        const _users = yield* pipe(
           users,
           readonlyArray.map(
             user => () => tx.$queryRaw<Pick<User, 'expiredAt' | 'id'>[]>`
@@ -81,8 +81,8 @@ export class UserService extends ModuleRaii {
                 users."expiredAt", users.id`,
           ),
           task.sequenceArray,
-          cOperation.FromTask.fromTask,
-          cOperation.map(
+          plan.FromTask.fromTask,
+          plan.map(
             readonlyArray.filterMap(flow(
               readonlyArray.head,
               option.map(
@@ -96,7 +96,7 @@ export class UserService extends ModuleRaii {
           return []
         }
 
-        yield * this.postUserEvent({
+        yield* this.postUserEvent({
           type: 'expire',
           users: _users,
         })
@@ -114,15 +114,15 @@ export class UserService extends ModuleRaii {
           id: { in: where.writable(users) },
         },
       }),
-      cOperation.FromTask.fromTask,
-      cOperation.map(coerceReadonly),
+      plan.FromTask.fromTask,
+      plan.map(coerceReadonly),
     )()
   }
 
-  public *patch(id: number, user: Partial<user.Info>) {
+  public* patch(id: number, user: Partial<user.Info>) {
     if ('name' in user) {
       try {
-        yield * call(
+        yield* call(
           () => this.prismaClient.user.update({
             data: {
               id,
@@ -146,12 +146,12 @@ export class UserService extends ModuleRaii {
 
   public register(info: user.Info) {
     return this.prismaClient.$callTransaction(
-      function*(this: UserService, tx: PrismaTransaction) {
+      function* (this: UserService, tx: PrismaTransaction) {
         const now = Temporal.Now.zonedDateTimeISO()
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
-        const user = yield * pipe(
+        const user = yield* pipe(
           () => tx.user.create({
             data: {
               createdAt,
@@ -161,11 +161,11 @@ export class UserService extends ModuleRaii {
             },
             select: { id: true },
           }),
-          cOperation.FromTask.fromTask,
-          cOperation.map(x => x.id),
+          plan.FromTask.fromTask,
+          plan.map(x => x.id),
         )()
 
-        yield * this.postUserEvent({
+        yield* this.postUserEvent({
           timestamp: createdAt.valueOf(),
           type: 'register',
           user: user,
@@ -178,20 +178,20 @@ export class UserService extends ModuleRaii {
 
   public unregister(users: readonly number[]) {
     return this.prismaClient.$callTransaction(
-      function*(this: UserService, tx: PrismaTransaction) {
-        const ids = yield * tx.$user().forScale(users)
+      function* (this: UserService, tx: PrismaTransaction) {
+        const ids = yield* tx.$user().forScale(users)
 
         if (0 === ids.length) {
           return []
         }
 
-        yield * call(
+        yield* call(
           () => tx.user.deleteMany({
             where: { id: { in: where.writable(ids) } },
           }),
         )
 
-        yield * this.postUserEvent({
+        yield* this.postUserEvent({
           timestamp: Date.now(),
           type: 'unregister',
           users: ids,
@@ -202,53 +202,53 @@ export class UserService extends ModuleRaii {
     )
   }
 
-  private *deleteExpiredUsers() {
+  private* deleteExpiredUsers() {
     const interval = Temporal.Duration
       .from({ minutes: 10 })
       .total('milliseconds')
 
     while (true) {
-      const expiredUsers = yield * pipe(
+      const expiredUsers = yield* pipe(
         () => this.prismaClient.user.findMany({
           select: { id: true },
           where: { expiredAt: { lte: new Date() } },
         }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(
+        plan.FromTask.fromTask,
+        plan.map(
           readonlyArray.map(x => x.id),
         ),
       )()
 
       if (0 < expiredUsers.length) {
-        yield * this.unregister(expiredUsers)
+        yield* this.unregister(expiredUsers)
       }
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 
-  private *expireUsersEfficiently() {
+  private* expireUsersEfficiently() {
     const interval = Temporal.Duration
       .from({ minutes: 1 })
       .total('milliseconds')
 
     while (true) {
-      const halfExpiredUsers = yield * pipe(
+      const halfExpiredUsers = yield* pipe(
         () => this.prismaClient.user.findMany({
           select: { id: true },
           where: where.halfLife(this.defaultExpire),
         }),
-        cOperation.FromTask.fromTask,
-        cOperation.map(
+        plan.FromTask.fromTask,
+        plan.map(
           readonlyArray.map(x => x.id),
         ),
       )()
 
       if (0 < halfExpiredUsers.length) {
-        yield * this.expire(halfExpiredUsers)
+        yield* this.expire(halfExpiredUsers)
       }
 
-      yield * sleep(interval)
+      yield* sleep(interval)
     }
   }
 

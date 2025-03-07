@@ -30,14 +30,14 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     )
   }
 
-  public *autoClaim(
+  public* autoClaim(
     group: RedisCommandArgument,
     consumer: RedisCommandArgument,
     minIdleTime: number,
     start: string,
     options?: XAutoClaimOptions,
   ) {
-    const messages = yield * call(
+    const messages = yield* call(
       () => this.client.xAutoClaim(this.key, group, consumer, minIdleTime, start, options),
     )
 
@@ -90,9 +90,9 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     )
   }
 
-  public *infoStream() {
+  public* infoStream() {
     try {
-      return yield * call(
+      return yield* call(
         () => this.client.xInfoStream(this.key),
       )
     }
@@ -105,8 +105,8 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     }
   }
 
-  public *range(start: RedisCommandArgument, end: RedisCommandArgument, options?: XRangeOptions) {
-    const messages = yield * call(
+  public* range(start: RedisCommandArgument, end: RedisCommandArgument, options?: XRangeOptions) {
+    const messages = yield* call(
       () => this.client.xRange(this.key, start, end, options),
     )
 
@@ -118,8 +118,8 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     )
   }
 
-  public *readGroup(group: RedisCommandArgument, consumer: RedisCommandArgument, id: RedisCommandArgument, options?: XReadGroupOptions) {
-    const messages = yield * call(
+  public* readGroup(group: RedisCommandArgument, consumer: RedisCommandArgument, id: RedisCommandArgument, options?: XReadGroupOptions) {
+    const messages = yield* call(
       () => this.client.xReadGroup(group, consumer, { id, key: this.key }, options),
     )
 

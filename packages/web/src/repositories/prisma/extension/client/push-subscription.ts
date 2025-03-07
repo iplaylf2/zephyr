@@ -1,6 +1,6 @@
 import { Prisma, PushSubscription } from '../../generated/index.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
 
 export const pushSubscription = Prisma.defineExtension({
@@ -11,7 +11,7 @@ export const pushSubscription = Prisma.defineExtension({
       return {
         pushesForQuery(receiverId: number, pushIdArray: readonly number[]) {
           if (0 === pushIdArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -24,8 +24,8 @@ export const pushSubscription = Prisma.defineExtension({
                 "receiverId" = ${receiverId} and
                 "pushId" in (${Prisma.join(pushIdArray)})
               for key share`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.pushId),
             ),
           )()
@@ -40,15 +40,15 @@ export const pushSubscription = Prisma.defineExtension({
               where
                 "receiverId" = ${receiverId}
               for key share`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.pushId),
             ),
           )()
         },
         pushesForScale(receiverId: number, pushIdArray: readonly number[]) {
           if (0 === pushIdArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -61,15 +61,15 @@ export const pushSubscription = Prisma.defineExtension({
                 "receiverId" = ${receiverId} and
                 "pushId" in (${Prisma.join(pushIdArray)})
               for update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.pushId),
             ),
           )()
         },
         pushesForUpdate(receiverId: number, pushIdArray: readonly number[]) {
           if (0 === pushIdArray.length) {
-            return cOperation.Pointed.of([])()
+            return plan.Pointed.of([])()
           }
 
           return pipe(
@@ -82,8 +82,8 @@ export const pushSubscription = Prisma.defineExtension({
                 "receiverId" = ${receiverId} and
                 "pushId" in (${Prisma.join(pushIdArray)})
               for no key update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.pushId),
             ),
           )()

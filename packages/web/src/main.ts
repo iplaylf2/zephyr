@@ -5,12 +5,12 @@ import { NestFactory } from '@nestjs/core'
 import { initGlobalScope } from '@zephyr/kit/effection/global-scope.js'
 import { patchNestjsSwagger } from '@anatine/zod-nestjs'
 
-await main(function *() {
-  const scope = yield * useScope()
+await main(function* () {
+  const scope = yield* useScope()
 
   initGlobalScope(scope)
 
-  const app = yield * call(
+  const app = yield* call(
     () => NestFactory.create(AppModule),
   )
 
@@ -26,14 +26,14 @@ await main(function *() {
 
   SwaggerModule.setup('api', app, document)
 
-  yield * call(
+  yield* call(
     () => app.listen(3000),
   )
 
   try {
-    yield * suspend()
+    yield* suspend()
   }
   finally {
-    yield * call(() => app.close())
+    yield* call(() => app.close())
   }
 })

@@ -15,18 +15,18 @@ const redisServiceProvider = {
   provide: RedisService,
   useFactory(resourceManagerService: ResourceManagerService) {
     return resourceManagerService.provide(
-      () => resource(function*(provide) {
+      () => resource(function* (provide) {
         const client = createClient({ url: env.redis.url })
 
-        yield * call(
+        yield* call(
           () => client.connect(),
         )
 
         try {
-          yield * provide(client)
+          yield* provide(client)
         }
         finally {
-          yield * call(
+          yield* call(
             () => client.quit(),
           )
         }

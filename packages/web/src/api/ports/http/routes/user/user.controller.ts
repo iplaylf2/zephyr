@@ -7,8 +7,8 @@ import { AuthService } from '../../auth/auth.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
 import { UserService } from '../../../../../domains/user/user.service.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 import { user } from './user.dto.js'
 
@@ -30,7 +30,7 @@ export class UserController {
   public [`@Delete()`](@Passport.param passport: Passport): Promise<boolean> {
     return unsafeGlobalScopeRun(pipe(
       () => this.userService.unregister([passport.id]),
-      cOperation.map(x => 0 < x.length),
+      plan.map(x => 0 < x.length),
     ))
   }
 
@@ -40,8 +40,8 @@ export class UserController {
   @RequirePassport()
   @Get('info')
   public async [`@Get('info')`](@Passport.param passport: Passport): Promise<user.InfoDto> {
-    return unsafeGlobalScopeRun(function*(this: UserController) {
-      const [user] = yield * this.userService.get([passport.id])
+    return unsafeGlobalScopeRun(function* (this: UserController) {
+      const [user] = yield* this.userService.get([passport.id])
 
       if (!user) {
         throw new NotFoundException()
@@ -67,7 +67,7 @@ export class UserController {
   public async [`@Post()`](@Body() info: user.InfoDto): Promise<user.CreationResultDto> {
     return unsafeGlobalScopeRun(pipe(
       () => this.userService.register(info),
-      cOperation.map(id => ({ id: id, token: this.authService.authorize(id) })),
+      plan.map(id => ({ id: id, token: this.authService.authorize(id) })),
     ))
   }
 }

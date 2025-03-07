@@ -1,6 +1,6 @@
 import { Dialogue, Prisma } from '../../generated/index.js'
-import { cOperation } from '@zephyr/kit/fp-effection/c-operation.js'
 import { pipe } from 'fp-ts/lib/function.js'
+import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
 
 export const dialogue = Prisma.defineExtension({
@@ -21,8 +21,8 @@ export const dialogue = Prisma.defineExtension({
                 ( "initiatorId" = ${participantId} or
                   "participantId" = ${participantId} )
               for key share`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.conversationId),
             ),
           )()
@@ -39,8 +39,8 @@ export const dialogue = Prisma.defineExtension({
                 ( "initiatorId" = ${participantId} or
                   "participantId" = ${participantId} )
               for no key update`,
-            cOperation.FromTask.fromTask,
-            cOperation.map(
+            plan.FromTask.fromTask,
+            plan.map(
               readonlyArray.map(x => x.conversationId),
             ),
           )()

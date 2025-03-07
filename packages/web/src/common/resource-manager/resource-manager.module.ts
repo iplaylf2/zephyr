@@ -9,12 +9,12 @@ import { globalScope } from '@zephyr/kit/effection/global-scope.js'
     provide: ResourceManagerService,
     async useFactory() {
       const [scope, destroy] = await new Promise<[Scope, () => Future<void>]>((resolve, reject) => {
-        const task = globalScope.run(function*() {
-          const scope = yield * useScope()
+        const task = globalScope.run(function* () {
+          const scope = yield* useScope()
 
           resolve([scope, () => task.halt()])
 
-          yield * suspend()
+          yield* suspend()
         })
 
         task.catch(reject)

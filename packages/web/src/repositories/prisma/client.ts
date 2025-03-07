@@ -25,16 +25,16 @@ function useFactory(resourceManagerService: ResourceManagerService) {
         .$extends(pushReceiver)
         .$extends(pushSubscription)
 
-      return resource<typeof client>(function*(provide) {
-        yield * call(
+      return resource<typeof client>(function* (provide) {
+        yield* call(
           () => client.$connect(),
         )
 
         try {
-          yield * provide(client)
+          yield* provide(client)
         }
         finally {
-          yield * call(
+          yield* call(
             () => client.$disconnect(),
           )
         }

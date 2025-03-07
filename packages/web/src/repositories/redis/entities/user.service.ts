@@ -14,11 +14,11 @@ export class UserService extends ModuleRaii {
     super()
 
     this.initializeCallbacks.push(
-      function*(this: UserService) {
+      function* (this: UserService) {
         const event = this.getEvent()
         const forCreation = 'for-creation'
 
-        yield * call(
+        yield* call(
           () => this.redisService.multi()
             .xGroupCreate(event.key, forCreation, '$', { MKSTREAM: true })
             .xGroupDestroy(event.key, forCreation)

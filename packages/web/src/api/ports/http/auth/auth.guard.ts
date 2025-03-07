@@ -11,7 +11,7 @@ export class AuthGuard implements CanActivate {
   private readonly authService!: AuthService
 
   public canActivate(context: ExecutionContext) {
-    return unsafeGlobalScopeRun(function*(this: AuthGuard) {
+    return unsafeGlobalScopeRun(function* (this: AuthGuard) {
       const request = context.switchToHttp().getRequest<Request>()
       const token = this.extractToken(request)
 
@@ -20,7 +20,7 @@ export class AuthGuard implements CanActivate {
       }
 
       try {
-        const data = yield * this.authService.authenticate(token)
+        const data = yield* this.authService.authenticate(token)
 
         if (null === data) {
           throw new UnauthorizedException()

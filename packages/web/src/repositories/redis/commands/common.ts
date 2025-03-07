@@ -1,4 +1,5 @@
-import { Operation, call, resource } from 'effection'
+import { call, resource } from 'effection'
+import { Directive } from '@zephyr/kit/effection/operation.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '@redis/client/dist/lib/commands/index.js'
 
@@ -13,20 +14,20 @@ export interface Model<T> {
 export abstract class Isolable<T extends Isolable<T>> {
   protected abstract readonly client: RedisClientType
 
-  public isolate(): Operation<T> {
+  public* isolate(): Directive<T> {
     const duplication = this.duplicate()
 
-    return resource(function*(provide) {
+    return yield* resource(function* (provide) {
       const client = duplication.client
 
       try {
-        yield * call(
+        yield* call(
           () => client.connect(),
         )
-        yield * provide(duplication)
+        yield* provide(duplication)
       }
       finally {
-        yield * call(
+        yield* call(
           () => client.disconnect(),
         )
       }

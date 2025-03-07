@@ -12,22 +12,22 @@ export class ResourceManagerService extends ModuleRaii {
 
   public provide<T>(provider: () => Operation<T>): Promise<T> {
     return new Promise((resolve, reject) => {
-      this.scope.run(function*() {
-        const resource = yield * provider()
+      this.scope.run(function* () {
+        const resource = yield* provider()
 
         resolve(resource)
 
-        yield * suspend()
+        yield* suspend()
       }).catch(reject)
     })
   }
 
-  private *keep() {
+  private* keep() {
     try {
-      yield * suspend()
+      yield* suspend()
     }
     finally {
-      yield * this.destroy()
+      yield* this.destroy()
     }
   }
 }

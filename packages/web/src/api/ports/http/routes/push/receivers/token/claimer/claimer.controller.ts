@@ -25,15 +25,15 @@ export class ClaimerController {
 
   @Put()
   public [`@Put()`]() {
-    return unsafeGlobalScopeRun(function*(this: ClaimerController) {
-      const receiver = yield * this.pushService.getReceiver(this.token)
+    return unsafeGlobalScopeRun(function* (this: ClaimerController) {
+      const receiver = yield* this.pushService.getReceiver(this.token)
 
       if (null === receiver) {
         throw new NotFoundException()
       }
 
-      yield * this.pushService.active([receiver])
-      yield * this.pushService.putClaimer(receiver, this.passport.id)
+      yield* this.pushService.active([receiver])
+      yield* this.pushService.putClaimer(receiver, this.passport.id)
     }.bind(this),
     )
   }
