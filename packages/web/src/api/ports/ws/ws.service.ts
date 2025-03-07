@@ -48,7 +48,6 @@ export class WsService extends ModuleRaii {
         () => this.tryUpgrading(websocketServer, request, socket, head, token),
       )
     }
-
     const httpServer: Server = this.httpAdapterHost.httpAdapter.getHttpServer()
 
     httpServer.addListener('upgrade', upgradeListener)
@@ -58,6 +57,7 @@ export class WsService extends ModuleRaii {
     }
     finally {
       httpServer.removeListener('upgrade', upgradeListener)
+      websocketServer.close()
     }
   }
 
