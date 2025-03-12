@@ -25,13 +25,13 @@
         }
     },
     "peerDependencies": {
-        "effection": "^3.2.1",
+        "effection": "^3.3.0",
         "fp-ts": "^2.16.9",
         "zod": "^3.24.2"
     },
     "devDependencies": {
         "@zephyr/config": "workspace:*",
-        "eslint": "^9.21.0",
+        "eslint": "^9.22.0",
         "type-fest": "^4.37.0",
         "typescript": "^5.8.2"
     }
