@@ -3,12 +3,12 @@ import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/clien
 import { call, sleep } from 'effection'
 import { either, identity, number, readonlyArray, task } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { PushReceiver } from '../../repositories/prisma/generated/index.js'
+import { PushService as RedisPushService } from '../../repositories/redis/schemas/push.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { dialogueValidator } from './subscriptions/dialogue.js'
-import { groupValidator } from './subscriptions/group.js'
+import { dialogueValidator } from './aggregates/subscriptions/dialogue.js'
+import { groupValidator } from './aggregates/subscriptions/group.js'
 import { match } from 'ts-pattern'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { where } from '../../repositories/prisma/common/where.js'
@@ -18,10 +18,10 @@ import { zPlus } from '@zephyr/kit/z-plus.js'
 @Injectable()
 export class PushService extends ModuleRaii {
   @Inject()
-  private readonly entityPushService!: EntityPushService
+  private readonly prismaClient!: PrismaClient
 
   @Inject()
-  private readonly prismaClient!: PrismaClient
+  private readonly redisPushService!: RedisPushService
 
   public readonly defaultExpire = Temporal.Duration.from({ hours: 1 })
 
@@ -62,7 +62,7 @@ export class PushService extends ModuleRaii {
           }),
         )
 
-        const notification = this.entityPushService.getNotification()
+        const notification = this.redisPushService.getNotification()
 
         yield* notification.publish(notification.getChannel(receiverId), { type: 'delete' })
       }.bind(this),
@@ -105,7 +105,7 @@ export class PushService extends ModuleRaii {
 
         const pushRecord = Object.fromEntries(existsPushes.map(x => [x.id, x.source] as const))
         const deletedSources = toDelete.map(x => pushRecord[x]!)
-        const notification = this.entityPushService.getNotification()
+        const notification = this.redisPushService.getNotification()
 
         yield* notification.publish(
           notification.getChannel(receiverId),
@@ -284,7 +284,7 @@ export class PushService extends ModuleRaii {
 
         const pushRecord = Object.fromEntries(existsPushes.map(x => [x.id, x.source] as const))
         const newSources = newSubscriptions.map(x => pushRecord[x]!)
-        const notification = this.entityPushService.getNotification()
+        const notification = this.redisPushService.getNotification()
 
         yield* notification.publish(
           notification.getChannel(receiverId),

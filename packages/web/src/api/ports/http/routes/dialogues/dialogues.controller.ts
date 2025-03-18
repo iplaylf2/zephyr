@@ -1,8 +1,8 @@
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Patch } from '@nestjs/common'
+import { DialogueService } from '../../../../../domains/conversation/domains/dialogue/dialogue.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
-import { conversation } from '../../../../../domains/conversation/conversation.js'
 import { dialogues } from './dialogues.dto.js'
 import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 
@@ -11,7 +11,7 @@ import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 @Controller('dialogues')
 export class DialoguesController {
   @Inject()
-  private readonly conversationService!: conversation.DialogueService
+  private readonly conversationService!: DialogueService
 
   @Inject()
   private readonly passport!: Passport

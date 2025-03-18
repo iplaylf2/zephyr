@@ -1,15 +1,18 @@
 import { createZodDto } from '@anatine/zod-nestjs'
 import { extendApi } from '@anatine/zod-openapi'
-import { user as modelUser } from '../../../../../models/user.js'
+import { userId } from '../../../../../domains/user/value-object.js'
+import { userInfo } from '../../../../../domains/user/entities/user-info.js'
 import { z } from 'zod'
 
 export namespace user{
   const creationResult = z.object({
-    id: modelUser.id,
+    id: userId,
     token: extendApi(z.string(), { title: 'passport token' }),
   })
 
   export class CreationResultDto extends createZodDto(creationResult) {}
 
-  export class InfoDto extends createZodDto(modelUser.info) {}
+  const info = userInfo.omit({ id: true })
+
+  export class InfoDto extends createZodDto(info) {}
 }

@@ -1,8 +1,8 @@
+import { Hash } from '../commands/hash.js'
 import { JsonObject } from 'type-fest'
-import { RedisCommandArgument } from '../../commands/common.js'
-import { Stream } from '../../commands/stream/stream.js'
+import { RedisCommandArgument } from '../commands/common.js'
 
-export abstract class JsonStream<T extends JsonObject> extends Stream<T> {
+export abstract class JsonHash<T extends JsonObject> extends Hash<T> {
   public override decode(x: RedisCommandArgument): T[string] {
     return JSON.parse(x.toString())
   }

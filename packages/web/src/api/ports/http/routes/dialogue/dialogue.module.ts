@@ -1,10 +1,12 @@
 import { AuthModule } from '../../auth/auth.module.js'
 import { DialogueController } from './dialogue.controller.js'
+import {
+  DialogueModule as DomainDialogueModule,
+} from '../../../../../domains/conversation/domains/dialogue/dialogue.module.js'
 import { Module } from '@nestjs/common'
-import { conversation } from '../../../../../domains/conversation/conversation.js'
 
 @Module({
   controllers: [DialogueController],
-  imports: [AuthModule, conversation.DialogueModule],
+  imports: [AuthModule, DomainDialogueModule],
 })
 export class DialogueModule {}

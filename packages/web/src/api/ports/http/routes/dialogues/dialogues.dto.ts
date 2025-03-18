@@ -1,28 +1,29 @@
 import { JsonObject } from 'type-fest'
-import { conversation } from '../../../../../models/conversation.js'
+import { conversationId } from '../../../../../domains/conversation/value-object.js'
 import { createZodDto } from '@anatine/zod-nestjs'
 import { extendApi } from '@anatine/zod-openapi'
+import { userId } from '../../../../../domains/user/value-object.js'
 import { z } from 'zod'
 
 export namespace dialogues{
   const dialogueInfo = z.object({
-    conversationId: conversation.id,
-    initiatorId: conversation.id,
+    conversationId: conversationId,
+    initiatorId: userId,
     lastMessageId: z.string().nullable(),
-    participantId: conversation.id,
+    participantId: userId,
   })
 
   export class DialogueInfoDto extends createZodDto(dialogueInfo) {}
 
   const dataRecord = z.record(
-    extendApi(conversation.id, { title: 'dialogue' }),
+    extendApi(conversationId, { title: 'dialogue' }),
     z.custom<JsonObject>(),
   )
 
   export class DataRecordDto extends createZodDto(dataRecord) {}
 
   const deleteDataRecord = z.record(
-    extendApi(conversation.id, { title: 'dialogue' }),
+    extendApi(conversationId, { title: 'dialogue' }),
     z.string(),
   )
 

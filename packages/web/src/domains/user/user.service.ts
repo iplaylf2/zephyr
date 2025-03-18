@@ -3,14 +3,15 @@ import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/clien
 import { call, sleep } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyArray, task } from 'fp-ts'
-import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
+import { UserService as EntityUserService } from '../../repositories/redis/schemas/user.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { User } from '../../repositories/prisma/generated/index.js'
+import { UserEvent } from './entities/user-event.js'
+import { UserInfo } from './entities/user-info.js'
 import { coerceReadonly } from '../../utils/identity.js'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyRecordPlus } from '@zephyr/kit/fp-ts/readonly-record-plus.js'
-import { user } from '../../models/user.js'
 import { where } from '../../repositories/prisma/common/where.js'
 
 @Injectable()
@@ -119,32 +120,28 @@ export class UserService extends ModuleRaii {
     )()
   }
 
-  public* patch(id: number, user: Partial<user.Info>) {
-    if ('name' in user) {
-      try {
-        yield* call(
-          () => this.prismaClient.user.update({
-            data: {
-              id,
-              lastActiveAt: new Date(),
-              name: user.name!,
-            },
-            select: {},
-            where: { id },
-          }),
-        )
+  public* patch(id: number, info: Omit<UserInfo, 'id'>) {
+    try {
+      yield* call(
+        () => this.prismaClient.user.update({
+          data: {
+            id,
+            lastActiveAt: new Date(),
+            name: info.name,
+          },
+          select: {},
+          where: { id },
+        }),
+      )
 
-        return true
-      }
-      catch {
-        return false
-      }
+      return true
     }
-
-    return false
+    catch {
+      return false
+    }
   }
 
-  public register(info: user.Info) {
+  public register(info: Omit<UserInfo, 'id'>) {
     return this.prismaClient.$callTransaction(
       function* (this: UserService, tx: PrismaTransaction) {
         const now = Temporal.Now.zonedDateTimeISO()
@@ -252,7 +249,7 @@ export class UserService extends ModuleRaii {
     }
   }
 
-  private postUserEvent(event: user.Event) {
+  private postUserEvent(event: UserEvent) {
     return pipe(
       this.entityUserService.getEvent(),
       x => x.add(

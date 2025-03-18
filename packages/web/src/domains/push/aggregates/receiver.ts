@@ -3,15 +3,16 @@ import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, io, ioOption, option, readonlyArray } from 'fp-ts'
 import { JKMap } from '@zephyr/kit/jk-map.js'
 import { JsonValue } from 'type-fest'
-import { push } from '../../models/push.js'
+import { Notification } from '../entities/notification.js'
+import { Push } from '../entities/push.js'
 
 export class Receiver {
   public readonly shared
 
   private _isClosed = false
-  private readonly combinedSubject = new BehaviorSubject<readonly Observable<push.Message>[]>([])
-  private readonly innerSubject = new Subject<push.Message>()
-  private readonly sourceMap = new JKMap<[string, number], Observable<push.Message>>()
+  private readonly combinedSubject = new BehaviorSubject<readonly Observable<Notification>[]>([])
+  private readonly innerSubject = new Subject<Notification>()
+  private readonly sourceMap = new JKMap<[string, number], Observable<Notification>>()
 
   public constructor() {
     this.shared = this.combinedSubject.pipe(
@@ -41,7 +42,7 @@ export class Receiver {
   public subscribe(
     pushes: ReadonlyArray<{
       observable: Observable<JsonValue>
-      push: push.Push
+      push: Push
     }>,
   ) {
     if (this.isClosed) {
@@ -83,7 +84,7 @@ export class Receiver {
     ])
   }
 
-  public unsubscribe(pushes: readonly push.Push[]) {
+  public unsubscribe(pushes: readonly Push[]) {
     if (this.isClosed) {
       return
     }

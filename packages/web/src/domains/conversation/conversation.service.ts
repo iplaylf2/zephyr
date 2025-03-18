@@ -1,45 +1,46 @@
 import { Conversation, ConversationXParticipant } from '../../repositories/prisma/generated/index.js'
 import {
-  Conversations, ConversationService as EntityConversationService,
-} from '../../repositories/redis/entities/conversation.service.js'
+  Conversations, ConversationService as RedisConversationService,
+} from '../../repositories/redis/schemas/conversation.service.js'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { all, call, sleep } from 'effection'
 import { flip, flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, number, option, readonlyArray, task } from 'fp-ts'
+import { ConversationInfo } from './entities/conversation-info.js'
 import { Directive } from '@zephyr/kit/effection/operation.js'
-import { UserService as EntityUserService } from '../../repositories/redis/entities/user.service.js'
-import { GenericService } from '../../repositories/redis/entities/generic.service.js'
+import { GenericService } from '../../repositories/redis/schemas/generic.service.js'
 import { JsonObject } from 'type-fest'
+import { MessageBody } from './value-object.js'
 import { ModuleRaii } from '../../common/module-raii.js'
-import { Participant } from './participant.js'
+import { Participant } from './aggregates/participant.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
+import { UserService as RedisUserService } from '../../repositories/redis/schemas/user.service.js'
 import { Temporal } from 'temporal-polyfill'
+import { UserEvent } from '../user/entities/user-event.js'
 import { UserService } from '../user/user.service.js'
-import { conversation } from '../../models/conversation.js'
 import { group } from '../../repositories/redis/commands/stream/group.js'
 import { match } from 'ts-pattern'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { randomUUID } from 'crypto'
 import { readonlyNonEmptyArrayPlus } from '@zephyr/kit/fp-ts/readonly-non-empty-array-plus.js'
-import { user } from '../../models/user.js'
 import { where } from '../../repositories/prisma/common/where.js'
 
 export abstract class ConversationService extends ModuleRaii {
   protected readonly participantsExpireCallbacks
-    = new Array<(event: Extract<user.Event, { type: 'expire' }>) => Directive<any>>()
+    = new Array<(event: Extract<UserEvent, { type: 'expire' }>) => Directive<any>>()
 
   protected readonly participantsUnregisterCallbacks
-    = new Array<(event: Extract<user.Event, { type: 'unregister' }>) => Directive<any>>()
+    = new Array<(event: Extract<UserEvent, { type: 'unregister' }>) => Directive<any>>()
 
   public abstract readonly defaultConversationExpire: Temporal.Duration
   public abstract readonly defaultParticipantExpire: Temporal.Duration
   public abstract readonly type: string
 
-  protected abstract readonly entityConversationService: EntityConversationService
-  protected abstract readonly entityUserService: EntityUserService
   protected abstract readonly genericService: GenericService
   protected abstract readonly prismaClient: PrismaClient
+  protected abstract readonly redisConversationService: RedisConversationService
   protected abstract readonly redisService: RedisService
+  protected abstract readonly redisUserService: RedisUserService
   protected abstract readonly userService: UserService
 
   public constructor() {
@@ -148,7 +149,7 @@ export abstract class ConversationService extends ModuleRaii {
 
         yield* this.post(
           conversationId,
-          system.say({
+          Participant.system.say({
             content: { participantId: _participantIdArray, timestamp: now, type: 'leave' },
             type: 'event',
           }),
@@ -274,7 +275,7 @@ export abstract class ConversationService extends ModuleRaii {
     const records = yield* pipe(
       conversationIdArray,
       readonlyArray.map(
-        x => () => this.entityConversationService.getRecords(this.type, x).infoStream(),
+        x => () => this.redisConversationService.getRecords(this.type, x).infoStream(),
       ),
       plan.sequenceArray,
     )()
@@ -357,7 +358,7 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public postConversation(info: conversation.Info) {
+  public postConversation(info: Omit<ConversationInfo, 'id'>) {
     return this.prismaClient.$callTransaction(
       function* (this: ConversationService, tx: PrismaTransaction) {
         const now = Temporal.Now.zonedDateTimeISO()
@@ -377,7 +378,7 @@ export abstract class ConversationService extends ModuleRaii {
           plan.FromTask.fromTask,
         )()
 
-        const records = this.entityConversationService.getRecords(this.type, conversation.id)
+        const records = this.redisConversationService.getRecords(this.type, conversation.id)
         const forCreation = 'for-creation'
 
         yield* call(
@@ -448,7 +449,7 @@ export abstract class ConversationService extends ModuleRaii {
 
     yield* this.post(
       conversationId,
-      system.say({
+      Participant.system.say({
         content: { participantIdArray: newParticipantIdArray, timestamp: createdAt.valueOf(), type: 'join' },
         type: 'event',
       }),
@@ -459,7 +460,7 @@ export abstract class ConversationService extends ModuleRaii {
 
   public rangeMessages(conversationId: number, start: string, end: string) {
     return pipe(
-      this.entityConversationService.getRecords(this.type, conversationId),
+      this.redisConversationService.getRecords(this.type, conversationId),
       x => () => x.range(start, end),
       plan.map(
         readonlyArray.map(x => ({ id: x.id, ...x.message })),
@@ -467,7 +468,7 @@ export abstract class ConversationService extends ModuleRaii {
     )()
   }
 
-  public* userPost(conversationId: number, participantId: number, body: conversation.MessageBody) {
+  public* userPost(conversationId: number, participantId: number, body: MessageBody) {
     const exists = yield* this.existsParticipants(conversationId, [participantId])
 
     if (0 === exists.length) {
@@ -483,7 +484,7 @@ export abstract class ConversationService extends ModuleRaii {
     return pipe(
       conversations,
       readonlyArray.map(({ id, expiredAt }) => pipe(
-        this.entityConversationService
+        this.redisConversationService
           .getRecords(this.type, id)
           .key,
         key => () => this.genericService.expireAt(key, expiredAt, 'GT'),
@@ -540,7 +541,7 @@ export abstract class ConversationService extends ModuleRaii {
     }
   }
 
-  private* deleteParticipantsByEvent(event: Extract<user.Event, { type: 'unregister' }>) {
+  private* deleteParticipantsByEvent(event: Extract<UserEvent, { type: 'unregister' }>) {
     const deletedUserIdArray = yield* pipe(
       () => this.prismaClient.$user().forKey(event.users),
       plan.map(flow(
@@ -639,7 +640,7 @@ export abstract class ConversationService extends ModuleRaii {
   }
 
   private* listenUserEvent() {
-    const event = this.entityUserService.getEvent()
+    const event = this.redisUserService.getEvent()
     const parallelGroup = new group.Parallel(event, `${this.type}.conversation`)
 
     const messageHandlerAp = <A, B>(callbacks: Array<(a: A) => B>) => flow(
@@ -670,7 +671,7 @@ export abstract class ConversationService extends ModuleRaii {
 
   private post(conversationId: number, message: Conversations.Message) {
     return pipe(
-      this.entityConversationService.getRecords(this.type, conversationId),
+      this.redisConversationService.getRecords(this.type, conversationId),
       x => x.add(
         '*',
         message,
@@ -679,5 +680,3 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 }
-
-const system = new Participant(-1, 'system')

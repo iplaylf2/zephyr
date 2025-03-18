@@ -4,16 +4,16 @@ import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/clien
 import { Scope, Task, createSignal, each, lift, scoped, spawn, suspend, useScope } from 'effection'
 import { either, ioEither, readonlyArray } from 'fp-ts'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { ConversationService } from '../../repositories/redis/entities/conversation.service.js'
+import { ConversationService } from '../../repositories/redis/schemas/conversation.service.js'
 import { Directive } from '@zephyr/kit/effection/operation.js'
-import { PushService as EntityPushService } from '../../repositories/redis/entities/push.service.js'
+import { PushService as EntityPushService } from '../../repositories/redis/schemas/push.service.js'
 import { JKMap } from '@zephyr/kit/jk-map.js'
+import { Message } from '../conversation/entities/message.js'
 import { ModuleRaii } from '../../common/module-raii.js'
-import { Receiver } from './receiver.js'
-import { conversation } from '../../models/conversation.js'
+import { Push } from './entities/push.js'
+import { Receiver } from './aggregates/receiver.js'
 import { group } from '../../repositories/redis/commands/stream/group.js'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
-import { push } from '../../models/push.js'
 import { randomUUID } from 'crypto'
 import { where } from '../../repositories/prisma/common/where.js'
 
@@ -28,7 +28,10 @@ export class ReceiverService extends ModuleRaii {
   @Inject()
   private readonly prismaClient!: PrismaClient
 
-  private readonly pushObservableMap = new JKMap<[string, number], Observable<conversation.Message>>()
+  private readonly pushObservableMap = new JKMap<
+    [type: string, source: number],
+    Observable<Message>
+  >()
 
   private readonly receiverMap = new Map<number, Receiver>()
 
@@ -59,12 +62,12 @@ export class ReceiverService extends ModuleRaii {
     )()
   }
 
-  private buildPushObservable(push: push.Push) {
+  private buildPushObservable(push: Push) {
     return defer(
       pipe(
         () => either.fromNullable(push)(this.pushObservableMap.get([push.type, push.source])),
         ioEither.mapLeft(
-          push => new Observable<conversation.Message>((subscriber) => {
+          push => new Observable<Message>((subscriber) => {
             const task = this.scope.run(function* (this: ReceiverService) {
               const records = this.conversationService.getRecords(push.type, push.source)
               const serialGroup = new group.Serial(records, randomUUID())
@@ -161,11 +164,11 @@ export class ReceiverService extends ModuleRaii {
     this.delete(receiverId)
   }
 
-  private onReceiverSubscribe(receiverId: number, pushes: readonly push.Push[]) {
+  private onReceiverSubscribe(receiverId: number, pushes: readonly Push[]) {
     return this.subscribe(receiverId, pushes)
   }
 
-  private onReceiverUnsubscribe(receiverId: number, pushes: readonly push.Push[]) {
+  private onReceiverUnsubscribe(receiverId: number, pushes: readonly Push[]) {
     return this.unsubscribe(receiverId, pushes)
   }
 
@@ -216,7 +219,7 @@ export class ReceiverService extends ModuleRaii {
 
   private* subscribe(
     receiverId: number,
-    pushes: readonly push.Push[],
+    pushes: readonly Push[],
     tx?: PrismaTransaction,
   ): Directive<void> {
     const receiver = this.receiverMap.get(receiverId)
@@ -265,7 +268,7 @@ export class ReceiverService extends ModuleRaii {
 
   private* unsubscribe(
     receiverId: number,
-    pushes: readonly push.Push[],
+    pushes: readonly Push[],
     tx?: PrismaTransaction,
   ): Directive<void> {
     const receiver = this.receiverMap.get(receiverId)

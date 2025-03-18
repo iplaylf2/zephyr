@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { JsonStream } from './common/json-stream.js'
+import { JsonStream } from '../common-schema/json-stream.js'
+import { JsonValue } from 'type-fest'
 import { RedisClientType } from '@redis/client'
+import { RedisCommandArgument } from '../commands/common.js'
 import { RedisService } from '../redis.service.js'
-import { conversation } from '../../../models/conversation.js'
+import { z } from 'zod'
 
 @Injectable()
 export class ConversationService {
@@ -15,7 +17,15 @@ export class ConversationService {
 }
 
 export namespace Conversations{
-  export type Message = Omit<conversation.Message, 'id'>
+  export const messageSchema = z.object({
+    content: z.custom<JsonValue>(),
+    group: z.string(),
+    sender: z.number(),
+    timestamp: z.number(),
+    type: z.string(),
+  })
+
+  export type Message = z.infer<typeof messageSchema>
 
   export class Records<const Key extends string> extends JsonStream<Message> {
     private constructor(public override client: RedisClientType, public override readonly key: Key) {
@@ -27,6 +37,10 @@ export namespace Conversations{
         client,
         `stream://${encodeURIComponent(type)}.conversations/${conversationId.toString()}/records`,
       )
+    }
+
+    public override decode(x: RedisCommandArgument) {
+      return messageSchema.parse(super.decode(x))
     }
 
     protected override duplicate() {

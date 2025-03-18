@@ -1,30 +1,24 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { PrismaClient, PrismaTransaction } from '../../../repositories/prisma/client.js'
+import { PrismaClient, PrismaTransaction } from '../../../../repositories/prisma/client.js'
 import { all, call, sleep, spawn } from 'effection'
 import { option, readonlyArray } from 'fp-ts'
-import { ConversationService } from '../conversation.service.js'
+import { ConversationService } from '../../conversation.service.js'
 import { Directive } from '@zephyr/kit/effection/operation.js'
+import { GenericService } from '../../../../repositories/redis/schemas/generic.service.js'
 import {
-  ConversationService as EntityConversationService,
-} from '../../../repositories/redis/entities/conversation.service.js'
-import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
-import { GenericService } from '../../../repositories/redis/entities/generic.service.js'
-import { RedisService } from '../../../repositories/redis/redis.service.js'
+  ConversationService as RedisConversationService,
+} from '../../../../repositories/redis/schemas/conversation.service.js'
+import { RedisService } from '../../../../repositories/redis/redis.service.js'
+import { UserService as RedisUserService } from '../../../../repositories/redis/schemas/user.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { UserService } from '../../user/user.service.js'
+import { UserEvent } from '../../../user/entities/user-event.js'
+import { UserService } from '../../../user/user.service.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
-import { user } from '../../../models/user.js'
-import { where } from '../../../repositories/prisma/common/where.js'
+import { where } from '../../../../repositories/prisma/common/where.js'
 
 @Injectable()
 export class DialogueService extends ConversationService {
-  @Inject()
-  protected override entityConversationService!: EntityConversationService
-
-  @Inject()
-  protected override entityUserService!: EntityUserService
-
   @Inject()
   protected override genericService!: GenericService
 
@@ -32,7 +26,13 @@ export class DialogueService extends ConversationService {
   protected override prismaClient!: PrismaClient
 
   @Inject()
+  protected override redisConversationService!: RedisConversationService
+
+  @Inject()
   protected override redisService!: RedisService
+
+  @Inject()
+  protected override redisUserService!: RedisUserService
 
   @Inject()
   protected override userService!: UserService
@@ -198,7 +198,7 @@ export class DialogueService extends ConversationService {
     }
   }
 
-  private* expireDialogueByEvent(event: Extract<user.Event, { type: 'expire' }>) {
+  private* expireDialogueByEvent(event: Extract<UserEvent, { type: 'expire' }>) {
     yield* this.prismaClient.$callTransaction(tx =>
       pipe(
         event.users,

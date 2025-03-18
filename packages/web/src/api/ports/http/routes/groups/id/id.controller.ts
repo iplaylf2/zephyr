@@ -1,8 +1,8 @@
 import { ApiCreatedResponse, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger'
 import { Body, Controller, Get, Inject, NotFoundException, Post, Query } from '@nestjs/common'
+import { GroupService } from '../../../../../../domains/conversation/domains/group/group.service.js'
 import { Passport } from '../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../decorators/require-passport.decorator.js'
-import { conversation } from '../../../../../../domains/conversation/conversation.js'
 import { id } from './id.dto.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
@@ -19,7 +19,7 @@ export const idPath = urlPattern.path('id', Number)
 @Controller(idPath.pattern)
 export class IdController {
   @Inject()
-  private readonly conversationService!: conversation.GroupService
+  private readonly conversationService!: GroupService
 
   @Inject(idPath)
   private readonly id!: number

@@ -7,20 +7,20 @@ export class Generic extends Isolable<Generic> {
     super()
   }
 
-  public del(keys: RedisCommandArgument[]) {
-    return call(
+  public* del(keys: RedisCommandArgument[]) {
+    return yield* call(
       () => this.client.del(keys),
     )
   }
 
-  public exists(keys: RedisCommandArgument[]) {
-    return call(
+  public* exists(keys: RedisCommandArgument[]) {
+    return yield* call(
       () => this.client.exists(keys),
     )
   }
 
-  public expire(key: RedisCommandArgument, seconds: number, mode?: 'GT' | 'LT' | 'NX' | 'XX') {
-    return call(
+  public* expire(key: RedisCommandArgument, seconds: number, mode?: 'GT' | 'LT' | 'NX' | 'XX') {
+    return yield* call(
       () => this.client.expire(key, seconds, mode),
     )
   }
@@ -31,14 +31,14 @@ export class Generic extends Isolable<Generic> {
     )
   }
 
-  public ttl(key: RedisCommandArgument) {
-    return call(
+  public* ttl(key: RedisCommandArgument) {
+    return yield* call(
       () => this.client.ttl(key),
     )
   }
 
-  public watch(keys: readonly string[]) {
-    return call(
+  public* watch(keys: readonly string[]) {
+    return yield* call(
       () => this.client.watch(keys as string[]),
     )
   }

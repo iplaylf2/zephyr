@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { RedisClientType } from '@redis/client'
 import { RedisService } from '../redis.service.js'
-import { jsonPubSub } from './common/json-pub-sub/shard.js'
-import { push } from '../../../models/push.js'
+import { jsonPubSub } from '../common-schema/json-pub-sub/shard.js'
+import { z } from 'zod'
 
 @Injectable()
 export class PushService {
@@ -15,8 +15,22 @@ export class PushService {
 }
 
 export namespace PushService{
+  export const pushSchema = z.object({
+    source: z.number(),
+    type: z.string(),
+  })
+
+  export const notificationItemSchema = z.discriminatedUnion('type', [
+    z.object({
+      pushes: z.array(pushSchema),
+      type: z.enum(['subscribe', 'unsubscribe', 'complete']),
+    }),
+    z.object({ type: z.literal('delete') }),
+  ])
+  export type NotificationItem = z.infer<typeof notificationItemSchema>
+
   export class Notification
-    extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, push.Notification> {
+    extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, NotificationItem> {
     public constructor(public override client: RedisClientType) {
       super()
     }

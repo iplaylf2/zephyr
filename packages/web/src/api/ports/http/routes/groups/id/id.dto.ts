@@ -1,6 +1,7 @@
-import { conversation } from '../../../../../../models/conversation.js'
 import { createZodDto } from '@anatine/zod-nestjs'
 import { extendApi } from '@anatine/zod-openapi'
+import { message } from '../../../../../../domains/conversation/entities/message.js'
+import { messageBody } from '../../../../../../domains/conversation/value-object.js'
 import { z } from 'zod'
 
 export namespace id{
@@ -17,7 +18,7 @@ export namespace id{
 
   export class MessageQueryDto extends createZodDto(messageQuery) {}
 
-  export class MessageDto extends createZodDto(conversation.message) {}
+  export class MessageDto extends createZodDto(message) {}
 
-  export class MessageBodyDto extends createZodDto(conversation.messageBody) {}
+  export class MessageBodyDto extends createZodDto(messageBody) {}
 }

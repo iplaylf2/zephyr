@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { ConversationService } from '../conversation.service.js'
-import { ConversationService as EntityConversationService } from '../../../repositories/redis/entities/conversation.service.js'
-import { UserService as EntityUserService } from '../../../repositories/redis/entities/user.service.js'
-import { GenericService } from '../../../repositories/redis/entities/generic.service.js'
-import { PrismaClient } from '../../../repositories/prisma/client.js'
-import { RedisService } from '../../../repositories/redis/redis.service.js'
+import { ConversationService } from '../../conversation.service.js'
+import { GenericService } from '../../../../repositories/redis/schemas/generic.service.js'
+import { PrismaClient } from '../../../../repositories/prisma/client.js'
+import {
+  ConversationService as RedisConversationService,
+} from '../../../../repositories/redis/schemas/conversation.service.js'
+import { RedisService } from '../../../../repositories/redis/redis.service.js'
+import { UserService as RedisUserService } from '../../../../repositories/redis/schemas/user.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { UserService } from '../../user/user.service.js'
+import { UserService } from '../../../user/user.service.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { readonlyArray } from 'fp-ts'
@@ -15,19 +17,19 @@ import { sleep } from 'effection'
 @Injectable()
 export class GroupService extends ConversationService {
   @Inject()
-  protected override entityConversationService!: EntityConversationService
-
-  @Inject()
-  protected override entityUserService!: EntityUserService
-
-  @Inject()
   protected override genericService!: GenericService
 
   @Inject()
   protected override prismaClient!: PrismaClient
 
   @Inject()
+  protected override redisConversationService!: RedisConversationService
+
+  @Inject()
   protected override redisService!: RedisService
+
+  @Inject()
+  protected override redisUserService!: RedisUserService
 
   @Inject()
   protected override userService!: UserService

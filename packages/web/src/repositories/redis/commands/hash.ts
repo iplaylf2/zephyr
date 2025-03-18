@@ -9,7 +9,7 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract readonly client: RedisClientType
   public abstract readonly key: RedisCommandArgument
 
-  public decodeFully(value: Readonly<Record<string, RedisCommandArgument>>) {
+  public decodeAll(value: Readonly<Record<string, RedisCommandArgument>>) {
     return pipe(
       value,
       readonlyRecord.map(v => this.decode(v)),
@@ -22,13 +22,15 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
     )
   }
 
-  public encodeFully(hash: Readonly<Partial<T>>) {
+  public encodeAll(hash: Readonly<Partial<T>>) {
     return pipe(
       hash,
-      readonlyRecord.filterMap(flow(
-        option.fromNullable,
-        option.map(x => this.encode(x)),
-      )),
+      readonlyRecord.filterMap(
+        flow(
+          option.fromNullable,
+          option.map(x => this.encode(x)),
+        ),
+      ),
     )
   }
 
@@ -49,14 +51,14 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
       () => this.client.hGetAll(this.key),
     )
 
-    return readonlyRecord.isEmpty(value) ? null : this.decodeFully(value)
+    return readonlyRecord.isEmpty(value) ? null : this.decodeAll(value)
   }
 
   public set(hash: Readonly<Partial<T>>) {
     return call(
       () => this.client.hSet(
         this.key,
-        this.encodeFully(hash),
+        this.encodeAll(hash),
       ),
     )
   }

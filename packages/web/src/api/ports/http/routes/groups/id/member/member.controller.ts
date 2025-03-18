@@ -1,8 +1,8 @@
 import { ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { Controller, Delete, Inject, NotFoundException, Put } from '@nestjs/common'
+import { GroupService } from '../../../../../../../domains/conversation/domains/group/group.service.js'
 import { Passport } from '../../../../auth/auth.guard.js'
 import { RequirePassport } from '../../../../decorators/require-passport.decorator.js'
-import { conversation } from '../../../../../../../domains/conversation/conversation.js'
 import { path } from '../../../../pattern.js'
 import { pipe } from 'fp-ts/lib/function.js'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
@@ -17,7 +17,7 @@ import { unsafeGlobalScopeRun } from '@zephyr/kit/effection/global-scope.js'
 @Controller('member')
 export class MemberController {
   @Inject()
-  private readonly conversationService!: conversation.GroupService
+  private readonly conversationService!: GroupService
 
   @Inject(path.group)
   private readonly group!: number
