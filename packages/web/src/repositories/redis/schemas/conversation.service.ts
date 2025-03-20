@@ -12,12 +12,12 @@ export class ConversationService {
   private readonly redisService!: RedisService
 
   public getRecords(type: string, conversationId: number) {
-    return Conversations.Records.get(this.redisService, type, conversationId)
+    return Conversations.RecordsSchema.get(this.redisService, type, conversationId)
   }
 }
 
 export namespace Conversations{
-  export const messageSchema = z.object({
+  export const message = z.object({
     content: z.custom<JsonValue>(),
     group: z.string(),
     sender: z.number(),
@@ -25,26 +25,26 @@ export namespace Conversations{
     type: z.string(),
   })
 
-  export type Message = z.infer<typeof messageSchema>
+  export type Message = z.infer<typeof message>
 
-  export class Records<const Key extends string> extends JsonStream<Message> {
+  export class RecordsSchema<const Key extends string> extends JsonStream<Message> {
     private constructor(public override client: RedisClientType, public override readonly key: Key) {
       super()
     }
 
     public static get(client: RedisClientType, type: string, conversationId: number) {
-      return new Records(
+      return new RecordsSchema(
         client,
         `stream://${encodeURIComponent(type)}.conversations/${conversationId.toString()}/records`,
       )
     }
 
     public override decode(x: RedisCommandArgument) {
-      return messageSchema.parse(super.decode(x))
+      return message.parse(super.decode(x))
     }
 
     protected override duplicate() {
-      return new Records(this.client.duplicate(), this.key)
+      return new RecordsSchema(this.client.duplicate(), this.key)
     }
   }
 }

@@ -3,6 +3,7 @@ import { JsonStream } from '../common-schema/json-stream.js'
 import { ModuleRaii } from '../../../common/module-raii.js'
 import { ReadonlyDeep } from 'type-fest'
 import { RedisClientType } from '@redis/client'
+import { RedisCommandArgument } from '../commands/common.js'
 import { RedisService } from '../redis.service.js'
 import { call } from 'effection'
 import { z } from 'zod'
@@ -66,6 +67,10 @@ export namespace User{
 
     public constructor(public override client: RedisClientType) {
       super()
+    }
+
+    public override decode(x: RedisCommandArgument) {
+      return event.parse(super.decode(x))
     }
 
     protected override duplicate() {

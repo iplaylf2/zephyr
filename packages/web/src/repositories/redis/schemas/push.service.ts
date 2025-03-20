@@ -10,41 +10,43 @@ export class PushService {
   private readonly redisService!: RedisService
 
   public getNotification() {
-    return new PushService.Notification(this.redisService)
+    return new PushService.NotificationSchema(this.redisService)
   }
 }
 
 export namespace PushService{
-  export const pushSchema = z.object({
-    source: z.number(),
-    type: z.string(),
-  })
-
-  export const notificationItemSchema = z.discriminatedUnion('type', [
+  export const notification = z.discriminatedUnion('type', [
     z.object({
-      pushes: z.array(pushSchema),
+      pushes: z.array(z.object({
+        source: z.number(),
+        type: z.string(),
+      })),
       type: z.enum(['subscribe', 'unsubscribe', 'complete']),
     }),
     z.object({ type: z.literal('delete') }),
   ])
-  export type NotificationItem = z.infer<typeof notificationItemSchema>
+  export type Notification = z.infer<typeof notification>
 
-  export class Notification
-    extends jsonPubSub.Shard<ReturnType<typeof Notification.getChannel>, NotificationItem> {
+  export class NotificationSchema
+    extends jsonPubSub.Shard<ReturnType<typeof NotificationSchema.getChannel>, Notification> {
     public constructor(public override client: RedisClientType) {
       super()
     }
 
+    public override decode(x: string) {
+      return notification.parse(super.decode(x))
+    }
+
     public getChannel(receiverId: number) {
-      return Notification.getChannel(receiverId)
+      return NotificationSchema.getChannel(receiverId)
     }
 
     protected override duplicate() {
-      return new Notification(this.client.duplicate())
+      return new NotificationSchema(this.client.duplicate())
     }
   }
 
-  export namespace Notification{
+  export namespace NotificationSchema{
     export function getChannel(receiverId: number) {
       return `s-pub-sub://push/receivers/${receiverId.toString()}/notification` as const
     }
