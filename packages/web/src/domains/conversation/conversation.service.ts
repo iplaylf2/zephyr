@@ -1,7 +1,4 @@
 import { Conversation, ConversationXParticipant } from '../../repositories/prisma/generated/index.js'
-import {
-  Conversations, ConversationService as RedisConversationService,
-} from '../../repositories/redis/schemas/conversation.service.js'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { all, call, sleep } from 'effection'
 import { flip, flow, pipe } from 'fp-ts/lib/function.js'
@@ -10,9 +7,13 @@ import { ConversationInfo } from './entities/conversation-info.js'
 import { Directive } from '@zephyr/kit/effection/operation.js'
 import { GenericService } from '../../repositories/redis/schemas/generic.service.js'
 import { JsonObject } from 'type-fest'
+import { Message } from './entities/message.js'
 import { MessageBody } from './value-object.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Participant } from './aggregates/participant.js'
+import {
+  ConversationService as RedisConversationService,
+} from '../../repositories/redis/schemas/conversation.service.js'
 import { RedisService } from '../../repositories/redis/redis.service.js'
 import { UserService as RedisUserService } from '../../repositories/redis/schemas/user.service.js'
 import { Temporal } from 'temporal-polyfill'
@@ -669,7 +670,7 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  private post(conversationId: number, message: Conversations.Message) {
+  private post(conversationId: number, message: Omit<Message, 'id'>) {
     return pipe(
       this.redisConversationService.getRecords(this.type, conversationId),
       x => x.add(

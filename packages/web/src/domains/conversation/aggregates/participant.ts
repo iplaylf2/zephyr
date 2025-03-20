@@ -1,10 +1,10 @@
-import { Conversations } from '../../../repositories/redis/schemas/conversation.service.js'
+import { Message } from '../entities/message.js'
 import { MessageBody } from '../value-object.js'
 
 export class Participant {
   public constructor(public readonly id: number, public readonly group: string) {}
 
-  public say(messageBody: MessageBody): Conversations.Message {
+  public say(messageBody: MessageBody): Omit<Message, 'id'> {
     return { ...messageBody, group: this.group, sender: this.id, timestamp: Date.now() }
   }
 }
