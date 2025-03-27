@@ -3,7 +3,7 @@ import stylistic from '@stylistic/eslint-plugin'
 import typescript from 'typescript-eslint'
 
 export default [
-  stylistic.configs['recommended-flat'],
+  stylistic.configs.recommended,
   eslint.configs.recommended,
   {
     rules: {

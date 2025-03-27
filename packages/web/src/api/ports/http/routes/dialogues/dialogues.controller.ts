@@ -1,5 +1,5 @@
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger'
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Patch } from '@nestjs/common'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject } from '@nestjs/common'
 import { DialogueService } from '../../../../../domains/conversation/domains/dialogue/dialogue.service.js'
 import { Passport } from '../../auth/auth.guard.js'
 import { RequirePassport } from '../../decorators/require-passport.decorator.js'
@@ -24,13 +24,6 @@ export class DialoguesController {
     )
   }
 
-  @Get('data')
-  public [`@Get('data')`](): Promise<dialogues.DataRecordDto> {
-    return unsafeGlobalScopeRun(
-      () => this.conversationService.getData(this.passport.id),
-    )
-  }
-
   @ApiOkResponse({
     isArray: true,
     type: dialogues.DialogueInfoDto,
@@ -39,14 +32,6 @@ export class DialoguesController {
   public [`@Get('info')`](): Promise<readonly dialogues.DialogueInfoDto[]> {
     return unsafeGlobalScopeRun(
       () => this.conversationService.getConversationsRecord(this.passport.id),
-    )
-  }
-
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Patch('data')
-  public async [`@Patch('data')`](@Body() dataRecord: dialogues.DataRecordDto) {
-    await unsafeGlobalScopeRun(
-      () => this.conversationService.patchData(this.passport.id, dataRecord),
     )
   }
 }

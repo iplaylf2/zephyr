@@ -16,7 +16,6 @@ model Conversation {
 model ConversationXParticipant {
     conversationId Int
     createdAt      DateTime
-    data           Json
     expiredAt      DateTime
     lastActiveAt   DateTime
     participantId  Int

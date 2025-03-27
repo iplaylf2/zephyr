@@ -25,10 +25,10 @@
         "@types/express": "^5.0.1",
         "@zephyr/config": "workspace:*",
         "cross-env": "^7.0.3",
-        "eslint": "^9.22.0",
-        "type-fest": "^4.37.0",
+        "eslint": "^9.23.0",
+        "type-fest": "^4.38.0",
         "typescript": "^5.8.2",
-        "vite": "^6.2.2",
+        "vite": "^6.2.3",
         "vite-plugin-solid": "^2.11.6"
     }
 }

@@ -1,12 +1,11 @@
 import { Conversation, ConversationXParticipant } from '../../repositories/prisma/generated/index.js'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { all, call, sleep } from 'effection'
-import { flip, flow, pipe } from 'fp-ts/lib/function.js'
+import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, number, option, readonlyArray, task } from 'fp-ts'
 import { ConversationInfo } from './entities/conversation-info.js'
 import { Directive } from '@zephyr/kit/effection/operation.js'
 import { GenericService } from '../../repositories/redis/schemas/generic.service.js'
-import { JsonObject } from 'type-fest'
 import { Message } from './entities/message.js'
 import { MessageBody } from './value-object.js'
 import { ModuleRaii } from '../../common/module-raii.js'
@@ -295,23 +294,6 @@ export abstract class ConversationService extends ModuleRaii {
     )
   }
 
-  public getData(participantId: number) {
-    return pipe(
-      () => this.prismaClient.conversationXParticipant.findMany({
-        select: { conversationId: true, data: true },
-        where: {
-          conversation: { expiredAt: { gt: new Date() }, type: this.type },
-          participantId,
-        },
-      }),
-      plan.FromTask.fromTask,
-      plan.map(flow(
-        readonlyArray.map(x => [x.conversationId, x.data as JsonObject] as const),
-        x => Object.fromEntries(x),
-      )),
-    )()
-  }
-
   public getParticipants(conversationId: number) {
     return pipe(
       () => this.prismaClient.conversationXParticipant.findMany({
@@ -328,35 +310,10 @@ export abstract class ConversationService extends ModuleRaii {
     )()
   }
 
-  public patchData(participantId: number, conversationXData: Readonly<Record<number, JsonObject>>) {
-    return this.prismaClient.$callTransaction(tx =>
-      pipe(
-        Object.entries(conversationXData),
-        x => Array.from(x),
-        flip((now: Date) => readonlyArray.map(
-          ([conversationId, data]) => pipe(
-            () => tx.$executeRaw`
-            update "conversation-x-participant" x
-            set
-              data = x.data || ${data},
-              "lastActiveAt" = ${now}
-            from conversations
-            where
-              conversations.id = x."conversationId" and
-              conversations.type = ${this.type} and
-              x."conversationId" = ${conversationId} and
-              x."participantId" = ${participantId}`,
-            plan.FromTask.fromTask,
-            plan.map(x => 0 < x ? Number(conversationId) : null),
-          ),
-        )),
-        identity.ap(new Date()),
-        plan.sequenceArray,
-        plan.map(
-          readonlyArray.filterMap(option.fromNullable),
-        ),
-      )(),
-    )
+  public getVault(conversationId: number, participantId: number) {
+    const vault = this.redisConversationService.getVault(this.type, conversationId, participantId)
+
+    return vault.get()
   }
 
   public postConversation(info: Omit<ConversationInfo, 'id'>) {
@@ -459,6 +416,11 @@ export abstract class ConversationService extends ModuleRaii {
     return newParticipantIdArray
   }
 
+  public* putVault(conversationId: number, participantId: number, value: string) {
+    const vault = this.redisConversationService.getVault(this.type, conversationId, participantId)
+    yield* vault.set(value)
+  }
+
   public rangeMessages(conversationId: number, start: string, end: string) {
     return pipe(
       this.redisConversationService.getRecords(this.type, conversationId),
@@ -493,6 +455,10 @@ export abstract class ConversationService extends ModuleRaii {
       plan.sequenceArray,
     )()
   }
+
+  // protected expireVaults(conversationId: number, participantId: number, expiredAt: number) {
+  //   // todo
+  // }
 
   private* deleteExpiredConversions() {
     const interval = Temporal.Duration

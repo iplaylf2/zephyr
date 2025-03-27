@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { JsonStream } from '../common-schema/json-stream.js'
-import { JsonString } from '../common-schema/json-string.js'
 import { JsonValue } from 'type-fest'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '../commands/common.js'
 import { RedisService } from '../redis.service.js'
+import { String } from '../commands/string.js'
 import { z } from 'zod'
 
 @Injectable()
@@ -53,7 +53,7 @@ export namespace Conversations{
     }
   }
 
-  export class VaultSchema<const Key extends string> extends JsonString<JsonValue> {
+  export class VaultSchema<const Key extends string> extends String<string> {
     private constructor(public override client: RedisClientType, public override readonly key: Key) {
       super()
     }
@@ -61,14 +61,18 @@ export namespace Conversations{
     public static get(client: RedisClientType, type: string, conversationId: number, participantId: number) {
       return new VaultSchema(
         client,
-        `string://${
-          encodeURIComponent(type)
-        }.conversations/${
-          conversationId.toString()
-        }/participants/${
-          participantId.toString()
-        }/vault`,
+        `string://${encodeURIComponent(type)}.conversations/${conversationId.toString()}\
+        /participants/${participantId.toString()}\
+        /vault`,
       )
+    }
+
+    public override decode(x: RedisCommandArgument): string {
+      return x.toString()
+    }
+
+    public override encode(x: string): RedisCommandArgument {
+      return x
     }
   }
 }
