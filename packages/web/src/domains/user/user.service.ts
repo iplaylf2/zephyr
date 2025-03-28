@@ -1,53 +1,68 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
-import { call, sleep } from 'effection'
+import { all, call, sleep } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
-import { option, readonlyArray, task } from 'fp-ts'
-import { UserService as EntityUserService } from '../../repositories/redis/schemas/user.service.js'
+import { identity, readonlyArray } from 'fp-ts'
+import { Directive } from '@zephyr/kit/effection/operation.js'
 import { ModuleRaii } from '../../common/module-raii.js'
+import { UserService as RedisUserService } from '../../repositories/redis/schemas/user.service.js'
 import { Temporal } from 'temporal-polyfill'
-import { User } from '../../repositories/prisma/generated/index.js'
 import { UserEvent } from './entities/user-event.js'
 import { UserInfo } from './entities/user-info.js'
 import { coerceReadonly } from '../../utils/identity.js'
+import { group } from '../../repositories/redis/commands/stream/group.js'
+import { match } from 'ts-pattern'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
-import { readonlyRecordPlus } from '@zephyr/kit/fp-ts/readonly-record-plus.js'
+import { randomUUID } from 'node:crypto'
 import { where } from '../../repositories/prisma/common/where.js'
 
 @Injectable()
 export class UserService extends ModuleRaii {
   @Inject()
-  private readonly entityUserService!: EntityUserService
-
-  @Inject()
   private readonly prismaClient!: PrismaClient
 
+  @Inject()
+  private readonly redisUserService!: RedisUserService
+
   public readonly defaultExpire = Temporal.Duration.from({ days: 1 })
+
+  private readonly expireCallbacks
+    = new Array<(event: Extract<UserEvent, { type: 'expire' }>) => Directive<any>>()
+
+  private readonly unregisterCallbacks
+    = new Array<(event: Extract<UserEvent, { type: 'unregister' }>) => Directive<any>>()
 
   public constructor() {
     super()
 
     this.initializeCallbacks.push(() => this.expireUsersEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredUsers())
+    this.initializeCallbacks.push(() => this.listenEvent())
+    this.expireCallbacks.push(({ users, expiredAt }) => this.expire(users, expiredAt))
   }
 
-  public active(users: readonly number[]) {
-    return this.prismaClient.$callTransaction(
-      function* (this: UserService, tx: PrismaTransaction) {
-        const _users = yield* tx.$user().forUpdate(users)
+  public* active(users: readonly number[]) {
+    const current = new Date()
 
-        yield* call(
-          () => tx.user.updateMany({
-            data: {
-              lastActiveAt: new Date(),
-            },
-            where: { id: { in: where.writable(_users) } },
-          }),
-        )
-
-        return _users
-      }.bind(this),
+    yield* call(
+      () => this.prismaClient.user.updateMany({
+        data: {
+          lastActiveAt: current,
+        },
+        where: { id: { in: where.writable(users) } },
+      }),
     )
+
+    return yield* pipe(
+      () => this.prismaClient.user.findMany({
+        select: { id: true },
+        where: { id: { in: where.writable(users) }, lastActiveAt: { gte: current } },
+      }),
+      plan.FromTask.fromTask,
+      plan.map(
+        readonlyArray.map(x => x.id),
+      ),
+    )()
   }
 
   public exists(
@@ -55,56 +70,6 @@ export class UserService extends ModuleRaii {
     tx: PrismaTransaction = this.prismaClient,
   ) {
     return tx.$user().forQuery(users)
-  }
-
-  public expire(
-    users: readonly number[],
-    seconds = this.defaultExpire.total('seconds'),
-  ) {
-    const interval = `${seconds.toFixed(0)} seconds`
-
-    return this.prismaClient.$callTransaction(
-      function* (this: UserService, tx: PrismaTransaction) {
-        const now = new Date()
-
-        const _users = yield* pipe(
-          users,
-          readonlyArray.map(
-            user => () => tx.$queryRaw<Pick<User, 'expiredAt' | 'id'>[]>`
-              update users 
-              set
-                "expiredAt" = users."lastActiveAt" + ${interval}::interval
-              where
-                ${now} < users."expiredAt" and
-                users."expiredAt" < users."lastActiveAt" + ${interval}::interval and
-                users.id = ${user}
-              returning
-                users."expiredAt", users.id`,
-          ),
-          task.sequenceArray,
-          plan.FromTask.fromTask,
-          plan.map(
-            readonlyArray.filterMap(flow(
-              readonlyArray.head,
-              option.map(
-                readonlyRecordPlus.modifyAt('expiredAt', x => x.valueOf()),
-              ),
-            )),
-          ),
-        )()
-
-        if (0 === _users.length) {
-          return []
-        }
-
-        yield* this.postUserEvent({
-          type: 'expire',
-          users: _users,
-        })
-
-        return _users.map(x => x.id)
-      }.bind(this),
-    )
   }
 
   public get(users: readonly number[]) {
@@ -141,36 +106,24 @@ export class UserService extends ModuleRaii {
     }
   }
 
-  public register(info: Omit<UserInfo, 'id'>) {
-    return this.prismaClient.$callTransaction(
-      function* (this: UserService, tx: PrismaTransaction) {
-        const now = Temporal.Now.zonedDateTimeISO()
-        const createdAt = new Date(now.epochMilliseconds)
-        const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
+  public* register(info: Omit<UserInfo, 'id'>) {
+    const now = Temporal.Now.zonedDateTimeISO()
+    const createdAt = new Date(now.epochMilliseconds)
+    const expiredAt = new Date(now.add(this.defaultExpire).epochMilliseconds)
 
-        const user = yield* pipe(
-          () => tx.user.create({
-            data: {
-              createdAt,
-              expiredAt,
-              lastActiveAt: createdAt,
-              name: info.name,
-            },
-            select: { id: true },
-          }),
-          plan.FromTask.fromTask,
-          plan.map(x => x.id),
-        )()
-
-        yield* this.postUserEvent({
-          timestamp: createdAt.valueOf(),
-          type: 'register',
-          user: user,
-        })
-
-        return user
-      }.bind(this),
-    )
+    return yield* pipe(
+      () => this.prismaClient.user.create({
+        data: {
+          createdAt,
+          expiredAt,
+          lastActiveAt: createdAt,
+          name: info.name,
+        },
+        select: { id: true },
+      }),
+      plan.FromTask.fromTask,
+      plan.map(x => x.id),
+    )()
   }
 
   public unregister(users: readonly number[]) {
@@ -224,6 +177,19 @@ export class UserService extends ModuleRaii {
     }
   }
 
+  private* expire(users: readonly number[], expiredAt: number) {
+    yield* call(() => this.prismaClient.user.updateMany({
+      data: {
+        expiredAt: new Date(expiredAt),
+        lastActiveAt: new Date(),
+      },
+      where: {
+        expiredAt: { gt: new Date() },
+        id: { in: where.writable(users) },
+      },
+    }))
+  }
+
   private* expireUsersEfficiently() {
     const interval = Temporal.Duration
       .from({ minutes: 1 })
@@ -242,16 +208,52 @@ export class UserService extends ModuleRaii {
       )()
 
       if (0 < halfExpiredUsers.length) {
-        yield* this.expire(halfExpiredUsers)
+        yield* this.postUserEvent({
+          expiredAt: Temporal.Now
+            .zonedDateTimeISO()
+            .add(this.defaultExpire)
+            .epochMilliseconds,
+          type: 'expire',
+          users: halfExpiredUsers,
+        })
       }
 
       yield* sleep(interval)
     }
   }
 
+  private* listenEvent() {
+    const event = this.redisUserService.getEvent()
+    const parallelGroup = new group.Parallel(event, `user`)
+
+    const messageHandlerAp = <A, B>(callbacks: Array<(a: A) => B>) => flow(
+        identity.ap<A>,
+        readonlyArray.map<(a: A) => B, B>,
+        identity.ap(callbacks),
+    )
+
+    try {
+      yield* event.groupCreate(parallelGroup.group, '0')
+    }
+    catch {
+      // ignore duplicated group
+    }
+
+    yield* parallelGroup.read(
+      randomUUID(),
+      flow(
+        ({ message }) => match(message)
+          .with({ type: 'expire' }, messageHandlerAp(this.expireCallbacks))
+          .with({ type: 'unregister' }, messageHandlerAp(this.unregisterCallbacks))
+          .exhaustive(),
+        all,
+      ),
+    )
+  }
+
   private postUserEvent(event: UserEvent) {
     return pipe(
-      this.entityUserService.getEvent(),
+      this.redisUserService.getEvent(),
       x => x.add(
         '*',
         event,
