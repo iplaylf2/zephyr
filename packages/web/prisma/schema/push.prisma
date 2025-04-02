@@ -13,12 +13,11 @@ model Push {
 }
 
 model PushReceiver {
-    claimer      Int?     @unique
-    createdAt    DateTime
-    expiredAt    DateTime
-    id           Int      @id @default(autoincrement())
-    lastActiveAt DateTime
-    token        String   @unique @default(cuid())
+    claimer   Int?     @unique
+    createdAt DateTime
+    expiredAt DateTime
+    id        Int      @id @default(autoincrement())
+    token     String   @unique @default(cuid())
 
     pushes PushSubscription[]
 

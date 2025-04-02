@@ -28,28 +28,12 @@ export class PushService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.expireReceiversEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredPushes())
     this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
   }
 
   public active(receiverIdArray: readonly number[]) {
-    return this.prismaClient.$callTransaction(
-      function* (this: PushService, tx: PrismaTransaction) {
-        const _receiverIdArray = yield* tx.$pushReceiver().forUpdate(receiverIdArray)
 
-        yield* call(
-          () => tx.pushReceiver.updateMany({
-            data: {
-              lastActiveAt: new Date(),
-            },
-            where: { id: { in: where.writable(_receiverIdArray) } },
-          }),
-        )
-
-        return _receiverIdArray
-      }.bind(this),
-    )
   }
 
   public deleteReceiver(receiverId: number) {
@@ -128,54 +112,6 @@ export class PushService extends ModuleRaii {
     receiverIdArray: readonly number[],
     seconds = this.defaultExpire.total('seconds'),
   ) {
-    return this.prismaClient.$callTransaction(
-      function* (this: PushService, tx: PrismaTransaction) {
-        const interval = `${seconds.toFixed(0)} seconds`
-        const now = new Date()
-
-        const receivers = yield* pipe(
-          receiverIdArray,
-          readonlyArray.map(
-            receiverId => () => tx.$queryRaw<Pick<PushReceiver, 'expiredAt' | 'id'>[]>`
-              update "push-receivers" r
-              set
-                "expiredAt" = r."lastActiveAt" + ${interval}::interval
-              where
-                ${now} < r."expiredAt" and
-                r."expiredAt" < r."lastActiveAt" + ${interval}::interval and
-                r.id = ${receiverId}
-              returning
-                r."expiredAt", r.id`,
-          ),
-          task.sequenceArray,
-          plan.FromTask.fromTask,
-          plan.map(
-            readonlyArray.filterMap(readonlyArray.head),
-          ),
-        )()
-
-        yield* pipe(
-          receivers,
-          readonlyArray.map(
-            ({ expiredAt, id }) => () => tx.$executeRaw`
-              update pushes
-              set
-                "expiredAt" = ${expiredAt}
-              from
-                "push-subscriptions" s
-              where
-                s.push = pushes.id and
-                ${now} < pushes."expiredAt" and
-                pushes."expiredAt" < ${expiredAt} and
-                s."receiverId" = ${id}`,
-          ),
-          task.sequenceArray,
-          plan.FromTask.fromTask,
-        )()
-
-        return receivers.map(x => x.id)
-      }.bind(this),
-    )
   }
 
   public getClaimerReceiver(claimer: number) {
@@ -310,7 +246,6 @@ export class PushService extends ModuleRaii {
           claimer,
           createdAt,
           expiredAt,
-          lastActiveAt: createdAt,
         },
         select: { id: true, token: true },
       }),
@@ -342,7 +277,7 @@ export class PushService extends ModuleRaii {
 
     yield* call(
       () => this.prismaClient.pushReceiver.update({
-        data: { claimer, lastActiveAt: new Date() },
+        data: { claimer },
         where: { OR: [{ claimer }, { claimer: null }], id: receiverId },
       }),
     )
@@ -400,31 +335,6 @@ export class PushService extends ModuleRaii {
           where: { expiredAt: { lte: new Date() } },
         }),
       )
-
-      yield* sleep(interval)
-    }
-  }
-
-  private* expireReceiversEfficiently() {
-    const interval = Temporal.Duration
-      .from({ minutes: 1 })
-      .total('milliseconds')
-
-    while (true) {
-      const receiverIdArray = yield* pipe(
-        () => this.prismaClient.pushReceiver.findMany({
-          select: { id: true },
-          where: where.halfLife(this.defaultExpire),
-        }),
-        plan.FromTask.fromTask,
-        plan.map(
-          readonlyArray.map(x => x.id),
-        ),
-      )()
-
-      if (0 < receiverIdArray.length) {
-        yield* this.expireReceivers(receiverIdArray)
-      }
 
       yield* sleep(interval)
     }

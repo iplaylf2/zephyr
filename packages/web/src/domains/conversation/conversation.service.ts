@@ -47,51 +47,15 @@ export abstract class ConversationService extends ModuleRaii {
     super()
 
     this.initializeCallbacks.push(() => this.listenUserEvent())
-    this.initializeCallbacks.push(() => this.expireConversationsEfficiently())
-    this.initializeCallbacks.push(() => this.expireParticipantsEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredConversions())
     this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
   }
 
   public active(conversationIdArray: readonly number[]) {
-    return this.prismaClient.$callTransaction(
-      function* (this: ConversationService, tx: PrismaTransaction) {
-        const _conversationIdArray = yield* tx.$conversation().forUpdate(this.type, conversationIdArray)
-
-        yield* call(
-          () => tx.conversation.updateMany({
-            data: {
-              lastActiveAt: new Date(),
-            },
-            where: { id: { in: where.writable(_conversationIdArray) } },
-          }),
-        )
-
-        return _conversationIdArray
-      }.bind(this),
-    )
   }
 
   public activeParticipants(conversationId: number, participantIdArray: readonly number[]) {
-    return this.prismaClient.$callTransaction(
-      function* (this: ConversationService, tx: PrismaTransaction) {
-        const _participantIdArray = yield* tx
-          .$conversationXParticipant()
-          .participantsForUpdate(this.type, conversationId, participantIdArray)
-
-        yield* call(
-          () => tx.conversationXParticipant.updateMany({
-            data: {
-              lastActiveAt: new Date(),
-            },
-            where: { conversationId, participantId: { in: where.writable(_participantIdArray) } },
-          }),
-        )
-
-        return _participantIdArray
-      }.bind(this),
-    )
   }
 
   public deleteData(participantId: number, conversationXKey: Readonly<Record<number, number | string>>) {
@@ -179,38 +143,7 @@ export abstract class ConversationService extends ModuleRaii {
     conversationIdArray: readonly number[],
     seconds = this.defaultConversationExpire.total('seconds'),
   ) {
-    return this.prismaClient.$callTransaction(
-      function* (this: ConversationService, tx: PrismaTransaction) {
-        const interval = `${seconds.toFixed(0)} seconds`
-        const now = new Date()
 
-        const _conversationIdArray = yield* pipe(
-          conversationIdArray,
-          readonlyArray.map(
-            conversationId => () => tx.$queryRaw<Pick<Conversation, 'expiredAt' | 'id'>[]>`
-              update conversations
-              set
-                "expiredAt" = conversations."lastActiveAt" + ${interval}::interval
-              where
-                conversations.type = ${this.type} and
-                ${now} < conversations."expiredAt" and
-                conversations."expiredAt" < conversations."lastActiveAt" + ${interval}::interval and
-                conversations.id = ${conversationId}
-              returning
-                conversations."expiredAt", conversations.id`,
-          ),
-          task.sequenceArray,
-          plan.FromTask.fromTask,
-          plan.map(
-            readonlyArray.filterMap(readonlyArray.head),
-          ),
-        )()
-
-        yield* this.expireRecords(_conversationIdArray)
-
-        return _conversationIdArray.map(x => x.id)
-      }.bind(this),
-    )
   }
 
   public expireParticipants(
@@ -218,39 +151,6 @@ export abstract class ConversationService extends ModuleRaii {
     participantIdArray: readonly number[],
     seconds = this.defaultConversationExpire.total('seconds'),
   ) {
-    const interval = `${seconds.toFixed(0)} seconds`
-
-    return this.prismaClient.$callTransaction(
-      function* (this: ConversationService, tx: PrismaTransaction) {
-        return yield* pipe(
-          participantIdArray,
-          readonlyArray.map(
-            participantId => () => tx.$queryRaw<Pick<ConversationXParticipant, 'participantId'>[]>`
-              update "conversation-x-participant" x
-              set
-                "expiredAt" = x."lastActiveAt" + ${interval}::interval
-              from
-                conversations
-              where
-                conversations.id = x."conversationId" and
-                conversations.type = ${this.type} and
-                x."expiredAt" < x."lastActiveAt" + ${interval}::interval and
-                x."conversationId" = ${conversationId} and
-                x."participantId" = ${participantId}
-              returning
-                x."participantId"`,
-          ),
-          task.sequenceArray,
-          plan.FromTask.fromTask,
-          plan.map(
-            readonlyArray.filterMap(flow(
-              readonlyArray.head,
-              option.map(x => x.participantId),
-            )),
-          ),
-        )()
-      }.bind(this),
-    )
   }
 
   public* getConversationsRecord(participantId: number) {
@@ -323,19 +223,6 @@ export abstract class ConversationService extends ModuleRaii {
         const createdAt = new Date(now.epochMilliseconds)
         const expiredAt = new Date(now.add(this.defaultConversationExpire).epochMilliseconds)
 
-        const conversation = yield* pipe(
-          () => tx.conversation.create({
-            data: {
-              createdAt,
-              expiredAt,
-              lastActiveAt: createdAt,
-              name: info.name,
-              type: this.type,
-            },
-          }),
-          plan.FromTask.fromTask,
-        )()
-
         const records = this.redisConversationService.getRecords(this.type, conversation.id)
         const forCreation = 'for-creation'
 
@@ -390,20 +277,6 @@ export abstract class ConversationService extends ModuleRaii {
     const now = Temporal.Now.zonedDateTimeISO()
     const createdAt = new Date(now.epochMilliseconds)
     const expiredAt = new Date(now.add(this.defaultParticipantExpire).epochMilliseconds)
-
-    yield* call(
-      () => tx.conversationXParticipant.createMany({
-        data: newParticipantIdArray.map(participantId =>
-          ({
-            conversationId,
-            createdAt,
-            data: {},
-            expiredAt,
-            lastActiveAt: createdAt,
-            participantId,
-          }),
-        ),
-      }))
 
     yield* this.post(
       conversationId,
@@ -542,68 +415,6 @@ export abstract class ConversationService extends ModuleRaii {
       ),
       plan.sequenceArray,
     )()
-  }
-
-  private* expireConversationsEfficiently() {
-    const interval = Temporal.Duration
-      .from({ minutes: 1 })
-      .total('milliseconds')
-
-    while (true) {
-      const conversationIdArray = yield* pipe(
-        () => this.prismaClient.conversation.findMany({
-          select: { id: true },
-          where: {
-            ...where.halfLife(this.defaultConversationExpire),
-            type: this.type,
-          },
-        }),
-        plan.FromTask.fromTask,
-        plan.map(
-          readonlyArray.map(x => x.id),
-        ),
-      )()
-
-      if (0 < conversationIdArray.length) {
-        yield* this.expire(conversationIdArray)
-      }
-
-      yield* sleep(interval)
-    }
-  }
-
-  private* expireParticipantsEfficiently() {
-    const interval = Temporal.Duration
-      .from({ minutes: 1 })
-      .total('milliseconds')
-
-    while (true) {
-      const group = yield* pipe(
-        () => this.prismaClient.conversationXParticipant.findMany({
-          select: { conversationId: true, participantId: true },
-          where: {
-            ...where.halfLife(this.defaultParticipantExpire),
-            conversation: { type: this.type },
-          },
-        }),
-        plan.FromTask.fromTask,
-        plan.map(
-          readonlyNonEmptyArrayPlus.groupBy(x => x.conversationId),
-        ),
-      )()
-
-      if (0 < group.size) {
-        yield* pipe(
-          Array.from(group),
-          readonlyArray.map(([conversationId, x]) =>
-            () => this.expireParticipants(conversationId, x.map(x => x.participantId)),
-          ),
-          plan.sequenceArray,
-        )()
-      }
-
-      yield* sleep(interval)
-    }
   }
 
   private* listenUserEvent() {

@@ -1,10 +1,9 @@
 model Conversation {
-    createdAt    DateTime
-    expiredAt    DateTime
-    id           Int      @id @default(autoincrement())
-    lastActiveAt DateTime
-    name         String
-    type         String
+    createdAt DateTime
+    expiredAt DateTime
+    id        Int      @id @default(autoincrement())
+    name      String
+    type      String
 
     participants ConversationXParticipant[]
 
@@ -17,7 +16,6 @@ model ConversationXParticipant {
     conversationId Int
     createdAt      DateTime
     expiredAt      DateTime
-    lastActiveAt   DateTime
     participantId  Int
 
     conversation Conversation @relation(fields: [conversationId], references: [id])

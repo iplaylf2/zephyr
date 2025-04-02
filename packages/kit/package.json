@@ -22,6 +22,10 @@
         "./fp-ts/*.js": {
             "default": "./dist/fp-ts/*.js",
             "types": "./dist/fp-ts/*.d.ts"
+        },
+        "./types/*.js": {
+            "default": "./dist/types/*.js",
+            "types": "./dist/types/*.d.ts"
         }
     },
     "peerDependencies": {
@@ -32,7 +36,7 @@
     "devDependencies": {
         "@zephyr/config": "workspace:*",
         "eslint": "^9.23.0",
-        "type-fest": "^4.38.0",
+        "type-fest": "^4.39.0",
         "typescript": "^5.8.2"
     }
 }

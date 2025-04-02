@@ -35,34 +35,12 @@ export class UserService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.expireUsersEfficiently())
     this.initializeCallbacks.push(() => this.deleteExpiredUsers())
     this.initializeCallbacks.push(() => this.listenEvent())
     this.expireCallbacks.push(({ users, expiredAt }) => this.expire(users, expiredAt))
   }
 
   public* active(users: readonly number[]) {
-    const current = new Date()
-
-    yield* call(
-      () => this.prismaClient.user.updateMany({
-        data: {
-          lastActiveAt: current,
-        },
-        where: { id: { in: where.writable(users) } },
-      }),
-    )
-
-    return yield* pipe(
-      () => this.prismaClient.user.findMany({
-        select: { id: true },
-        where: { id: { in: where.writable(users) }, lastActiveAt: { gte: current } },
-      }),
-      plan.FromTask.fromTask,
-      plan.map(
-        readonlyArray.map(x => x.id),
-      ),
-    )()
   }
 
   public exists(
@@ -91,7 +69,6 @@ export class UserService extends ModuleRaii {
         () => this.prismaClient.user.update({
           data: {
             id,
-            lastActiveAt: new Date(),
             name: info.name,
           },
           select: {},
@@ -116,7 +93,6 @@ export class UserService extends ModuleRaii {
         data: {
           createdAt,
           expiredAt,
-          lastActiveAt: createdAt,
           name: info.name,
         },
         select: { id: true },
@@ -181,45 +157,12 @@ export class UserService extends ModuleRaii {
     yield* call(() => this.prismaClient.user.updateMany({
       data: {
         expiredAt: new Date(expiredAt),
-        lastActiveAt: new Date(),
       },
       where: {
         expiredAt: { gt: new Date() },
         id: { in: where.writable(users) },
       },
     }))
-  }
-
-  private* expireUsersEfficiently() {
-    const interval = Temporal.Duration
-      .from({ minutes: 1 })
-      .total('milliseconds')
-
-    while (true) {
-      const halfExpiredUsers = yield* pipe(
-        () => this.prismaClient.user.findMany({
-          select: { id: true },
-          where: where.halfLife(this.defaultExpire),
-        }),
-        plan.FromTask.fromTask,
-        plan.map(
-          readonlyArray.map(x => x.id),
-        ),
-      )()
-
-      if (0 < halfExpiredUsers.length) {
-        yield* this.postUserEvent({
-          expiredAt: Temporal.Now
-            .zonedDateTimeISO()
-            .add(this.defaultExpire)
-            .epochMilliseconds,
-          type: 'expire',
-          users: halfExpiredUsers,
-        })
-      }
-
-      yield* sleep(interval)
-    }
   }
 
   private* listenEvent() {
