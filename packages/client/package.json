@@ -13,7 +13,7 @@
     "dependencies": {
         "@zephyr/kit": "workspace:*",
         "compression": "^1.8.0",
-        "effection": "^3.3.0",
+        "effection": "^3.4.0",
         "express": "^5.1.0",
         "fp-ts": "^2.16.9",
         "sirv": "^3.0.1",
@@ -25,10 +25,10 @@
         "@types/express": "^5.0.1",
         "@zephyr/config": "workspace:*",
         "cross-env": "^7.0.3",
-        "eslint": "^9.23.0",
-        "type-fest": "^4.39.0",
-        "typescript": "^5.8.2",
-        "vite": "^6.2.4",
+        "eslint": "^9.24.0",
+        "type-fest": "^4.39.1",
+        "typescript": "^5.8.3",
+        "vite": "^6.2.5",
         "vite-plugin-solid": "^2.11.6"
     }
 }
