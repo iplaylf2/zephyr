@@ -10,11 +10,11 @@ export class PushService {
   private readonly redisService!: RedisService
 
   public getNotification() {
-    return new PushService.NotificationSchema(this.redisService)
+    return new Push.NotificationSchema(this.redisService)
   }
 }
 
-export namespace PushService{
+export namespace Push{
   export const notification = z.discriminatedUnion('type', [
     z.object({
       pushes: z.array(z.object({

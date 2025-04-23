@@ -1,0 +1,12 @@
+model RenewalTasks {
+    businessExpiredAt DateTime
+    businessId        String
+    businessType      String
+    count             Int
+    createdAt         DateTime
+    updatedAt         DateTime
+
+    @@id([businessType, businessId])
+    @@unique([businessId, businessType])
+    @@map("renewal-tasks")
+}
