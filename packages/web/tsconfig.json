@@ -15,4 +15,8 @@
     ]
   },
   "extends": "@zephyr/config/tsconfig.json",
+  "include": [
+    "src/**/*",
+    "drizzle.config.ts"
+  ]
 }

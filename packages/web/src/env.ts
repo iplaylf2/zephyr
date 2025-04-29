@@ -4,7 +4,7 @@ import { z } from 'zod'
 export namespace env{
   enum key {
     AUTH_SECRET = 'AUTH_SECRET',
-    PRISMA_DATASOURCE_URL = 'PRISMA_DATASOURCE_URL',
+    DRIZZLE_DATABASE_URL = 'DRIZZLE_DATABASE_URL',
     REDIS_URL = 'REDIS_URL',
   }
 
@@ -12,8 +12,8 @@ export namespace env{
     export const secret = parseEnv(key.AUTH_SECRET)
   }
 
-  export namespace prisma{
-    export const datasourceUrl = parseEnv(key.PRISMA_DATASOURCE_URL)
+  export namespace drizzle{
+    export const databaseUrl = parseEnv(key.DRIZZLE_DATABASE_URL)
   }
 
   export namespace redis{

@@ -1,8 +1,0 @@
-model User {
-  createdAt DateTime
-  expiredAt DateTime
-  id        Int      @id @default(autoincrement())
-  name      String
-
-  @@map("users")
-}

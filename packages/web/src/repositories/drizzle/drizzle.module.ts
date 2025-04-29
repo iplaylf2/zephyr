@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common'
 import { ResourceManagerModule } from '../../common/resource-manager/resource-manager.module.js'
-import { prismaProvider } from './client.js'
+import { drizzleProvider } from './drizzle.service.js'
 
 @Module({
-  exports: [prismaProvider],
+  exports: [drizzleProvider],
   imports: [ResourceManagerModule],
-  providers: [prismaProvider],
+  providers: [drizzleProvider],
 })
-export class PrismaModule {}
+export class DrizzleModule {}
