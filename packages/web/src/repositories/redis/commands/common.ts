@@ -1,4 +1,4 @@
-import { call, resource } from 'effection'
+import { resource, until } from 'effection'
 import { Directive } from '@zephyr/kit/effection/operation.js'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '@redis/client/dist/lib/commands/index.js'
@@ -21,15 +21,11 @@ export abstract class Isolable<T extends Isolable<T>> {
       const client = duplication.client
 
       try {
-        yield* call(
-          () => client.connect(),
-        )
+        yield* until(client.connect())
         yield* provide(duplication)
       }
       finally {
-        yield* call(
-          () => client.disconnect(),
-        )
+        yield* until(client.disconnect())
       }
     })
   }

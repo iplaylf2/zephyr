@@ -5,7 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { RedisClientType } from '@redis/client'
 import { RedisCommandArgument } from '../commands/common.js'
 import { RedisService } from '../redis.service.js'
-import { call } from 'effection'
+import { until } from 'effection'
 import { z } from 'zod'
 
 @Injectable()
@@ -20,8 +20,8 @@ export class UserService extends ModuleRaii {
         const event = this.getEvent()
         const group = 'for-creation'
 
-        yield* call(
-          () => this.redisService.multi()
+        yield* until(
+          this.redisService.multi()
             .xGroupCreate(event.key, group, '$', { MKSTREAM: true })
             .xGroupDestroy(event.key, group)
             .exec(),

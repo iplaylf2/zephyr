@@ -6,22 +6,20 @@ import { ReadonlyDeep } from 'type-fest'
 import { RedisClientType } from '@redis/client'
 import { XAutoClaimOptions } from '@redis/client/dist/lib/commands/XAUTOCLAIM.js'
 import { XReadGroupOptions } from '@redis/client/dist/lib/commands/XREADGROUP.js'
-import { call } from 'effection'
 import { readonlyRecordPlus } from '@zephyr/kit/fp-ts/readonly-record-plus.js'
+import { until } from 'effection'
 
 export abstract class Stream<T extends StreamMessageBody> extends Isolable<Stream<T>> implements Model<T[string]> {
   public abstract override readonly client: RedisClientType
   public abstract readonly key: RedisCommandArgument
 
   public ack(group: RedisCommandArgument, id: readonly RedisCommandArgument[]) {
-    return call(
-      () => this.client.xAck(this.key, group, id as RedisCommandArgument[]),
-    )
+    return until(this.client.xAck(this.key, group, id as RedisCommandArgument[]))
   }
 
   public add(id: RedisCommandArgument, message: T, options?: XAddOptions) {
-    return call(
-      () => this.client.xAdd(
+    return until(
+      this.client.xAdd(
         this.key,
         id,
         this.encodeFully(message),
@@ -37,19 +35,19 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
     start: string,
     options?: XAutoClaimOptions,
   ) {
-    const messages = yield* call(
-      () => this.client.xAutoClaim(this.key, group, consumer, minIdleTime, start, options),
+    const messages = yield* until(
+      this.client.xAutoClaim(this.key, group, consumer, minIdleTime, start, options),
     )
 
     return pipe(
       messages,
       readonlyRecordPlus.modifyAt(
-        'messages',
+        'messages' as const,
         flow(
           readonlyArray.filterMap(flow(
             option.fromNullable,
             option.map(readonlyRecordPlus.modifyAt(
-              'message',
+              'message' as const,
               x => this.decodeFully(x),
             )),
           )),
@@ -66,9 +64,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public del(id: readonly RedisCommandArgument[]) {
-    return call(
-      () => this.client.xDel(this.key, id as RedisCommandArgument[]),
-    )
+    return until(this.client.xDel(this.key, id as RedisCommandArgument[]))
   }
 
   public encodeFully(message: T) {
@@ -79,22 +75,16 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public groupCreate(group: RedisCommandArgument, id: RedisCommandArgument, options?: XGroupCreateOptions) {
-    return call(
-      () => this.client.xGroupCreate(this.key, group, id, options),
-    )
+    return until(this.client.xGroupCreate(this.key, group, id, options))
   }
 
   public groupDestroy(group: RedisCommandArgument) {
-    return call(
-      () => this.client.xGroupDestroy(this.key, group),
-    )
+    return until(this.client.xGroupDestroy(this.key, group))
   }
 
   public* infoStream() {
     try {
-      return yield* call(
-        () => this.client.xInfoStream(this.key),
-      )
+      return yield* until(this.client.xInfoStream(this.key))
     }
     catch (e) {
       if ('ERR no such key' !== (e as any)?.message) {
@@ -106,21 +96,19 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
   }
 
   public* range(start: RedisCommandArgument, end: RedisCommandArgument, options?: XRangeOptions) {
-    const messages = yield* call(
-      () => this.client.xRange(this.key, start, end, options),
-    )
+    const messages = yield* until(this.client.xRange(this.key, start, end, options))
 
     return pipe(
       messages,
       readonlyArray.map(
-        readonlyRecordPlus.modifyAt('message', x => this.decodeFully(x)),
+        readonlyRecordPlus.modifyAt('message' as const, x => this.decodeFully(x)),
       ),
     )
   }
 
   public* readGroup(group: RedisCommandArgument, consumer: RedisCommandArgument, id: RedisCommandArgument, options?: XReadGroupOptions) {
-    const messages = yield* call(
-      () => this.client.xReadGroup(group, consumer, { id, key: this.key }, options),
+    const messages = yield* until(
+      this.client.xReadGroup(group, consumer, { id, key: this.key }, options),
     )
 
     return pipe(
@@ -129,7 +117,7 @@ export abstract class Stream<T extends StreamMessageBody> extends Isolable<Strea
       option.map(flow(
         x => x.messages,
         readonlyArray.map(
-          readonlyRecordPlus.modifyAt('message', x => this.decodeFully(x)),
+          readonlyRecordPlus.modifyAt('message' as const, x => this.decodeFully(x)),
         ),
       )),
       option.getOrElse(constant<ReadonlyArray<StreamMessage<T>>>([])),

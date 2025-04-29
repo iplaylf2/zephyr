@@ -1,5 +1,5 @@
 import { FactoryProvider, Module } from '@nestjs/common'
-import { call, resource } from 'effection'
+import { resource, until } from 'effection'
 import { ConversationService } from './schemas/conversation.service.js'
 import { GenericService } from './schemas/generic.service.js'
 import { PushService } from './schemas/push.service.js'
@@ -18,17 +18,13 @@ const redisServiceProvider = {
       () => resource(function* (provide) {
         const client = createClient({ url: env.redis.url })
 
-        yield* call(
-          () => client.connect(),
-        )
+        yield* until(client.connect())
 
         try {
           yield* provide(client)
         }
         finally {
-          yield* call(
-            () => client.quit(),
-          )
+          yield* until(client.quit())
         }
       },
       ),

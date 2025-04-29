@@ -1,5 +1,5 @@
 import { PubSub, pubSub } from '../common.js'
-import { call } from 'effection'
+import { until } from 'effection'
 
 export abstract class Shard<
   const BufferMode extends boolean,
@@ -7,14 +7,12 @@ export abstract class Shard<
   T,
 > extends PubSub<BufferMode, Channel, T> {
   public override* publish(channel: Channel, message: T) {
-    return yield* call(
-      () => this.client.sPublish(channel, this.encode(message)),
-    )
+    return yield* until(this.client.sPublish(channel, this.encode(message)))
   }
 
   public override* subscribe(channel: Channel, listener: pubSub.Listener<T, Channel>) {
-    return yield* call(
-      () => this.client.sSubscribe(
+    return yield* until(
+      this.client.sSubscribe(
         channel,
         this.cacheAndTransformListener(listener),
         this.bufferMode,
@@ -27,8 +25,6 @@ export abstract class Shard<
 
     const raw = listener && this.getRawListener(listener)
 
-    return yield* call(
-      () => this.client.sUnsubscribe(channel, raw, this.bufferMode),
-    )
+    return yield* until(this.client.sUnsubscribe(channel, raw, this.bufferMode))
   }
 }

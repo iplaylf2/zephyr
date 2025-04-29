@@ -3,7 +3,7 @@ import { flow, pipe } from 'fp-ts/lib/function.js'
 import { option, readonlyRecord } from 'fp-ts'
 import { Directive } from '@zephyr/kit/effection/operation.js'
 import { RedisClientType } from '@redis/client'
-import { call } from 'effection'
+import { until } from 'effection'
 
 export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   public abstract readonly client: RedisClientType
@@ -17,9 +17,7 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   }
 
   public del(fields: RedisCommandArgument[]) {
-    return call(
-      () => this.client.hDel(this.key, fields),
-    )
+    return until(this.client.hDel(this.key, fields))
   }
 
   public encodeAll(hash: Readonly<Partial<T>>) {
@@ -35,9 +33,7 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   }
 
   public* get<K extends string & keyof T>(field: K): Directive<option.Option<T[K]>> {
-    const value = yield* call(
-      () => this.client.hGet(this.key, field),
-    )
+    const value = yield* until(this.client.hGet(this.key, field))
 
     return pipe(
       value,
@@ -47,25 +43,20 @@ export abstract class Hash<T extends HashRecord> implements Model<T[string]> {
   }
 
   public* getAll(): Directive<Readonly<Partial<T>> | null> {
-    const value = yield* call(
-      () => this.client.hGetAll(this.key),
-    )
+    const value = yield* until(this.client.hGetAll(this.key))
 
     return readonlyRecord.isEmpty(value) ? null : this.decodeAll(value)
   }
 
   public set(hash: Readonly<Partial<T>>) {
-    return call(
-      () => this.client.hSet(
-        this.key,
-        this.encodeAll(hash),
-      ),
+    return until(
+      this.client.hSet(this.key, this.encodeAll(hash)),
     )
   }
 
   public setNx<K extends string & keyof T>(key: K, value: T[K]) {
-    return call(
-      () => this.client.hSetNX(this.key, key, this.encode(value)),
+    return until(
+      this.client.hSetNX(this.key, key, this.encode(value)),
     )
   }
 
