@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1745914601330,
+      "tag": "0000_nostalgic_puppet_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1745915417943,
+      "tag": "0001_view-dialogues",
+      "breakpoints": true
+    }
+  ]
+}

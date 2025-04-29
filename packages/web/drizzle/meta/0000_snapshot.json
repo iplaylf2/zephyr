@@ -1,0 +1,685 @@
+{
+  "id": "32527d5e-9cea-4398-b524-c55ee706d168",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.conversationParticipants": {
+      "name": "conversationParticipants",
+      "schema": "",
+      "columns": {
+        "conversationId": {
+          "name": "conversationId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "participantId": {
+          "name": "participantId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiredAt": {
+          "name": "expiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "conversationParticipants_participantId_conversationId_index": {
+          "name": "conversationParticipants_participantId_conversationId_index",
+          "columns": [
+            {
+              "expression": "participantId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "conversationId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversationParticipants_expiredAt_index": {
+          "name": "conversationParticipants_expiredAt_index",
+          "columns": [
+            {
+              "expression": "expiredAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "conversationParticipants_conversationId_conversations_id_fk": {
+          "name": "conversationParticipants_conversationId_conversations_id_fk",
+          "tableFrom": "conversationParticipants",
+          "tableTo": "conversations",
+          "columnsFrom": [
+            "conversationId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "conversationParticipants_conversationId_participantId_pk": {
+          "name": "conversationParticipants_conversationId_participantId_pk",
+          "columns": [
+            "conversationId",
+            "participantId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.conversations": {
+      "name": "conversations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiredAt": {
+          "name": "expiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "conversations_type_index": {
+          "name": "conversations_type_index",
+          "columns": [
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "conversations_expiredAt_index": {
+          "name": "conversations_expiredAt_index",
+          "columns": [
+            {
+              "expression": "expiredAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.dialogues": {
+      "name": "dialogues",
+      "schema": "",
+      "columns": {
+        "conversationId": {
+          "name": "conversationId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "initiatorId": {
+          "name": "initiatorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "participantId": {
+          "name": "participantId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiredAt": {
+          "name": "expiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "dialogues_initiatorId_participantId_index": {
+          "name": "dialogues_initiatorId_participantId_index",
+          "columns": [
+            {
+              "expression": "initiatorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "participantId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "dialogues_participantId_initiatorId_index": {
+          "name": "dialogues_participantId_initiatorId_index",
+          "columns": [
+            {
+              "expression": "participantId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "initiatorId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "dialogues_expiredAt_index": {
+          "name": "dialogues_expiredAt_index",
+          "columns": [
+            {
+              "expression": "expiredAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pushReceivers": {
+      "name": "pushReceivers",
+      "schema": "",
+      "columns": {
+        "claimerId": {
+          "name": "claimerId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiredAt": {
+          "name": "expiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "pushReceivers_expiredAt_index": {
+          "name": "pushReceivers_expiredAt_index",
+          "columns": [
+            {
+              "expression": "expiredAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "pushReceivers_claimerId_unique": {
+          "name": "pushReceivers_claimerId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "claimerId"
+          ]
+        },
+        "pushReceivers_token_unique": {
+          "name": "pushReceivers_token_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pushSubscriptions": {
+      "name": "pushSubscriptions",
+      "schema": "",
+      "columns": {
+        "pushId": {
+          "name": "pushId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "receiverId": {
+          "name": "receiverId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "pushSubscriptions_receiverId_pushId_index": {
+          "name": "pushSubscriptions_receiverId_pushId_index",
+          "columns": [
+            {
+              "expression": "receiverId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "pushId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pushSubscriptions_pushId_pushes_id_fk": {
+          "name": "pushSubscriptions_pushId_pushes_id_fk",
+          "tableFrom": "pushSubscriptions",
+          "tableTo": "pushes",
+          "columnsFrom": [
+            "pushId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "pushSubscriptions_receiverId_pushReceivers_id_fk": {
+          "name": "pushSubscriptions_receiverId_pushReceivers_id_fk",
+          "tableFrom": "pushSubscriptions",
+          "tableTo": "pushReceivers",
+          "columnsFrom": [
+            "receiverId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "pushSubscriptions_pushId_receiverId_pk": {
+          "name": "pushSubscriptions_pushId_receiverId_pk",
+          "columns": [
+            "pushId",
+            "receiverId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pushes": {
+      "name": "pushes",
+      "schema": "",
+      "columns": {
+        "businessId": {
+          "name": "businessId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "businessType": {
+          "name": "businessType",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiredAt": {
+          "name": "expiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "pushes_businessType_businessId_index": {
+          "name": "pushes_businessType_businessId_index",
+          "columns": [
+            {
+              "expression": "businessType",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "businessId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pushes_businessId_businessType_index": {
+          "name": "pushes_businessId_businessType_index",
+          "columns": [
+            {
+              "expression": "businessId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "businessType",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pushes_expiredAt_index": {
+          "name": "pushes_expiredAt_index",
+          "columns": [
+            {
+              "expression": "expiredAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.renewalTasks": {
+      "name": "renewalTasks",
+      "schema": "",
+      "columns": {
+        "businessExpiredAt": {
+          "name": "businessExpiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "businessId": {
+          "name": "businessId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "businessType": {
+          "name": "businessType",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "count": {
+          "name": "count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "renewalTasks_businessId_businessType_index": {
+          "name": "renewalTasks_businessId_businessType_index",
+          "columns": [
+            {
+              "expression": "businessId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "businessType",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "renewalTasks_businessType_businessId_pk": {
+          "name": "renewalTasks_businessType_businessId_pk",
+          "columns": [
+            "businessType",
+            "businessId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiredAt": {
+          "name": "expiredAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "users_expiredAt_index": {
+          "name": "users_expiredAt_index",
+          "columns": [
+            {
+              "expression": "expiredAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
