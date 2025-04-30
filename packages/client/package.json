@@ -13,7 +13,7 @@
     "dependencies": {
         "@zephyr/kit": "workspace:*",
         "compression": "^1.8.0",
-        "effection": "^3.4.0",
+        "effection": "^3.5.0",
         "express": "^5.1.0",
         "fp-ts": "^2.16.10",
         "sirv": "^3.0.1",

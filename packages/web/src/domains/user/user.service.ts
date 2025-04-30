@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common'
-import { PrismaClient, PrismaTransaction } from '../../repositories/prisma/client.js'
 import { all, call, sleep } from 'effection'
 import { flow, pipe } from 'fp-ts/lib/function.js'
 import { identity, readonlyArray } from 'fp-ts'
 import { Directive } from '@zephyr/kit/effection/operation.js'
+import { DrizzleService } from '../../repositories/drizzle/drizzle.service.js'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { UserService as RedisUserService } from '../../repositories/redis/schemas/user.service.js'
 import { Temporal } from 'temporal-polyfill'
@@ -14,12 +14,11 @@ import { group } from '../../repositories/redis/commands/stream/group.js'
 import { match } from 'ts-pattern'
 import { plan } from '@zephyr/kit/fp-effection/plan.js'
 import { randomUUID } from 'node:crypto'
-import { where } from '../../repositories/prisma/common/where.js'
 
 @Injectable()
 export class UserService extends ModuleRaii {
   @Inject()
-  private readonly prismaClient!: PrismaClient
+  private readonly drizzleService!: DrizzleService
 
   @Inject()
   private readonly redisUserService!: RedisUserService

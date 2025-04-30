@@ -25,7 +25,7 @@
     "defaults": "^3.0.0",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.43.1",
-    "effection": "^3.4.0",
+    "effection": "^3.5.0",
     "fp-ts": "^2.16.10",
     "openapi3-ts": "^4.4.0",
     "pg": "^8.15.6",
@@ -57,7 +57,7 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "tsx": "^4.19.3",
+    "tsx": "^4.19.4",
     "type-fest": "^4.40.1",
     "typescript": "^5.8.3"
   },

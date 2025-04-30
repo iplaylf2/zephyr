@@ -1,5 +1,5 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { call, main, suspend, useScope } from 'effection'
+import { main, suspend, until, useScope } from 'effection'
 import { AppModule } from './app.module.js'
 import { NestFactory } from '@nestjs/core'
 import { initGlobalScope } from '@zephyr/kit/effection/global-scope.js'
@@ -10,9 +10,7 @@ await main(function* () {
 
   initGlobalScope(scope)
 
-  const app = yield* call(
-    () => NestFactory.create(AppModule),
-  )
+  const app = yield* until(NestFactory.create(AppModule))
 
   app.enableShutdownHooks()
 
@@ -26,14 +24,12 @@ await main(function* () {
 
   SwaggerModule.setup('api', app, document)
 
-  yield* call(
-    () => app.listen(3000),
-  )
+  yield* until(app.listen(3000))
 
   try {
     yield* suspend()
   }
   finally {
-    yield* call(() => app.close())
+    yield* until(app.close())
   }
 })
