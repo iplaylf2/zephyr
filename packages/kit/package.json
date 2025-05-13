@@ -31,12 +31,12 @@
     "peerDependencies": {
         "effection": "^3.4.0",
         "fp-ts": "^2.16.10",
-        "zod": "^3.24.3"
+        "zod": "^3.24.4"
     },
     "devDependencies": {
         "@zephyr/config": "workspace:*",
-        "eslint": "^9.25.1",
-        "type-fest": "^4.40.1",
+        "eslint": "^9.26.0",
+        "type-fest": "^4.41.0",
         "typescript": "^5.8.3"
     }
 }
