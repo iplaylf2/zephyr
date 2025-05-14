@@ -47,14 +47,15 @@ CREATE TABLE "pushes" (
 	"expiredAt" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "renewalTasks" (
-	"businessExpiredAt" timestamp with time zone NOT NULL,
+CREATE TABLE "renewalSchedules" (
 	"businessId" integer NOT NULL,
 	"businessType" varchar NOT NULL,
-	"count" integer NOT NULL,
+	"purgeThreshold" timestamp with time zone NOT NULL,
+	"scheduleBarrier" timestamp with time zone NOT NULL,
+	"targetExpiredAt" timestamp with time zone NOT NULL,
 	"createdAt" timestamp with time zone NOT NULL,
 	"updatedAt" timestamp with time zone NOT NULL,
-	CONSTRAINT "renewalTasks_businessType_businessId_pk" PRIMARY KEY("businessType","businessId")
+	CONSTRAINT "renewalSchedules_businessType_businessId_pk" PRIMARY KEY("businessType","businessId")
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
@@ -79,5 +80,6 @@ CREATE UNIQUE INDEX "pushSubscriptions_receiverId_pushId_index" ON "pushSubscrip
 CREATE UNIQUE INDEX "pushes_businessType_businessId_index" ON "pushes" USING btree ("businessType","businessId");--> statement-breakpoint
 CREATE UNIQUE INDEX "pushes_businessId_businessType_index" ON "pushes" USING btree ("businessId","businessType");--> statement-breakpoint
 CREATE INDEX "pushes_expiredAt_index" ON "pushes" USING btree ("expiredAt");--> statement-breakpoint
-CREATE UNIQUE INDEX "renewalTasks_businessId_businessType_index" ON "renewalTasks" USING btree ("businessId","businessType");--> statement-breakpoint
+CREATE INDEX "renewalSchedules_purgeThreshold_index" ON "renewalSchedules" USING btree ("purgeThreshold");--> statement-breakpoint
+CREATE INDEX "renewalSchedules_scheduleBarrier_index" ON "renewalSchedules" USING btree ("scheduleBarrier" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "users_expiredAt_index" ON "users" USING btree ("expiredAt");

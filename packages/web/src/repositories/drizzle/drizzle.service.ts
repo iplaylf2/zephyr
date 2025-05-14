@@ -2,7 +2,7 @@
 import * as conversation from './schemas/conversation.js'
 import * as dialogues from './schemas/dialogues.js'
 import * as push from './schemas/push.js'
-import * as renewalTasks from './schemas/renewal-tasks.js'
+import * as renewalSchedules from './schemas/renewal-schedules.js'
 import * as users from './schemas/users.js'
 import { Operation, resource, scoped, until, useScope } from 'effection'
 import { PgDatabase, PgTransaction, PgTransactionConfig } from 'drizzle-orm/pg-core'
@@ -24,7 +24,7 @@ function useFactory(resourceManagerService: ResourceManagerService) {
           ...conversation,
           ...dialogues,
           ...push,
-          ...renewalTasks,
+          ...renewalSchedules,
           ...users,
         },
       })

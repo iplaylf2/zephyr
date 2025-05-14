@@ -1,6 +1,6 @@
 {
-  "id": "5d5067cf-68f9-423c-99e6-7c498ce1db53",
-  "prevId": "32527d5e-9cea-4398-b524-c55ee706d168",
+  "id": "08c4b6bd-ebbf-4ea2-b176-2d9df2edd1fa",
+  "prevId": "06d17268-3978-4da7-b8ab-c4e0ea75762c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -538,16 +538,10 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.renewalTasks": {
-      "name": "renewalTasks",
+    "public.renewalSchedules": {
+      "name": "renewalSchedules",
       "schema": "",
       "columns": {
-        "businessExpiredAt": {
-          "name": "businessExpiredAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
         "businessId": {
           "name": "businessId",
           "type": "integer",
@@ -560,9 +554,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "count": {
-          "name": "count",
-          "type": "integer",
+        "purgeThreshold": {
+          "name": "purgeThreshold",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduleBarrier": {
+          "name": "scheduleBarrier",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "targetExpiredAt": {
+          "name": "targetExpiredAt",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -580,23 +586,32 @@
         }
       },
       "indexes": {
-        "renewalTasks_businessId_businessType_index": {
-          "name": "renewalTasks_businessId_businessType_index",
+        "renewalSchedules_purgeThreshold_index": {
+          "name": "renewalSchedules_purgeThreshold_index",
           "columns": [
             {
-              "expression": "businessId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "businessType",
+              "expression": "purgeThreshold",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "renewalSchedules_scheduleBarrier_index": {
+          "name": "renewalSchedules_scheduleBarrier_index",
+          "columns": [
+            {
+              "expression": "scheduleBarrier",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "with": {},
           "method": "btree",
           "concurrently": false
@@ -604,8 +619,8 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "renewalTasks_businessType_businessId_pk": {
-          "name": "renewalTasks_businessType_businessId_pk",
+        "renewalSchedules_businessType_businessId_pk": {
+          "name": "renewalSchedules_businessType_businessId_pk",
           "columns": [
             "businessType",
             "businessId"
