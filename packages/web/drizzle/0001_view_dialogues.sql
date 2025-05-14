@@ -1,6 +1,6 @@
 -- Custom SQL migration file, put your code below! --
 
--- 创建触发器函数：处理 conversations 表的删除和 expiredAt 更新
+-- 创建触发器函数：处理 conversations 表的删除和 expiresAt 更新
 CREATE FUNCTION handle_conversation_changes()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -10,10 +10,10 @@ BEGIN
         WHERE "conversationId" = OLD."id";
     END IF;
 
-    -- 如果是 UPDATE 操作，且更新了 expiredAt，更新 dialogues 的 expiredAt
-    IF (TG_OP = 'UPDATE' AND NEW."expiredAt" IS DISTINCT FROM OLD."expiredAt") THEN
+    -- 如果是 UPDATE 操作，且更新了 expiresAt，更新 dialogues 的 expiresAt
+    IF (TG_OP = 'UPDATE' AND NEW."expiresAt" IS DISTINCT FROM OLD."expiresAt") THEN
         UPDATE "dialogues"
-        SET "expiredAt" = NEW."expiredAt"
+        SET "expiresAt" = NEW."expiresAt"
         WHERE "conversationId" = NEW."id";
     END IF;
 
@@ -23,7 +23,7 @@ $$ LANGUAGE plpgsql;
 
 -- 为 conversations 表创建触发器
 CREATE TRIGGER trigger_handle_conversation_changes
-AFTER DELETE OR UPDATE OF "expiredAt" ON "conversations"
+AFTER DELETE OR UPDATE OF "expiresAt" ON "conversations"
 FOR EACH ROW
 EXECUTE FUNCTION handle_conversation_changes();
 
@@ -38,12 +38,12 @@ BEGIN
         WHERE "id" = NEW."conversationId" AND "type" = 'dialogue'
     ) THEN
         -- 插入 dialogues 表，按照 createdAt 的顺序决定 initiatorId 和 participantId
-        INSERT INTO "dialogues" ("conversationId", "initiatorId", "participantId", "expiredAt")
+        INSERT INTO "dialogues" ("conversationId", "initiatorId", "participantId", "expiresAt")
         SELECT
             c."id" AS "conversationId",
             cp1."participantId" AS "initiatorId",
             cp2."participantId" AS "participantId",
-            c."expiredAt" AS "expiredAt"
+            c."expiresAt" AS "expiresAt"
         FROM
             "conversations" c
         JOIN (
