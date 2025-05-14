@@ -1,5 +1,5 @@
 {
-  "id": "06d17268-3978-4da7-b8ab-c4e0ea75762c",
+  "id": "3ef7d847-d80a-459c-afe9-c137b6527eea",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -26,8 +26,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "expiredAt": {
-          "name": "expiredAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -55,11 +55,11 @@
           "method": "btree",
           "with": {}
         },
-        "conversationParticipants_expiredAt_index": {
-          "name": "conversationParticipants_expiredAt_index",
+        "conversationParticipants_expiresAt_index": {
+          "name": "conversationParticipants_expiresAt_index",
           "columns": [
             {
-              "expression": "expiredAt",
+              "expression": "expiresAt",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -128,8 +128,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "expiredAt": {
-          "name": "expiredAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -151,11 +151,11 @@
           "method": "btree",
           "with": {}
         },
-        "conversations_expiredAt_index": {
-          "name": "conversations_expiredAt_index",
+        "conversations_expiresAt_index": {
+          "name": "conversations_expiresAt_index",
           "columns": [
             {
-              "expression": "expiredAt",
+              "expression": "expiresAt",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -196,8 +196,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "expiredAt": {
-          "name": "expiredAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -246,11 +246,11 @@
           "method": "btree",
           "with": {}
         },
-        "dialogues_expiredAt_index": {
-          "name": "dialogues_expiredAt_index",
+        "dialogues_expiresAt_index": {
+          "name": "dialogues_expiresAt_index",
           "columns": [
             {
-              "expression": "expiredAt",
+              "expression": "expiresAt",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -291,8 +291,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "expiredAt": {
-          "name": "expiredAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -311,11 +311,11 @@
         }
       },
       "indexes": {
-        "pushReceivers_expiredAt_index": {
-          "name": "pushReceivers_expiredAt_index",
+        "pushReceivers_expiresAt_index": {
+          "name": "pushReceivers_expiresAt_index",
           "columns": [
             {
-              "expression": "expiredAt",
+              "expression": "expiresAt",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -465,8 +465,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "expiredAt": {
-          "name": "expiredAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -515,11 +515,11 @@
           "method": "btree",
           "with": {}
         },
-        "pushes_expiredAt_index": {
-          "name": "pushes_expiredAt_index",
+        "pushes_expiresAt_index": {
+          "name": "pushes_expiresAt_index",
           "columns": [
             {
-              "expression": "expiredAt",
+              "expression": "expiresAt",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -554,20 +554,20 @@
           "primaryKey": false,
           "notNull": true
         },
-        "purgeThreshold": {
-          "name": "purgeThreshold",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
         "scheduleBarrier": {
           "name": "scheduleBarrier",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
-        "targetExpiredAt": {
-          "name": "targetExpiredAt",
+        "targetExpiresAt": {
+          "name": "targetExpiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -586,13 +586,13 @@
         }
       },
       "indexes": {
-        "renewalSchedules_purgeThreshold_index": {
-          "name": "renewalSchedules_purgeThreshold_index",
+        "renewalSchedules_scheduleBarrier_index": {
+          "name": "renewalSchedules_scheduleBarrier_index",
           "columns": [
             {
-              "expression": "purgeThreshold",
+              "expression": "scheduleBarrier",
               "isExpression": false,
-              "asc": true,
+              "asc": false,
               "nulls": "last"
             }
           ],
@@ -601,13 +601,13 @@
           "method": "btree",
           "with": {}
         },
-        "renewalSchedules_scheduleBarrier_index": {
-          "name": "renewalSchedules_scheduleBarrier_index",
+        "renewalSchedules_expiresAt_index": {
+          "name": "renewalSchedules_expiresAt_index",
           "columns": [
             {
-              "expression": "scheduleBarrier",
+              "expression": "expiresAt",
               "isExpression": false,
-              "asc": false,
+              "asc": true,
               "nulls": "last"
             }
           ],
@@ -654,19 +654,19 @@
           "primaryKey": false,
           "notNull": true
         },
-        "expiredAt": {
-          "name": "expiredAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "users_expiredAt_index": {
-          "name": "users_expiredAt_index",
+        "users_expiresAt_index": {
+          "name": "users_expiresAt_index",
           "columns": [
             {
-              "expression": "expiredAt",
+              "expression": "expiresAt",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

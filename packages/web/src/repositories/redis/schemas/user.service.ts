@@ -41,7 +41,7 @@ export namespace User{
 
   export const event = z.discriminatedUnion('type', [
     z.object({
-      expiredAt: timestamp,
+      expiresAt: timestamp,
       type: z.literal('expire'),
       users: z.array(userId),
     }),

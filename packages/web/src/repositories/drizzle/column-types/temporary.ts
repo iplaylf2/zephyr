@@ -2,10 +2,10 @@ import { ExtraConfigColumn, index } from 'drizzle-orm/pg-core'
 import { timestamp } from './timestamp.js'
 
 export const temporary = {
-  columns: { expiredAt: timestamp().notNull() },
+  columns: { expiresAt: timestamp().notNull() },
   createIndex(table: {
-    expiredAt: ExtraConfigColumn
+    expiresAt: ExtraConfigColumn
   }) {
-    return index().on(table.expiredAt)
+    return index().on(table.expiresAt.asc())
   },
 }
