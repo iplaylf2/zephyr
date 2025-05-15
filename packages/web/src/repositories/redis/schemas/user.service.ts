@@ -15,7 +15,7 @@ export class UserService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(
+    this.initializePlans.push(
       function* (this: UserService) {
         const event = this.getEvent()
         const group = 'for-creation'

@@ -10,6 +10,7 @@ export const renewalSchedules = pgTable(
     businessType: varchar().notNull(),
     scheduleBarrier: timestamp().notNull(),
     targetExpiresAt: timestamp().notNull(),
+    version: integer().default(0).notNull(),
     ...temporary.columns,
     ...writable,
   },

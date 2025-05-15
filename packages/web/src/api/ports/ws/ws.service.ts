@@ -26,7 +26,7 @@ export class WsService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.listen())
+    this.initializePlans.push(() => this.listen())
   }
 
   private* listen() {

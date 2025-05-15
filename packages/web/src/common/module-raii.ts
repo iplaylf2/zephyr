@@ -1,10 +1,10 @@
 import { OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import { Task, all } from 'effection'
-import { Directive } from '@zephyr/kit/effection/operation.js'
+import { Plan } from '@zephyr/kit/effection/operation.js'
 import { globalScope } from '@zephyr/kit/effection/global-scope.js'
 
 export class ModuleRaii implements OnModuleInit, OnModuleDestroy {
-  protected readonly initializeCallbacks = new Array<() => Directive<any>>()
+  protected readonly initializePlans = new Array<Plan<void>>()
 
   private moduleLife: Task<any> | null = null
 
@@ -14,7 +14,7 @@ export class ModuleRaii implements OnModuleInit, OnModuleDestroy {
 
   public onModuleInit() {
     this.moduleLife = globalScope.run(
-      () => all(this.initializeCallbacks.map(cb => cb())),
+      () => all(this.initializePlans.map(plan => plan())),
     )
   }
 }

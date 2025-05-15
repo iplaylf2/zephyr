@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { RequiredKeysOf, SetFieldType, Simplify } from 'type-fest'
-import { option, readonlyRecord } from 'fp-ts'
+import { option, readonlyArray, readonlyRecord } from 'fp-ts'
 import { flow } from 'fp-ts/lib/function.js'
 
 export namespace readonlyRecordPlus{
@@ -19,5 +19,29 @@ export namespace readonlyRecordPlus{
     v: V,
   ): (a: A) => Simplify<Omit<A, K> & { [k in K]: V }> {
     return readonlyRecord.upsertAt(k, v) as any
+  }
+
+  export function omit<A extends Readonly<Record<any, any>>, KS extends (keyof A)[]>(
+    ks: KS,
+  ): (a: A) => Omit<A, KS[number]> {
+    const kss = new Set(ks)
+
+    return flow(
+      readonlyRecord.toEntries,
+      readonlyArray.filter(([k]) => !kss.has(k)),
+      readonlyRecord.fromEntries,
+    ) as any
+  }
+
+  export function pick<A extends Readonly<Record<any, any>>, KS extends Array<keyof A>>(
+    ks: KS,
+  ): (a: A) => Pick<A, KS[number]> {
+    const kss = new Set(ks)
+
+    return flow(
+      readonlyRecord.toEntries,
+      readonlyArray.filter(([k]) => kss.has(k)),
+      readonlyRecord.fromEntries,
+    ) as any
   }
 }

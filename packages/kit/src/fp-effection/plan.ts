@@ -130,7 +130,7 @@ export namespace plan{
     map: Chain.map,
   }
 
-  export function sequenceArray<A>(arr: ReadonlyArray<Plan<A>>): Plan<ReadonlyArray<A>> {
+  export function sequenceArray<A>(arr: readonly Plan<A>[]): Plan<readonly A[]> {
     return function* () {
       return yield* all(arr.map(fa => fa()))
     }

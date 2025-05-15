@@ -7,7 +7,7 @@ export class ResourceManagerService extends ModuleRaii {
   public constructor(private readonly scope: Scope, private readonly destroy: () => Future<void>) {
     super()
 
-    this.initializeCallbacks.push(() => this.keep())
+    this.initializePlans.push(() => this.keep())
   }
 
   public provide<T>(provider: () => Operation<T>): Promise<T> {

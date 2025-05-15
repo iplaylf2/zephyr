@@ -52,6 +52,7 @@ CREATE TABLE "renewalSchedules" (
 	"businessType" varchar NOT NULL,
 	"scheduleBarrier" timestamp with time zone NOT NULL,
 	"targetExpiresAt" timestamp with time zone NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL,
 	"expiresAt" timestamp with time zone NOT NULL,
 	"createdAt" timestamp with time zone NOT NULL,
 	"updatedAt" timestamp with time zone NOT NULL,

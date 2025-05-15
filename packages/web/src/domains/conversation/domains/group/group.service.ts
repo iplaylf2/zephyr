@@ -41,7 +41,7 @@ export class GroupService extends ConversationService {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.activeGroup())
+    this.initializePlans.push(() => this.activeGroup())
   }
 
   private* activeGroup() {

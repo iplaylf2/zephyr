@@ -46,9 +46,9 @@ export abstract class ConversationService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.listenUserEvent())
-    this.initializeCallbacks.push(() => this.deleteExpiredConversions())
-    this.initializeCallbacks.push(() => this.deleteExpiredParticipants())
+    this.initializePlans.push(() => this.listenUserEvent())
+    this.initializePlans.push(() => this.deleteExpiredConversions())
+    this.initializePlans.push(() => this.deleteExpiredParticipants())
     this.participantsUnregisterCallbacks.push(event => this.deleteParticipantsByEvent(event))
   }
 

@@ -1,5 +1,5 @@
 {
-  "id": "3ef7d847-d80a-459c-afe9-c137b6527eea",
+  "id": "4064e606-dc8b-4acb-a434-cbde9d23867a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -565,6 +565,13 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "expiresAt": {
           "name": "expiresAt",

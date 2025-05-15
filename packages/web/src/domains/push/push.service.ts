@@ -27,8 +27,8 @@ export class PushService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.deleteExpiredPushes())
-    this.initializeCallbacks.push(() => this.deleteExpiredReceivers())
+    this.initializePlans.push(() => this.deleteExpiredPushes())
+    this.initializePlans.push(() => this.deleteExpiredReceivers())
   }
 
   public active(receiverIdArray: readonly number[]) {

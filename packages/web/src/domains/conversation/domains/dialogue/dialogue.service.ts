@@ -44,7 +44,7 @@ export class DialogueService extends ConversationService {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.deleteExpiredDialogues())
+    this.initializePlans.push(() => this.deleteExpiredDialogues())
     this.participantsExpireCallbacks.push(e => this.expireDialogueByEvent(e))
   }
 

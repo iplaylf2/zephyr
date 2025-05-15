@@ -42,10 +42,10 @@ export class ReceiverService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(function* (this: ReceiverService) {
+    this.initializePlans.push(function* (this: ReceiverService) {
       this.scope = yield* useScope()
     }.bind(this))
-    this.initializeCallbacks.push(() => this.listenEvent())
+    this.initializePlans.push(() => this.listenEvent())
   }
 
   public put(id: number): Receiver {

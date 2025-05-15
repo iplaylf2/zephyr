@@ -34,8 +34,8 @@ export class UserService extends ModuleRaii {
   public constructor() {
     super()
 
-    this.initializeCallbacks.push(() => this.deleteExpiredUsers())
-    this.initializeCallbacks.push(() => this.listenEvent())
+    this.initializePlans.push(() => this.deleteExpiredUsers())
+    this.initializePlans.push(() => this.listenEvent())
     this.expireCallbacks.push(({ users, expiredAt }) => this.expire(users, expiredAt))
   }
 
