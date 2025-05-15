@@ -14,6 +14,13 @@ export namespace selectedField{
     )
   }
 
+  export function pick<T extends Table, const Keys extends Array<keyof(ColumnOf<T>)>>(table: T, keys: Keys) {
+    return pipe(
+      getTableColumns(table),
+      readonlyRecordPlus.pick(keys),
+    )
+  }
+
   export type ColumnOf<T extends Table> = T['_']['columns']
 
 }

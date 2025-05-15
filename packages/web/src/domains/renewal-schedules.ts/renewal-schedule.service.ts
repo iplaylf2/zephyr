@@ -3,6 +3,7 @@ import { and, eq, gt, lt, sql } from 'drizzle-orm'
 import { option, readonlyArray, readonlyNonEmptyArray, readonlyRecord } from 'fp-ts'
 import { Directive } from '@zephyr/kit/effection/operation.js'
 import { DrizzleService } from '../../repositories/drizzle/drizzle.service.js'
+import { Inject } from '@nestjs/common'
 import { ModuleRaii } from '../../common/module-raii.js'
 import { Temporal } from 'temporal-polyfill'
 import { magicSql } from '../../repositories/kit/magic-sql.js'
@@ -10,8 +11,10 @@ import { pipe } from 'fp-ts/lib/function.js'
 import { renewalSchedules } from '../../repositories/drizzle/schemas/renewal-schedules.js'
 import { selectedField } from '../../repositories/kit/selected-field.js'
 
-export class RenewalScheduleServices extends ModuleRaii {
+export class RenewalScheduleService extends ModuleRaii {
+  @Inject()
   private readonly drizzleService!: DrizzleService
+
   private readonly executorRegistry = new Map<string, Executor>()
 
   public constructor() {
@@ -31,7 +34,7 @@ export class RenewalScheduleServices extends ModuleRaii {
     return option.some(void 0)
   }
 
-  public* ensureSchedule(schedules: Schedule[]) {
+  public* ensureSchedule(schedules: Schedule[]): Directive<void> {
     const now = Temporal.Now.instant()
     const span = Temporal.Duration.from({ minutes: 1 })
     const excludedTargetExpiresAt = selectedField.qualify(
@@ -79,17 +82,40 @@ export class RenewalScheduleServices extends ModuleRaii {
     while (true) {
       const now = Temporal.Now.instant()
 
+      const availableSchedules = this.drizzleService
+        .$with('availableSchedules')
+        .as(
+          this.drizzleService
+            .select(
+              selectedField.pick(
+                renewalSchedules,
+                ['businessId', 'businessType'],
+              ),
+            )
+            .from(renewalSchedules)
+            .where(
+              and(
+                gt(renewalSchedules.expiresAt, now),
+                lt(renewalSchedules.scheduleBarrier, now),
+              ),
+            )
+            .limit(100)
+            .for('update'),
+        )
+
       const schedules = yield* until(
         this.drizzleService
+          .with(availableSchedules)
           .update(renewalSchedules)
           .set({
             scheduleBarrier: now.add(span),
             version: sql`${renewalSchedules.version} + 1`,
           })
+          .from(availableSchedules)
           .where(
             and(
-              gt(renewalSchedules.expiresAt, now),
-              lt(renewalSchedules.scheduleBarrier, now),
+              eq(renewalSchedules.businessId, availableSchedules.businessId),
+              eq(renewalSchedules.businessType, availableSchedules.businessType),
             ),
           )
           .returning(
