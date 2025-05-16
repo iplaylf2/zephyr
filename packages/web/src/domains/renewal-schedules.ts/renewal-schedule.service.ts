@@ -13,9 +13,12 @@ import { selectedField } from '../../repositories/kit/selected-field.js'
 
 export class RenewalScheduleService extends ModuleRaii {
   @Inject()
+  private readonly config!: RenewalScheduleService.Config
+
+  @Inject()
   private readonly drizzleService!: DrizzleService
 
-  private readonly executorRegistry = new Map<string, Executor>()
+  private readonly executorRegistry = new Map<string, RenewalScheduleService.Executor>()
 
   public constructor() {
     super()
@@ -24,7 +27,7 @@ export class RenewalScheduleService extends ModuleRaii {
     this.initializePlans.push(() => this.periodicExecute())
   }
 
-  public bindExecutor(businessType: string, executor: Executor): option.Option<void> {
+  public bindExecutor(businessType: string, executor: RenewalScheduleService.Executor): option.Option<void> {
     if (this.executorRegistry.has(businessType)) {
       return option.none
     }
@@ -34,7 +37,7 @@ export class RenewalScheduleService extends ModuleRaii {
     return option.some(void 0)
   }
 
-  public* ensureSchedule(schedules: Schedule[]): Directive<void> {
+  public* ensureSchedules(schedules: RenewalScheduleService.Schedule[]): Directive<void> {
     const now = Temporal.Now.instant()
     const span = Temporal.Duration.from({ minutes: 1 })
     const excludedTargetExpiresAt = selectedField.qualify(
@@ -52,6 +55,7 @@ export class RenewalScheduleService extends ModuleRaii {
         )
         .onConflictDoUpdate({
           set: {
+            expiresAt: excludedTargetExpiresAt,
             scheduleBarrier: now.add(span),
             targetExpiresAt: excludedTargetExpiresAt,
             version: sql`${renewalSchedules.version} + 1`,
@@ -99,7 +103,7 @@ export class RenewalScheduleService extends ModuleRaii {
                 lt(renewalSchedules.scheduleBarrier, now),
               ),
             )
-            .limit(100)
+            .limit(this.config.executeBatch)
             .for('update'),
         )
 
@@ -163,10 +167,17 @@ export class RenewalScheduleService extends ModuleRaii {
   }
 }
 
-export type Schedule = {
-  businessId: number
-  businessType: string
-  targetExpiresAt: Temporal.Instant
-}
+export namespace RenewalScheduleService{
+  export class Config {
+    public constructor(public readonly executeBatch: number) {
+    }
+  }
 
-export type Executor = (schedules: readonly Schedule[]) => Directive<void>
+  export type Schedule = {
+    readonly businessId: number
+    readonly businessType: string
+    readonly targetExpiresAt: Temporal.Instant
+  }
+
+  export type Executor = (schedules: readonly Schedule[]) => Directive<void>
+}
